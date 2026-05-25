@@ -14,9 +14,9 @@
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^9.4.3",
-    "dotenv": "^16.4.5",
-    "electron-log": "^5.1.2"
+    "dotenv": "^16.6.1",
+    "electron-log": "^5.1.2",
+    "pg": "^8.21.0"
   },
   "devDependencies": {
     "electron": "^29.1.0",
