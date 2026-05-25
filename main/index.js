@@ -20,11 +20,11 @@ if (!gotTheLock) {
 
 let mainWindow = null;
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   logger.info('[App] Khởi động ứng dụng QLQT Bảo Dưỡng Xe Máy...');
 
   try {
-    initDatabase();
+    await initDatabase();
     logger.info('[App] Database đã sẵn sàng');
   } catch (err) {
     logger.error('[App] Lỗi khởi tạo database:', err);
@@ -52,15 +52,14 @@ app.on('second-instance', () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    closeDatabase();
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('will-quit', () => {
-  closeDatabase();
+app.on('before-quit', async (e) => {
+  e.preventDefault();
+  await closeDatabase();
   logger.info('[App] Ứng dụng đã đóng');
+  app.exit(0);
 });
 
 process.on('uncaughtException', (err) => {

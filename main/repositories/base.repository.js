@@ -3,7 +3,7 @@
 const { getDb } = require('../database/index');
 
 /**
- * Base repository với các thao tác CRUD cơ bản
+ * Base repository với các thao tác CRUD cơ bản (async/await, pg)
  */
 class BaseRepository {
   /**
@@ -14,8 +14,7 @@ class BaseRepository {
   }
 
   /**
-   * Lấy instance database
-   * @returns {import('better-sqlite3').Database}
+   * Lấy pool instance
    */
   get db() {
     return getDb();
@@ -23,130 +22,174 @@ class BaseRepository {
 
   /**
    * Tìm tất cả bản ghi
-   * @param {Object} [where] - Điều kiện lọc {column: value}
-   * @param {Object} [opts] - Tùy chọn {orderBy, limit, offset}
-   * @returns {Array}
+   * @param {Object} [conditions] - Điều kiện lọc {column: value}
+   * @param {Object} [options] - Tùy chọn {orderBy, order, limit, offset}
+   * @returns {Promise<Array>}
    */
-  findAll(where = {}, opts = {}) {
-    const conditions = Object.keys(where);
+  async findAll(conditions = {}, options = {}) {
+    const { orderBy = 'id', order = 'ASC', limit, offset } = options;
+    const keys = Object.keys(conditions);
     let sql = `SELECT * FROM ${this.tableName}`;
+    const values = [];
 
-    if (conditions.length > 0) {
-      sql += ' WHERE ' + conditions.map((k) => `${k} = @${k}`).join(' AND ');
+    if (keys.length) {
+      const where = keys.map((k, i) => `${k} = $${i + 1}`).join(' AND ');
+      sql += ` WHERE ${where}`;
+      values.push(...Object.values(conditions));
     }
 
-    if (opts.orderBy) sql += ` ORDER BY ${opts.orderBy}`;
-    if (opts.limit) sql += ` LIMIT ${parseInt(opts.limit, 10)}`;
-    if (opts.offset) sql += ` OFFSET ${parseInt(opts.offset, 10)}`;
+    sql += ` ORDER BY ${orderBy} ${order}`;
+    if (limit) { sql += ` LIMIT $${values.length + 1}`; values.push(limit); }
+    if (offset) { sql += ` OFFSET $${values.length + 1}`; values.push(offset); }
 
-    return this.db.prepare(sql).all(where);
+    const { rows } = await this.db.query(sql, values);
+    return rows;
   }
 
   /**
    * Tìm theo ID
    * @param {number} id
-   * @returns {Object|null}
+   * @returns {Promise<Object|null>}
    */
-  findById(id) {
-    return this.db.prepare(`SELECT * FROM ${this.tableName} WHERE id = ?`).get(id) || null;
+  async findById(id) {
+    const { rows } = await this.db.query(
+      `SELECT * FROM ${this.tableName} WHERE id = $1`,
+      [id]
+    );
+    return rows[0] || null;
   }
 
   /**
    * Tìm một bản ghi theo điều kiện
-   * @param {Object} where
-   * @returns {Object|null}
+   * @param {Object} conditions
+   * @returns {Promise<Object|null>}
    */
-  findOne(where) {
-    const conditions = Object.keys(where);
-    if (conditions.length === 0) return null;
+  async findOne(conditions = {}) {
+    const keys = Object.keys(conditions);
+    if (!keys.length) return null;
 
-    const sql = `SELECT * FROM ${this.tableName} WHERE ${conditions.map((k) => `${k} = @${k}`).join(' AND ')} LIMIT 1`;
-    return this.db.prepare(sql).get(where) || null;
+    const where = keys.map((k, i) => `${k} = $${i + 1}`).join(' AND ');
+    const { rows } = await this.db.query(
+      `SELECT * FROM ${this.tableName} WHERE ${where} LIMIT 1`,
+      Object.values(conditions)
+    );
+    return rows[0] || null;
   }
 
   /**
    * Tạo bản ghi mới
    * @param {Object} data
-   * @returns {Object} Bản ghi đã tạo
+   * @returns {Promise<Object>} Bản ghi đã tạo
    */
-  create(data) {
+  async create(data) {
     const keys = Object.keys(data);
-    const sql = `INSERT INTO ${this.tableName} (${keys.join(', ')}) VALUES (${keys.map((k) => `@${k}`).join(', ')})`;
-    const result = this.db.prepare(sql).run(data);
-    return this.findById(result.lastInsertRowid);
+    const cols = keys.join(', ');
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    const values = Object.values(data);
+
+    const { rows } = await this.db.query(
+      `INSERT INTO ${this.tableName} (${cols}) VALUES (${placeholders}) RETURNING *`,
+      values
+    );
+    return rows[0];
   }
 
   /**
    * Cập nhật bản ghi
    * @param {number} id
    * @param {Object} data
-   * @returns {Object|null} Bản ghi sau cập nhật
+   * @returns {Promise<Object|null>} Bản ghi sau cập nhật
    */
-  update(id, data) {
+  async update(id, data) {
     const keys = Object.keys(data);
-    if (keys.length === 0) return this.findById(id);
+    if (!keys.length) return await this.findById(id);
 
-    const sql = `UPDATE ${this.tableName} SET ${keys.map((k) => `${k} = @${k}`).join(', ')} WHERE id = @_id`;
-    this.db.prepare(sql).run({ ...data, _id: id });
-    return this.findById(id);
+    const set = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = [...Object.values(data), id];
+
+    const { rows } = await this.db.query(
+      `UPDATE ${this.tableName} SET ${set} WHERE id = $${values.length} RETURNING *`,
+      values
+    );
+    return rows[0] || null;
   }
 
   /**
    * Xóa bản ghi
    * @param {number} id
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  delete(id) {
-    const result = this.db.prepare(`DELETE FROM ${this.tableName} WHERE id = ?`).run(id);
-    return result.changes > 0;
+  async delete(id) {
+    const { rowCount } = await this.db.query(
+      `DELETE FROM ${this.tableName} WHERE id = $1`,
+      [id]
+    );
+    return rowCount > 0;
   }
 
   /**
    * Đếm số bản ghi
-   * @param {Object} [where]
-   * @returns {number}
+   * @param {Object} [conditions]
+   * @returns {Promise<number>}
    */
-  count(where = {}) {
-    const conditions = Object.keys(where);
-    let sql = `SELECT COUNT(*) as cnt FROM ${this.tableName}`;
-    if (conditions.length > 0) {
-      sql += ' WHERE ' + conditions.map((k) => `${k} = @${k}`).join(' AND ');
+  async count(conditions = {}) {
+    const keys = Object.keys(conditions);
+    let sql = `SELECT COUNT(*) as n FROM ${this.tableName}`;
+    const values = [];
+
+    if (keys.length) {
+      const where = keys.map((k, i) => `${k} = $${i + 1}`).join(' AND ');
+      sql += ` WHERE ${where}`;
+      values.push(...Object.values(conditions));
     }
-    return this.db.prepare(sql).get(where).cnt;
+
+    const { rows } = await this.db.query(sql, values);
+    return parseInt(rows[0].n);
   }
 
   /**
-   * Kiểm tra tồn tại
-   * @param {number} id
-   * @returns {boolean}
+   * Kiểm tra tồn tại theo điều kiện
+   * @param {Object|number} conditions - Object conditions hoặc id
+   * @returns {Promise<boolean>}
    */
-  exists(id) {
-    const row = this.db.prepare(`SELECT 1 FROM ${this.tableName} WHERE id = ? LIMIT 1`).get(id);
-    return !!row;
-  }
-
-  /**
-   * Thực hiện nhiều thao tác trong transaction
-   * @param {Function} fn - Hàm thực hiện
-   * @returns {*}
-   */
-  transaction(fn) {
-    return this.db.transaction(fn)();
+  async exists(conditions = {}) {
+    if (typeof conditions === 'number' || typeof conditions === 'string') {
+      const row = await this.findById(conditions);
+      return !!row;
+    }
+    return (await this.count(conditions)) > 0;
   }
 
   /**
    * Tìm với phân trang
-   * @param {Object} [where]
-   * @param {number} [page=1]
-   * @param {number} [pageSize=20]
-   * @param {string} [orderBy]
-   * @returns {{ items: Array, total: number, page: number, pageSize: number }}
+   * @param {Object} [opts]
+   * @returns {Promise<{ rows: Array, total: number, page: number, limit: number, totalPages: number }>}
    */
-  paginate(where = {}, page = 1, pageSize = 20, orderBy = 'id DESC') {
-    const offset = (page - 1) * pageSize;
-    const total = this.count(where);
-    const items = this.findAll(where, { orderBy, limit: pageSize, offset });
-    return { items, total, page, pageSize };
+  async paginate({ page = 1, limit = 20, conditions = {}, orderBy = 'id', order = 'ASC' } = {}) {
+    const offset = (page - 1) * limit;
+    const total = await this.count(conditions);
+    const rows = await this.findAll(conditions, { orderBy, order, limit, offset });
+    return { rows, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * Thực hiện nhiều thao tác trong transaction
+   * @param {Function} fn - Nhận client làm tham số
+   * @returns {Promise<*>}
+   */
+  async transaction(fn) {
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await fn(client);
+      await client.query('COMMIT');
+      return result;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
 

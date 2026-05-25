@@ -9,15 +9,15 @@ class UnitRepository extends BaseRepository {
 
   /**
    * Lấy toàn bộ đơn vị dạng cây phân cấp
-   * @returns {Array}
+   * @returns {Promise<Array>}
    */
-  getTree() {
-    const all = this.db.prepare(`
+  async getTree() {
+    const { rows: all } = await this.db.query(`
       SELECT u.*, p.unit_name as parent_name
       FROM units u
       LEFT JOIN units p ON p.id = u.parent_unit_id
       ORDER BY u.parent_unit_id NULLS FIRST, u.unit_name
-    `).all();
+    `);
 
     return buildTree(all, null);
   }
@@ -25,25 +25,33 @@ class UnitRepository extends BaseRepository {
   /**
    * Lấy đơn vị con trực tiếp
    * @param {number|null} parentId
-   * @returns {Array}
+   * @returns {Promise<Array>}
    */
-  getChildren(parentId) {
+  async getChildren(parentId) {
     if (parentId === null) {
-      return this.db.prepare('SELECT * FROM units WHERE parent_unit_id IS NULL ORDER BY unit_name').all();
+      const { rows } = await this.db.query(
+        'SELECT * FROM units WHERE parent_unit_id IS NULL ORDER BY unit_name'
+      );
+      return rows;
     }
-    return this.db.prepare('SELECT * FROM units WHERE parent_unit_id = ? ORDER BY unit_name').all(parentId);
+    const { rows } = await this.db.query(
+      'SELECT * FROM units WHERE parent_unit_id = $1 ORDER BY unit_name',
+      [parentId]
+    );
+    return rows;
   }
 
   /**
    * Tìm kiếm đơn vị
    * @param {string} search
-   * @returns {Array}
+   * @returns {Promise<Array>}
    */
-  search(search) {
-    return this.db.prepare(`
-      SELECT * FROM units WHERE unit_name LIKE ? OR unit_code LIKE ?
+  async search(search) {
+    const { rows } = await this.db.query(`
+      SELECT * FROM units WHERE unit_name ILIKE $1 OR unit_code ILIKE $1
       ORDER BY unit_name LIMIT 50
-    `).all(`%${search}%`, `%${search}%`);
+    `, [`%${search}%`]);
+    return rows;
   }
 }
 

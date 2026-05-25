@@ -1,221 +1,261 @@
 'use strict';
 
 /**
- * Script seed dữ liệu mẫu cho development
+ * Script seed dữ liệu mẫu cho PostgreSQL
  * Usage: npm run seed
  */
 
-const path = require('path');
-const Database = require('better-sqlite3');
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
-
-// Kết nối trực tiếp (không qua Electron app)
-const dbPath = process.env.DB_PATH || path.join(__dirname, '../data/qlqtbdxm.db');
-
-// Đảm bảo thư mục tồn tại
 const fs = require('fs');
-const dir = path.dirname(dbPath);
-if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+const path = require('path');
 
-// Chạy migrations trước
-const migrationsDir = path.join(__dirname, '../main/database/migrations');
-const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+const pool = new Pool({
+  host:     process.env.DB_HOST     || '127.0.0.1',
+  port:     parseInt(process.env.DB_PORT || '5432'),
+  database: process.env.DB_NAME     || 'qlqtbdxm',
+  user:     process.env.DB_USER     || 'qlqt_user',
+  password: process.env.DB_PASSWORD || 'matkhau123',
+  connectionTimeoutMillis: 5000,
+});
 
-// Tạo bảng migrations
-db.exec(`
-  CREATE TABLE IF NOT EXISTS _migrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename TEXT NOT NULL UNIQUE,
-    applied_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
-  )
-`);
+async function seed() {
+  const client = await pool.connect();
+  try {
+    // ---- Migrations ----
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS _migrations (
+        id SERIAL PRIMARY KEY,
+        filename TEXT NOT NULL UNIQUE,
+        applied_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
 
-const applied = db.prepare('SELECT filename FROM _migrations').all().map((r) => r.filename);
-const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+    const migrationsDir = path.join(__dirname, '../main/database/migrations');
+    const files = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort();
+    const { rows: appliedRows } = await client.query('SELECT filename FROM _migrations');
+    const applied = appliedRows.map((r) => r.filename);
 
-for (const file of files) {
-  if (applied.includes(file)) { console.log(`[Skip] ${file}`); continue; }
-  console.log(`[Migration] ${file}`);
-  const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
-  db.transaction(() => {
-    db.exec(sql);
-    db.prepare('INSERT INTO _migrations (filename) VALUES (?)').run(file);
-  })();
-}
-
-console.log('\n[Seed] Bắt đầu seed dữ liệu mẫu...\n');
-
-// ---- Đơn vị ----
-const units = [
-  { unit_code: 'BTL-XM', unit_name: 'Bộ Tư lệnh Xe Máy', parent_unit_id: null },
-  { unit_code: 'F309',   unit_name: 'Quân đoàn 3',        parent_unit_id: null },
-  { unit_code: 'E1-F309', unit_name: 'Trung đoàn 1 - QĐ3', parent_unit_id: 2 },
-  { unit_code: 'E2-F309', unit_name: 'Trung đoàn 2 - QĐ3', parent_unit_id: 2 },
-  { unit_code: 'CO1-E1',  unit_name: 'Đại đội 1 - TR1',    parent_unit_id: 3 },
-];
-
-const insertUnit = db.prepare(`
-  INSERT OR IGNORE INTO units (unit_code, unit_name, parent_unit_id)
-  VALUES (@unit_code, @unit_name, @parent_unit_id)
-`);
-for (const u of units) {
-  insertUnit.run(u);
-}
-console.log('[Seed] Đơn vị:', db.prepare('SELECT COUNT(*) as c FROM units').get().c);
-
-// ---- Người dùng ----
-const roles = db.prepare('SELECT * FROM roles').all();
-const roleMap = {};
-for (const r of roles) roleMap[r.role_code] = r.id;
-
-const users = [
-  { username: 'admin',     password: 'admin123',    full_name: 'Quản Trị Viên',     role_code: 'admin',      unit_id: 1 },
-  { username: 'chihuy01', password: 'password123',  full_name: 'Thiếu tá Nguyễn Văn An',  role_code: 'commander',  unit_id: 2 },
-  { username: 'thokythuat1', password: 'password123', full_name: 'Hạ sĩ Trần Văn Bình', role_code: 'technician', unit_id: 3 },
-  { username: 'thokythuat2', password: 'password123', full_name: 'Trung sĩ Lê Văn Cường', role_code: 'technician', unit_id: 3 },
-  { username: 'kiemtra01', password: 'password123',  full_name: 'Trung úy Phạm Thị Dung', role_code: 'inspector',  unit_id: 2 },
-  { username: 'baocao01',  password: 'password123',  full_name: 'Hạ sĩ Hoàng Văn Em',  role_code: 'viewer',     unit_id: 4 },
-];
-
-const insertUser = db.prepare(`
-  INSERT OR IGNORE INTO users (username, password_hash, full_name, role_id, unit_id, is_active)
-  VALUES (@username, @password_hash, @full_name, @role_id, @unit_id, 1)
-`);
-
-for (const u of users) {
-  const hash = bcrypt.hashSync(u.password, 10);
-  insertUser.run({
-    username: u.username,
-    password_hash: hash,
-    full_name: u.full_name,
-    role_id: roleMap[u.role_code],
-    unit_id: u.unit_id,
-  });
-}
-console.log('[Seed] Người dùng:', db.prepare('SELECT COUNT(*) as c FROM users').get().c);
-
-// ---- Trang bị ----
-const equipments = [
-  { equipment_code: 'XM-ZIL-001', equipment_name: 'Xe ô tô ZIL-131',    model: 'ZIL-131',    serial_number: 'ZIL-001-2015', year_of_manufacture: 2015, unit_id: 3, status: 'active' },
-  { equipment_code: 'XM-ZIL-002', equipment_name: 'Xe ô tô ZIL-131',    model: 'ZIL-131',    serial_number: 'ZIL-002-2016', year_of_manufacture: 2016, unit_id: 3, status: 'maintenance' },
-  { equipment_code: 'XM-BTR-001', equipment_name: 'Xe bọc thép BTR-80',  model: 'BTR-80',     serial_number: 'BTR-001-2018', year_of_manufacture: 2018, unit_id: 4, status: 'active' },
-  { equipment_code: 'XM-GAZ-001', equipment_name: 'Xe ô tô GAZ-66',      model: 'GAZ-66',     serial_number: 'GAZ-001-2014', year_of_manufacture: 2014, unit_id: 4, status: 'active' },
-  { equipment_code: 'XM-URAL-001', equipment_name: 'Xe URAL-4320',       model: 'URAL-4320',  serial_number: 'URAL-001-2019', year_of_manufacture: 2019, unit_id: 5, status: 'active' },
-  { equipment_code: 'XM-URAL-002', equipment_name: 'Xe URAL-4320',       model: 'URAL-4320',  serial_number: 'URAL-002-2020', year_of_manufacture: 2020, unit_id: 5, status: 'inactive' },
-];
-
-const insertEquip = db.prepare(`
-  INSERT OR IGNORE INTO equipments (equipment_code, equipment_name, model, serial_number, year_of_manufacture, unit_id, status)
-  VALUES (@equipment_code, @equipment_name, @model, @serial_number, @year_of_manufacture, @unit_id, @status)
-`);
-const insertQr = db.prepare(`
-  INSERT OR IGNORE INTO qr_codes (equipment_id, qr_value) VALUES (?, ?)
-`);
-
-for (const e of equipments) {
-  insertEquip.run(e);
-  const eq = db.prepare('SELECT id FROM equipments WHERE equipment_code = ?').get(e.equipment_code);
-  if (eq) {
-    insertQr.run(eq.id, `QLQT-${eq.id}-${Buffer.from(e.serial_number).toString('hex').slice(0, 8).toUpperCase()}`);
-  }
-}
-console.log('[Seed] Trang bị:', db.prepare('SELECT COUNT(*) as c FROM equipments').get().c);
-
-// ---- Bước quy trình bảo dưỡng ----
-const steps = [
-  // Định kỳ
-  { maintenance_type: 'dinh_ky', step_order: 1,  step_name: 'Kiểm tra tổng quát',              technical_requirement: 'Kiểm tra ngoại quan, rò rỉ dầu mỡ', estimated_time: 30 },
-  { maintenance_type: 'dinh_ky', step_order: 2,  step_name: 'Kiểm tra và thay dầu động cơ',    technical_requirement: 'Dầu 15W40, đúng tiêu chuẩn nhà sản xuất', estimated_time: 45 },
-  { maintenance_type: 'dinh_ky', step_order: 3,  step_name: 'Thay lọc dầu',                    technical_requirement: 'Lọc dầu chính hãng', estimated_time: 20 },
-  { maintenance_type: 'dinh_ky', step_order: 4,  step_name: 'Kiểm tra hệ thống phanh',         technical_requirement: 'Má phanh ≥ 4mm, dầu phanh đầy mức', estimated_time: 30 },
-  { maintenance_type: 'dinh_ky', step_order: 5,  step_name: 'Kiểm tra áp suất lốp',            technical_requirement: 'Áp suất theo quy định nhà sản xuất ±0.2 bar', estimated_time: 15 },
-  { maintenance_type: 'dinh_ky', step_order: 6,  step_name: 'Kiểm tra hệ thống điện',          technical_requirement: 'Acquy đủ điện, dây điện không rò rỉ', estimated_time: 25 },
-  { maintenance_type: 'dinh_ky', step_order: 7,  step_name: 'Kiểm tra và tra dầu mỡ truyền động', technical_requirement: 'Theo bảng bôi trơn', estimated_time: 40 },
-  { maintenance_type: 'dinh_ky', step_order: 8,  step_name: 'Kiểm tra đèn tín hiệu',           technical_requirement: 'Tất cả đèn hoạt động đúng', estimated_time: 15 },
-  { maintenance_type: 'dinh_ky', step_order: 9,  step_name: 'Vệ sinh và hoàn thiện',           technical_requirement: 'Sạch, gọn, đẹp', estimated_time: 20 },
-  { maintenance_type: 'dinh_ky', step_order: 10, step_name: 'Chạy thử và nghiệm thu',          technical_requirement: 'Xe hoạt động ổn định, không có tiếng kêu bất thường', estimated_time: 30 },
-
-  // Đột xuất
-  { maintenance_type: 'dot_xuat', step_order: 1, step_name: 'Xác định nguyên nhân hư hỏng',    technical_requirement: 'Ghi chép đầy đủ triệu chứng', estimated_time: 30 },
-  { maintenance_type: 'dot_xuat', step_order: 2, step_name: 'Tháo lắp và kiểm tra chi tiết',   technical_requirement: 'Theo quy trình kỹ thuật', estimated_time: 60 },
-  { maintenance_type: 'dot_xuat', step_order: 3, step_name: 'Thay thế chi tiết hư hỏng',       technical_requirement: 'Chi tiết đúng chủng loại', estimated_time: 90 },
-  { maintenance_type: 'dot_xuat', step_order: 4, step_name: 'Lắp ráp và kiểm tra',             technical_requirement: 'Lắp đúng moment xiết', estimated_time: 60 },
-  { maintenance_type: 'dot_xuat', step_order: 5, step_name: 'Chạy thử và bàn giao',            technical_requirement: 'Hết hư hỏng, hoạt động bình thường', estimated_time: 30 },
-
-  // Sửa chữa lớn
-  { maintenance_type: 'sua_chua', step_order: 1, step_name: 'Tiếp nhận và lập phiếu sửa chữa', technical_requirement: 'Ghi đầy đủ tình trạng ban đầu', estimated_time: 30 },
-  { maintenance_type: 'sua_chua', step_order: 2, step_name: 'Tháo rã tổng thành',              technical_requirement: 'Theo trình tự kỹ thuật', estimated_time: 120 },
-  { maintenance_type: 'sua_chua', step_order: 3, step_name: 'Kiểm tra và phân loại chi tiết',  technical_requirement: 'Đo đạc theo tiêu chuẩn kỹ thuật', estimated_time: 90 },
-  { maintenance_type: 'sua_chua', step_order: 4, step_name: 'Sửa chữa và phục hồi chi tiết',   technical_requirement: 'Đạt kích thước sửa chữa', estimated_time: 180 },
-  { maintenance_type: 'sua_chua', step_order: 5, step_name: 'Lắp ráp tổng thành',              technical_requirement: 'Moment xiết theo quy định', estimated_time: 120 },
-  { maintenance_type: 'sua_chua', step_order: 6, step_name: 'Chạy rà và điều chỉnh',           technical_requirement: 'Theo quy trình rà trơn', estimated_time: 120 },
-  { maintenance_type: 'sua_chua', step_order: 7, step_name: 'Nghiệm thu kỹ thuật',             technical_requirement: 'Đạt tất cả chỉ tiêu kỹ thuật', estimated_time: 60 },
-
-  // Kiểm tra
-  { maintenance_type: 'kiem_tra', step_order: 1, step_name: 'Kiểm tra hồ sơ kỹ thuật',        technical_requirement: 'Hồ sơ đầy đủ, không thất lạc', estimated_time: 20 },
-  { maintenance_type: 'kiem_tra', step_order: 2, step_name: 'Kiểm tra ngoại quan',             technical_requirement: 'Không có hư hỏng ngoại quan', estimated_time: 20 },
-  { maintenance_type: 'kiem_tra', step_order: 3, step_name: 'Kiểm tra thông số kỹ thuật',      technical_requirement: 'Theo bảng thông số', estimated_time: 45 },
-  { maintenance_type: 'kiem_tra', step_order: 4, step_name: 'Ghi kết quả và báo cáo',         technical_requirement: 'Ghi đầy đủ, chính xác', estimated_time: 20 },
-];
-
-const insertStep = db.prepare(`
-  INSERT OR IGNORE INTO maintenance_steps (maintenance_type, step_order, step_name, technical_requirement, estimated_time)
-  VALUES (@maintenance_type, @step_order, @step_name, @technical_requirement, @estimated_time)
-`);
-for (const s of steps) insertStep.run(s);
-console.log('[Seed] Bước quy trình:', db.prepare('SELECT COUNT(*) as c FROM maintenance_steps').get().c);
-
-// ---- Kế hoạch mẫu ----
-const adminUser = db.prepare("SELECT id FROM users WHERE username = 'admin'").get();
-const cmdUser   = db.prepare("SELECT id FROM users WHERE username = 'chihuy01'").get();
-const equip1    = db.prepare("SELECT id FROM equipments WHERE equipment_code = 'XM-ZIL-001'").get();
-const equip2    = db.prepare("SELECT id FROM equipments WHERE equipment_code = 'XM-ZIL-002'").get();
-
-if (adminUser && equip1) {
-  const planExists = db.prepare("SELECT id FROM maintenance_plans WHERE plan_code = 'KH-202401-0001'").get();
-  if (!planExists) {
-    const plan = db.prepare(`
-      INSERT INTO maintenance_plans (plan_code, equipment_id, maintenance_type, planned_date, created_by, status)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run('KH-202401-0001', equip1.id, 'dinh_ky', '2024-01-15', adminUser.id, 'completed');
-
-    const planId = plan.lastInsertRowid;
-    const dinhKySteps = db.prepare("SELECT * FROM maintenance_steps WHERE maintenance_type = 'dinh_ky' ORDER BY step_order").all();
-
-    for (const step of dinhKySteps) {
-      db.prepare(`
-        INSERT INTO maintenance_logs (plan_id, step_id, performed_by, start_time, end_time, status, result)
-        VALUES (?, ?, ?, ?, ?, 'completed', 'Đạt yêu cầu kỹ thuật')
-      `).run(planId, step.id, adminUser.id, '2024-01-15 08:00:00', '2024-01-15 12:00:00');
+    for (const file of files) {
+      if (applied.includes(file)) {
+        console.log(`[Skip migration] ${file}`);
+        continue;
+      }
+      console.log(`[Migration] ${file}`);
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
+      await client.query('BEGIN');
+      try {
+        await client.query(sql);
+        await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
+        await client.query('COMMIT');
+      } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+      }
     }
 
-    // Acceptance
-    db.prepare(`
-      INSERT INTO acceptance_records (plan_id, accepted_by, acceptance_date, conclusion, note)
-      VALUES (?, ?, ?, 'dat', 'Xe đạt yêu cầu kỹ thuật sau bảo dưỡng định kỳ')
-    `).run(planId, cmdUser ? cmdUser.id : adminUser.id, '2024-01-15');
-    console.log('[Seed] Kế hoạch mẫu (hoàn thành) đã tạo');
+    console.log('\n[Seed] Bắt đầu seed dữ liệu mẫu...\n');
+
+    // ---- Đơn vị ----
+    const units = [
+      { code: 'BTL-XM',   name: 'Bộ Tư lệnh Xe Máy',        parent: null },
+      { code: 'F309',     name: 'Quân đoàn 3',               parent: null },
+      { code: 'E1-F309',  name: 'Trung đoàn 1 - QĐ3',        parent: 'F309' },
+      { code: 'E2-F309',  name: 'Trung đoàn 2 - QĐ3',        parent: 'F309' },
+      { code: 'CO1-E1',   name: 'Đại đội 1 - Trung đoàn 1',  parent: 'E1-F309' },
+    ];
+
+    const unitIds = {};
+    for (const u of units) {
+      const parentId = u.parent ? unitIds[u.parent] : null;
+      const { rows } = await client.query(
+        `INSERT INTO units (unit_code, unit_name, parent_unit_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (unit_code) DO UPDATE SET unit_name = EXCLUDED.unit_name
+         RETURNING id`,
+        [u.code, u.name, parentId]
+      );
+      unitIds[u.code] = rows[0].id;
+    }
+    const { rows: [{ n: unitCount }] } = await client.query('SELECT COUNT(*) as n FROM units');
+    console.log('[Seed] Đơn vị:', unitCount);
+
+    // ---- Vai trò ----
+    const roles = [
+      ['admin',      'Quản trị viên'],
+      ['commander',  'Chỉ huy'],
+      ['technician', 'Thợ kỹ thuật'],
+      ['inspector',  'Kiểm tra'],
+      ['viewer',     'Xem báo cáo'],
+    ];
+    const roleIds = {};
+    for (const [code, name] of roles) {
+      const { rows } = await client.query(
+        `INSERT INTO roles (role_code, role_name) VALUES ($1, $2)
+         ON CONFLICT (role_code) DO UPDATE SET role_name = EXCLUDED.role_name
+         RETURNING id`,
+        [code, name]
+      );
+      roleIds[code] = rows[0].id;
+    }
+
+    // ---- Người dùng ----
+    const users = [
+      { username: 'admin',       password: 'Admin@123',   full_name: 'Quản Trị Viên',            role: 'admin',      unit: 'BTL-XM' },
+      { username: 'chihuy01',    password: 'Pass@123',    full_name: 'Thiếu tá Nguyễn Văn An',   role: 'commander',  unit: 'F309' },
+      { username: 'thuchien1',   password: 'Pass@123',    full_name: 'Hạ sĩ Trần Văn Bình',     role: 'technician', unit: 'E1-F309' },
+      { username: 'thuchien2',   password: 'Pass@123',    full_name: 'Trung sĩ Lê Văn Cường',   role: 'technician', unit: 'E1-F309' },
+      { username: 'nghiemthu1',  password: 'Pass@123',    full_name: 'Trung úy Phạm Thị Dung',  role: 'inspector',  unit: 'F309' },
+      { username: 'baocao01',    password: 'Pass@123',    full_name: 'Hạ sĩ Hoàng Văn Em',      role: 'viewer',     unit: 'E2-F309' },
+    ];
+
+    const userIds = {};
+    for (const u of users) {
+      const hash = await bcrypt.hash(u.password, 10);
+      const { rows } = await client.query(
+        `INSERT INTO users (username, password_hash, full_name, role_id, unit_id, is_active)
+         VALUES ($1, $2, $3, $4, $5, true)
+         ON CONFLICT (username) DO UPDATE SET full_name = EXCLUDED.full_name
+         RETURNING id`,
+        [u.username, hash, u.full_name, roleIds[u.role], unitIds[u.unit]]
+      );
+      userIds[u.username] = rows[0].id;
+    }
+    const { rows: [{ n: userCount }] } = await client.query('SELECT COUNT(*) as n FROM users');
+    console.log('[Seed] Người dùng:', userCount);
+
+    // ---- Trang bị ----
+    const equipments = [
+      { code: 'XM-ZIL-001',  name: 'Xe ô tô ZIL-131',    model: 'ZIL-131',   sn: 'ZIL-001-2015',  year: 2015, unit: 'E1-F309', status: 'active' },
+      { code: 'XM-ZIL-002',  name: 'Xe ô tô ZIL-131',    model: 'ZIL-131',   sn: 'ZIL-002-2016',  year: 2016, unit: 'E1-F309', status: 'maintenance' },
+      { code: 'XM-BTR-001',  name: 'Xe bọc thép BTR-80', model: 'BTR-80',    sn: 'BTR-001-2018',  year: 2018, unit: 'CO1-E1', status: 'active' },
+      { code: 'XM-GAZ-001',  name: 'Xe ô tô GAZ-66',     model: 'GAZ-66',    sn: 'GAZ-001-2014',  year: 2014, unit: 'CO1-E1', status: 'active' },
+      { code: 'XM-URAL-001', name: 'Xe URAL-4320',       model: 'URAL-4320', sn: 'URAL-001-2019', year: 2019, unit: 'E2-F309', status: 'active' },
+      { code: 'XM-URAL-002', name: 'Xe URAL-4320',       model: 'URAL-4320', sn: 'URAL-002-2020', year: 2020, unit: 'E2-F309', status: 'inactive' },
+    ];
+
+    const equipIds = {};
+    for (const e of equipments) {
+      const { rows } = await client.query(
+        `INSERT INTO equipments (equipment_code, equipment_name, model, serial_number, year_of_manufacture, unit_id, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (equipment_code) DO UPDATE SET status = EXCLUDED.status
+         RETURNING id`,
+        [e.code, e.name, e.model, e.sn, e.year, unitIds[e.unit], e.status]
+      );
+      const eqId = rows[0].id;
+      equipIds[e.code] = eqId;
+      const qrValue = `QLQT-${eqId}-${Buffer.from(e.sn).toString('hex').slice(0, 8).toUpperCase()}`;
+      await client.query(
+        `INSERT INTO qr_codes (equipment_id, qr_value) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+        [eqId, qrValue]
+      );
+    }
+    const { rows: [{ n: eqCount }] } = await client.query('SELECT COUNT(*) as n FROM equipments');
+    console.log('[Seed] Trang bị:', eqCount);
+
+    // ---- Bước quy trình bảo dưỡng ----
+    const steps = [
+      { type: 'dinh_ky',  order: 1,  name: 'Kiểm tra tổng quát',                 req: 'Kiểm tra ngoại quan, rò rỉ dầu mỡ',                  time: 30 },
+      { type: 'dinh_ky',  order: 2,  name: 'Kiểm tra và thay dầu động cơ',        req: 'Dầu 15W40, đúng tiêu chuẩn nhà sản xuất',            time: 45 },
+      { type: 'dinh_ky',  order: 3,  name: 'Thay lọc dầu',                        req: 'Lọc dầu chính hãng',                                  time: 20 },
+      { type: 'dinh_ky',  order: 4,  name: 'Kiểm tra hệ thống phanh',             req: 'Má phanh ≥ 4mm, dầu phanh đầy mức',                  time: 30 },
+      { type: 'dinh_ky',  order: 5,  name: 'Kiểm tra áp suất lốp',               req: 'Áp suất theo quy định ±0.2 bar',                      time: 15 },
+      { type: 'dinh_ky',  order: 6,  name: 'Kiểm tra hệ thống điện',             req: 'Acquy đủ điện, dây điện không rò rỉ',                 time: 25 },
+      { type: 'dinh_ky',  order: 7,  name: 'Tra dầu mỡ truyền động',             req: 'Theo bảng bôi trơn',                                  time: 40 },
+      { type: 'dinh_ky',  order: 8,  name: 'Kiểm tra đèn tín hiệu',              req: 'Tất cả đèn hoạt động đúng',                          time: 15 },
+      { type: 'dinh_ky',  order: 9,  name: 'Vệ sinh và hoàn thiện',              req: 'Sạch, gọn, đẹp',                                     time: 20 },
+      { type: 'dinh_ky',  order: 10, name: 'Chạy thử và nghiệm thu',             req: 'Xe hoạt động ổn định, không có tiếng kêu bất thường', time: 30 },
+      { type: 'dot_xuat', order: 1,  name: 'Xác định nguyên nhân hư hỏng',       req: 'Ghi chép đầy đủ triệu chứng',                        time: 30 },
+      { type: 'dot_xuat', order: 2,  name: 'Tháo lắp và kiểm tra chi tiết',      req: 'Theo quy trình kỹ thuật',                             time: 60 },
+      { type: 'dot_xuat', order: 3,  name: 'Thay thế chi tiết hư hỏng',          req: 'Chi tiết đúng chủng loại',                            time: 90 },
+      { type: 'dot_xuat', order: 4,  name: 'Lắp ráp và kiểm tra',               req: 'Lắp đúng moment xiết',                                time: 60 },
+      { type: 'dot_xuat', order: 5,  name: 'Chạy thử và bàn giao',              req: 'Hết hư hỏng, hoạt động bình thường',                  time: 30 },
+      { type: 'sua_chua', order: 1,  name: 'Tiếp nhận và lập phiếu sửa chữa',   req: 'Ghi đầy đủ tình trạng ban đầu',                      time: 30 },
+      { type: 'sua_chua', order: 2,  name: 'Tháo rã tổng thành',                req: 'Theo trình tự kỹ thuật',                              time: 120 },
+      { type: 'sua_chua', order: 3,  name: 'Kiểm tra và phân loại chi tiết',     req: 'Đo đạc theo tiêu chuẩn kỹ thuật',                    time: 90 },
+      { type: 'sua_chua', order: 4,  name: 'Sửa chữa và phục hồi chi tiết',      req: 'Đạt kích thước sửa chữa',                            time: 180 },
+      { type: 'sua_chua', order: 5,  name: 'Lắp ráp tổng thành',               req: 'Moment xiết theo quy định',                           time: 120 },
+      { type: 'sua_chua', order: 6,  name: 'Chạy rà và điều chỉnh',            req: 'Theo quy trình rà trơn',                              time: 120 },
+      { type: 'sua_chua', order: 7,  name: 'Nghiệm thu kỹ thuật',              req: 'Đạt tất cả chỉ tiêu kỹ thuật',                       time: 60 },
+      { type: 'kiem_tra', order: 1,  name: 'Kiểm tra hồ sơ kỹ thuật',          req: 'Hồ sơ đầy đủ, không thất lạc',                       time: 20 },
+      { type: 'kiem_tra', order: 2,  name: 'Kiểm tra ngoại quan',               req: 'Không có hư hỏng ngoại quan',                        time: 20 },
+      { type: 'kiem_tra', order: 3,  name: 'Kiểm tra thông số kỹ thuật',        req: 'Theo bảng thông số',                                  time: 45 },
+      { type: 'kiem_tra', order: 4,  name: 'Ghi kết quả và báo cáo',           req: 'Ghi đầy đủ, chính xác',                               time: 20 },
+    ];
+
+    for (const s of steps) {
+      await client.query(
+        `INSERT INTO maintenance_steps (maintenance_type, step_order, step_name, technical_requirement, estimated_time)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT DO NOTHING`,
+        [s.type, s.order, s.name, s.req, s.time]
+      );
+    }
+    const { rows: [{ n: stepCount }] } = await client.query('SELECT COUNT(*) as n FROM maintenance_steps');
+    console.log('[Seed] Bước quy trình:', stepCount);
+
+    // ---- Kế hoạch mẫu (hoàn thành) ----
+    const adminId = userIds['admin'];
+    const cmdId   = userIds['chihuy01'];
+    const eq1Id   = equipIds['XM-ZIL-001'];
+    const eq2Id   = equipIds['XM-ZIL-002'];
+
+    const { rows: [existPlan1] } = await client.query(
+      `SELECT id FROM maintenance_plans WHERE plan_code = $1`, ['KH-202401-0001']
+    );
+    if (!existPlan1) {
+      const { rows: [plan1] } = await client.query(
+        `INSERT INTO maintenance_plans (plan_code, equipment_id, maintenance_type, planned_date, created_by, approved_by, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        ['KH-202401-0001', eq1Id, 'dinh_ky', '2024-01-15', adminId, cmdId, 'completed']
+      );
+      const { rows: dinhKySteps } = await client.query(
+        `SELECT * FROM maintenance_steps WHERE maintenance_type = 'dinh_ky' ORDER BY step_order`
+      );
+      for (const s of dinhKySteps) {
+        await client.query(
+          `INSERT INTO maintenance_logs (plan_id, step_id, performed_by, start_time, end_time, status, result)
+           VALUES ($1, $2, $3, $4, $5, 'completed', 'Đạt yêu cầu kỹ thuật')`,
+          [plan1.id, s.id, adminId, '2024-01-15 08:00:00', '2024-01-15 12:00:00']
+        );
+      }
+      await client.query(
+        `INSERT INTO acceptance_records (plan_id, accepted_by, acceptance_date, conclusion, note)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [plan1.id, cmdId, '2024-01-15', 'dat', 'Xe đạt yêu cầu kỹ thuật sau bảo dưỡng định kỳ']
+      );
+      console.log('[Seed] Kế hoạch mẫu (hoàn thành): OK');
+    }
+
+    const { rows: [existPlan2] } = await client.query(
+      `SELECT id FROM maintenance_plans WHERE plan_code = $1`, ['KH-202412-0002']
+    );
+    if (!existPlan2) {
+      await client.query(
+        `INSERT INTO maintenance_plans (plan_code, equipment_id, maintenance_type, planned_date, created_by, status)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        ['KH-202412-0002', eq2Id, 'dot_xuat', '2024-12-01', adminId, 'in_progress']
+      );
+      console.log('[Seed] Kế hoạch mẫu (đang thực hiện): OK');
+    }
+
+    console.log('\n[Seed] Hoàn thành! Dữ liệu mẫu đã được tạo.');
+    console.log('\nTài khoản đăng nhập:');
+    console.log('  admin      / Admin@123   (Quản trị viên)');
+    console.log('  chihuy01   / Pass@123    (Chỉ huy)');
+    console.log('  thuchien1  / Pass@123    (Thợ kỹ thuật)');
+    console.log('  nghiemthu1 / Pass@123    (Kiểm tra)\n');
+
+  } catch (err) {
+    console.error('[Seed] Lỗi:', err.message);
+    console.error(err.stack);
+    process.exit(1);
+  } finally {
+    client.release();
+    await pool.end();
   }
 }
 
-if (adminUser && equip2) {
-  const planExists2 = db.prepare("SELECT id FROM maintenance_plans WHERE plan_code = 'KH-202412-0002'").get();
-  if (!planExists2) {
-    db.prepare(`
-      INSERT INTO maintenance_plans (plan_code, equipment_id, maintenance_type, planned_date, created_by, status)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run('KH-202412-0002', equip2.id, 'dot_xuat', '2024-12-01', adminUser.id, 'in_progress');
-    console.log('[Seed] Kế hoạch mẫu (đang thực hiện) đã tạo');
-  }
-}
-
-console.log('\n[Seed] Hoàn thành! Dữ liệu mẫu đã được tạo.');
-console.log('\nTài khoản đăng nhập mẫu:');
-console.log('  admin       / admin123');
-console.log('  chihuy01    / password123');
-console.log('  thokythuat1 / password123');
-console.log('  kiemtra01   / password123\n');
-
-db.close();
+seed();

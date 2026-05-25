@@ -8,38 +8,66 @@ const logger = require('../utils/logger');
 
 function register() {
   ipcMain.handle('equipment:list', async (_event, opts = {}) => {
-    logger.ipc('equipment:list', opts);
-    return equipmentService.list(opts);
+    try {
+      logger.ipc('equipment:list', opts);
+      return await equipmentService.list(opts);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('equipment:get', async (_event, { id } = {}) => {
-    return equipmentService.get(id);
+    try {
+      return await equipmentService.get(id);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('equipment:search', async (_event, opts = {}) => {
-    return equipmentService.search(opts);
+    try {
+      return await equipmentService.search(opts);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('equipment:create', async (_event, data = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return equipmentService.create(data, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await equipmentService.create(data, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('equipment:update', async (_event, { id, data } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return equipmentService.update(id, data, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await equipmentService.update(id, data, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('equipment:delete', async (_event, { id } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return equipmentService.remove(id, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await equipmentService.remove(id, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('equipment:getByQr', async (_event, { qrValue } = {}) => {
-    return equipmentService.getByQr(qrValue);
+    try {
+      return await equipmentService.getByQr(qrValue);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 }
 

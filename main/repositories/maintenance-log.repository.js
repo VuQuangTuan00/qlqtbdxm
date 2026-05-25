@@ -10,28 +10,29 @@ class MaintenanceLogRepository extends BaseRepository {
   /**
    * Lấy logs theo plan với thông tin đầy đủ
    * @param {number} planId
-   * @returns {Array}
+   * @returns {Promise<Array>}
    */
-  findByPlan(planId) {
-    return this.db.prepare(`
+  async findByPlan(planId) {
+    const { rows } = await this.db.query(`
       SELECT ml.*,
              ms.step_name, ms.step_order, ms.technical_requirement, ms.estimated_time,
              u.full_name as performed_by_name
       FROM maintenance_logs ml
       LEFT JOIN maintenance_steps ms ON ms.id = ml.step_id
       LEFT JOIN users u ON u.id = ml.performed_by
-      WHERE ml.plan_id = ?
+      WHERE ml.plan_id = $1
       ORDER BY ms.step_order
-    `).all(planId);
+    `, [planId]);
+    return rows;
   }
 
   /**
    * Lấy log theo ID đầy đủ
    * @param {number} id
-   * @returns {Object|null}
+   * @returns {Promise<Object|null>}
    */
-  findByIdFull(id) {
-    return this.db.prepare(`
+  async findByIdFull(id) {
+    const { rows } = await this.db.query(`
       SELECT ml.*,
              ms.step_name, ms.step_order, ms.technical_requirement,
              u.full_name as performed_by_name,
@@ -40,8 +41,9 @@ class MaintenanceLogRepository extends BaseRepository {
       LEFT JOIN maintenance_steps ms ON ms.id = ml.step_id
       LEFT JOIN users u ON u.id = ml.performed_by
       LEFT JOIN maintenance_plans mp ON mp.id = ml.plan_id
-      WHERE ml.id = ?
-    `).get(id) || null;
+      WHERE ml.id = $1
+    `, [id]);
+    return rows[0] || null;
   }
 
   /**
@@ -49,31 +51,54 @@ class MaintenanceLogRepository extends BaseRepository {
    * @param {number} id
    * @param {string} status
    * @param {Object} extra - các trường bổ sung (result, end_time, ...)
+   * @returns {Promise<void>}
    */
-  updateStatus(id, status, extra = {}) {
-    const fields = ['status = @status'];
-    const params = { status, _id: id };
+  async updateStatus(id, status, extra = {}) {
+    const fields = ['status = $1'];
+    const params = [status];
+    let paramIdx = 2;
 
-    if (extra.result !== undefined) { fields.push('result = @result'); params.result = extra.result; }
-    if (extra.note !== undefined) { fields.push('note = @note'); params.note = extra.note; }
-    if (extra.end_time !== undefined) { fields.push('end_time = @end_time'); params.end_time = extra.end_time; }
-    if (extra.start_time !== undefined) { fields.push('start_time = @start_time'); params.start_time = extra.start_time; }
+    if (extra.result !== undefined) {
+      fields.push(`result = $${paramIdx}`);
+      params.push(extra.result);
+      paramIdx++;
+    }
+    if (extra.note !== undefined) {
+      fields.push(`note = $${paramIdx}`);
+      params.push(extra.note);
+      paramIdx++;
+    }
+    if (extra.end_time !== undefined) {
+      fields.push(`end_time = $${paramIdx}`);
+      params.push(extra.end_time);
+      paramIdx++;
+    }
+    if (extra.start_time !== undefined) {
+      fields.push(`start_time = $${paramIdx}`);
+      params.push(extra.start_time);
+      paramIdx++;
+    }
 
-    this.db.prepare(`UPDATE maintenance_logs SET ${fields.join(', ')} WHERE id = @_id`).run(params);
+    params.push(id);
+    await this.db.query(
+      `UPDATE maintenance_logs SET ${fields.join(', ')} WHERE id = $${paramIdx}`,
+      params
+    );
   }
 
   /**
    * Kiểm tra tất cả steps đã hoàn thành chưa
    * @param {number} planId
-   * @returns {boolean}
+   * @returns {Promise<boolean>}
    */
-  allCompleted(planId) {
-    const result = this.db.prepare(`
+  async allCompleted(planId) {
+    const { rows } = await this.db.query(`
       SELECT COUNT(*) as total,
              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as done
-      FROM maintenance_logs WHERE plan_id = ?
-    `).get(planId);
-    return result.total > 0 && result.total === result.done;
+      FROM maintenance_logs WHERE plan_id = $1
+    `, [planId]);
+    const { total, done } = rows[0];
+    return parseInt(total) > 0 && parseInt(total) === parseInt(done);
   }
 }
 
