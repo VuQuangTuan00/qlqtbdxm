@@ -7,20 +7,21 @@
     "start": "electron .",
     "dev": "electron . --inspect=5858",
     "build": "electron-builder",
-    "seed": "node scripts/seed.js",
-    "reset-db": "node scripts/reset-db.js"
+    "seed": "electron  scripts/seed.js",
+    "reset-db": "electron scripts/reset-db.js"
   },
   "author": "Bộ Tư lệnh Xe Máy",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^9.4.3",
+    "better-sqlite3": "^9.6.0",
     "dotenv": "^16.4.5",
     "electron-log": "^5.1.2"
   },
   "devDependencies": {
     "electron": "^29.1.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "electron-rebuild": "^3.2.9"
   },
   "build": {
     "appId": "vn.military.qlqtbdxm",
