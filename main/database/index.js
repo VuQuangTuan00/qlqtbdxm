@@ -14,9 +14,18 @@ let _db = null;
  */
 function getDbPath() {
   if (process.env.DB_PATH) return process.env.DB_PATH;
-  const userDataPath = app ? app.getPath('userData') : path.join(__dirname, '../../data');
-  if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
-  return path.join(userDataPath, 'qlqtbdxm.db');
+
+  // Production (packaged): dùng userData để tránh ghi vào thư mục cài đặt
+  if (app && app.isPackaged) {
+    const userDataPath = app.getPath('userData');
+    if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
+    return path.join(userDataPath, 'qlqtbdxm.db');
+  }
+
+  // Development: dùng ./data/ trong project (cùng nơi seed.js ghi)
+  const dataDir = path.join(__dirname, '../../data');
+  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+  return path.join(dataDir, 'qlqtbdxm.db');
 }
 
 /**
