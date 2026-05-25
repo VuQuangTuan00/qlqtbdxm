@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+  <title>QLQT Bảo Dưỡng Xe Máy Quân Đội</title>
+  <link rel="stylesheet" href="assets/css/variables.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/layout.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-logo">🪖</div>
+      <div class="login-header-title">HỆ THỐNG QUẢN LÝ</div>
+      <div class="login-header-subtitle">Bảo Dưỡng Xe Máy Quân Đội</div>
+    </div>
+    <div class="login-body">
+      <div id="login-error" class="alert alert-danger hidden"></div>
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label required" for="input-username">Tên đăng nhập</label>
+          <input type="text" id="input-username" class="form-control" placeholder="Nhập tên đăng nhập" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label class="form-label required" for="input-password">Mật khẩu</label>
+          <input type="password" id="input-password" class="form-control" placeholder="Nhập mật khẩu" autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;" id="login-btn">
+          Đăng nhập
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- App shell -->
+<div id="app" style="display:none;">
+  <!-- Sidebar -->
+  <nav id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-icon">🪖</div>
+      <div class="sidebar-brand-text">
+        <div class="sidebar-brand-title">QLQT Bảo Dưỡng</div>
+        <div class="sidebar-brand-subtitle">Xe Máy Quân Đội</div>
+      </div>
+    </div>
+
+    <div class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-label">Quản lý</div>
+        <a class="nav-item" data-route="equipment-list" href="#">
+          <span class="nav-item-icon">🚗</span>
+          <span class="nav-item-label">HỒ SƠ TRANG BỊ</span>
+        </a>
+        <a class="nav-item" data-route="plan-list" href="#">
+          <span class="nav-item-icon">📋</span>
+          <span class="nav-item-label">KẾ HOẠCH BẢO DƯỠNG</span>
+        </a>
+        <a class="nav-item" data-route="maintenance-steps" href="#">
+          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-label">QUY TRÌNH CÔNG NGHỆ</span>
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Báo cáo</div>
+        <a class="nav-item" data-route="reports" href="#">
+          <span class="nav-item-icon">📊</span>
+          <span class="nav-item-label">BÁO CÁO TỔNG HỢP</span>
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-label">Hệ thống</div>
+        <a class="nav-item" data-route="settings" href="#">
+          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-label">CÀI ĐẶT HỆ THỐNG</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user" id="sidebar-user-btn">
+        <div class="sidebar-user-avatar" id="sidebar-avatar">?</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-username">Chưa đăng nhập</div>
+          <div class="sidebar-user-role" id="sidebar-role"></div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <div id="main-content">
+    <div id="topbar">
+      <div class="topbar-title" id="topbar-title">Trang chủ</div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary btn-sm" id="btn-logout">Đăng xuất</button>
+      </div>
+    </div>
+    <div id="page-view">
+      <!-- Dynamic content loaded here -->
+      <div class="table-empty">
+        <div class="table-empty-icon">🏠</div>
+        <div class="table-empty-text">Chào mừng đến hệ thống QLQT Bảo Dưỡng Xe Máy</div>
+        <div class="table-empty-sub">Chọn mục trong menu bên trái để bắt đầu</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- Modal container -->
+<div id="modal-container"></div>
+
+<!-- JS modules -->
+<script src="js/components/toast.js"></script>
+<script src="js/components/modal.js"></script>
+<script src="js/components/sidebar.js"></script>
+<script src="js/components/data-table.js"></script>
+<script src="js/api.js"></script>
+<script src="js/store.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/router.js"></script>
+<script src="pages/equipment/list.js"></script>
+<script src="pages/equipment/detail.js"></script>
+<script src="pages/maintenance/plan-list.js"></script>
+<script src="pages/maintenance/plan-detail.js"></script>
+<script src="pages/reports/report.js"></script>
+<script src="pages/settings/settings.js"></script>
+</body>
+</html>
