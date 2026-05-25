@@ -1,0 +1,39 @@
+appId: vn.military.qlqtbdxm
+productName: QLQT Bảo Dưỡng Xe Máy
+copyright: Bộ Tư lệnh Xe Máy Quân đội
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - main/**/*
+  - renderer/**/*
+  - package.json
+
+extraMetadata:
+  main: main/index.js
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Utility
+  maintainer: btl-xemay@military.vn
+
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerLanguages:
+    - vi-VN
+  language: 1066
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.utilities
