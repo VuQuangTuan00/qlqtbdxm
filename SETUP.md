@@ -110,7 +110,7 @@ DB_HOST=127.0.0.1
 DB_PORT=5432
 DB_NAME=qlqtbdxm
 DB_USER=qlqt_user
-DB_PASSWORD=matkhau123
+DB_PASSWORD=123456
 ```
 
 Chạy seed để tạo schema và dữ liệu mẫu:
