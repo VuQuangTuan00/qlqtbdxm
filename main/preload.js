@@ -65,6 +65,11 @@ const ALLOWED_INVOKE_CHANNELS = [
 
   // Roles
   'role:list',
+
+  // DB Config (admin only)
+  'dbconfig:get',
+  'dbconfig:set',
+  'dbconfig:test',
 ];
 
 /**

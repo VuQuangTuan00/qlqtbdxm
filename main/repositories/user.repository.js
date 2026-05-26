@@ -10,55 +10,68 @@ class UserRepository extends BaseRepository {
   /**
    * Tìm user theo username (kèm thông tin role và unit)
    * @param {string} username
-   * @returns {Object|null}
+   * @returns {Promise<Object|null>}
    */
-  findByUsername(username) {
-    return this.db.prepare(`
+  async findByUsername(username) {
+    const { rows } = await this.db.query(`
       SELECT u.*, r.role_code, r.role_name, un.unit_name, un.unit_code
       FROM users u
       LEFT JOIN roles r ON r.id = u.role_id
       LEFT JOIN units un ON un.id = u.unit_id
-      WHERE u.username = ?
-    `).get(username) || null;
+      WHERE u.username = $1
+    `, [username]);
+    return rows[0] || null;
   }
 
   /**
    * Tìm user theo ID kèm thông tin đầy đủ
    * @param {number} id
-   * @returns {Object|null}
+   * @returns {Promise<Object|null>}
    */
-  findByIdFull(id) {
-    return this.db.prepare(`
+  async findByIdFull(id) {
+    const { rows } = await this.db.query(`
       SELECT u.id, u.username, u.full_name, u.is_active, u.created_at,
              r.id as role_id, r.role_code, r.role_name,
              un.id as unit_id, un.unit_name, un.unit_code
       FROM users u
       LEFT JOIN roles r ON r.id = u.role_id
       LEFT JOIN units un ON un.id = u.unit_id
-      WHERE u.id = ?
-    `).get(id) || null;
+      WHERE u.id = $1
+    `, [id]);
+    return rows[0] || null;
   }
 
   /**
    * Lấy danh sách user với phân trang và tìm kiếm
    * @param {Object} opts
-   * @returns {{ items: Array, total: number }}
+   * @returns {Promise<{ items: Array, total: number }>}
    */
-  listUsers({ search = '', unitId = null, roleId = null, page = 1, pageSize = 20 } = {}) {
+  async listUsers({ search = '', unitId = null, roleId = null, page = 1, pageSize = 20 } = {}) {
     const conditions = ['1=1'];
-    const params = {};
+    const params = [];
+    let paramIdx = 1;
 
     if (search) {
-      conditions.push(`(u.username LIKE @search OR u.full_name LIKE @search)`);
-      params.search = `%${search}%`;
+      conditions.push(`(u.username ILIKE $${paramIdx} OR u.full_name ILIKE $${paramIdx})`);
+      params.push(`%${search}%`);
+      paramIdx++;
     }
-    if (unitId) { conditions.push('u.unit_id = @unitId'); params.unitId = unitId; }
-    if (roleId) { conditions.push('u.role_id = @roleId'); params.roleId = roleId; }
+    if (unitId) {
+      conditions.push(`u.unit_id = $${paramIdx}`);
+      params.push(unitId);
+      paramIdx++;
+    }
+    if (roleId) {
+      conditions.push(`u.role_id = $${paramIdx}`);
+      params.push(roleId);
+      paramIdx++;
+    }
 
     const where = conditions.join(' AND ');
     const offset = (page - 1) * pageSize;
 
-    const items = this.db.prepare(`
+    const itemsParams = [...params, pageSize, offset];
+    const { rows: items } = await this.db.query(`
       SELECT u.id, u.username, u.full_name, u.is_active, u.created_at,
              r.role_code, r.role_name,
              un.unit_name, un.unit_code
@@ -67,13 +80,14 @@ class UserRepository extends BaseRepository {
       LEFT JOIN units un ON un.id = u.unit_id
       WHERE ${where}
       ORDER BY u.id DESC
-      LIMIT ${pageSize} OFFSET ${offset}
-    `).all(params);
+      LIMIT $${paramIdx} OFFSET $${paramIdx + 1}
+    `, itemsParams);
 
-    const { total } = this.db.prepare(`
+    const { rows: countRows } = await this.db.query(`
       SELECT COUNT(*) as total FROM users u WHERE ${where}
-    `).get(params);
+    `, params);
 
+    const total = parseInt(countRows[0].total);
     return { items, total, page, pageSize };
   }
 
@@ -81,18 +95,26 @@ class UserRepository extends BaseRepository {
    * Cập nhật mật khẩu
    * @param {number} id
    * @param {string} passwordHash
+   * @returns {Promise<void>}
    */
-  updatePassword(id, passwordHash) {
-    this.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, id);
+  async updatePassword(id, passwordHash) {
+    await this.db.query(
+      'UPDATE users SET password_hash = $1 WHERE id = $2',
+      [passwordHash, id]
+    );
   }
 
   /**
    * Bật/tắt trạng thái active
    * @param {number} id
    * @param {boolean} isActive
+   * @returns {Promise<void>}
    */
-  setActive(id, isActive) {
-    this.db.prepare('UPDATE users SET is_active = ? WHERE id = ?').run(isActive ? 1 : 0, id);
+  async setActive(id, isActive) {
+    await this.db.query(
+      'UPDATE users SET is_active = $1 WHERE id = $2',
+      [isActive, id]
+    );
   }
 }
 

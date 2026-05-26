@@ -14,6 +14,7 @@ function registerAllIpcHandlers() {
     require('./maintenance-log.ipc'),
     require('./acceptance.ipc'),
     require('./report.ipc'),
+    require('./db-config.ipc'),
   ];
 
   for (const mod of modules) {

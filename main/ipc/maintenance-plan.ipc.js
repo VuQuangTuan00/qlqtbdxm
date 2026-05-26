@@ -8,49 +8,81 @@ const logger = require('../utils/logger');
 
 function register() {
   ipcMain.handle('plan:list', async (_event, opts = {}) => {
-    logger.ipc('plan:list', opts);
-    return planService.list(opts);
+    try {
+      logger.ipc('plan:list', opts);
+      return await planService.list(opts);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('plan:get', async (_event, { id } = {}) => {
-    return planService.get(id);
+    try {
+      return await planService.get(id);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('plan:getSteps', async (_event, { maintenanceType } = {}) => {
-    return planService.getSteps(maintenanceType);
+    try {
+      return await planService.getSteps(maintenanceType);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('plan:create', async (_event, data = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return planService.create(data, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await planService.create(data, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('plan:update', async (_event, { id, data } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return planService.update(id, data, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await planService.update(id, data, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('plan:approve', async (_event, { id } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    if (!['admin', 'commander'].includes(session.roleCode)) {
-      return fail('Không có quyền phê duyệt');
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      if (!['admin', 'commander'].includes(session.roleCode)) {
+        return fail('Không có quyền phê duyệt');
+      }
+      return await planService.approve(id, session.userId);
+    } catch (err) {
+      return fail(err.message);
     }
-    return planService.approve(id, session.userId);
   });
 
   ipcMain.handle('plan:cancel', async (_event, { id } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return planService.cancel(id, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await planService.cancel(id, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('plan:delete', async (_event, { id } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return planService.remove(id, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await planService.remove(id, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 }
 

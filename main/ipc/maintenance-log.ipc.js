@@ -7,30 +7,50 @@ const { fail } = require('../utils/response');
 
 function register() {
   ipcMain.handle('log:list', async (_event, { planId } = {}) => {
-    if (!planId) return fail('Thiếu planId');
-    return logService.list(planId);
+    try {
+      if (!planId) return fail('Thiếu planId');
+      return await logService.list(planId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('log:get', async (_event, { id } = {}) => {
-    return logService.get(id);
+    try {
+      return await logService.get(id);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('log:create', async (_event, data = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return logService.create(data, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await logService.create(data, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('log:update', async (_event, { id, data } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return logService.update(id, data, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await logService.update(id, data, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
   ipcMain.handle('log:updateStatus', async (_event, { id, status, extra } = {}) => {
-    const session = authService.requireAuth();
-    if (!session) return fail('Chưa đăng nhập');
-    return logService.updateStatus(id, status, extra || {}, session.userId);
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await logService.updateStatus(id, status, extra || {}, session.userId);
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 }
 

@@ -10,24 +10,26 @@ class MaintenanceStepRepository extends BaseRepository {
   /**
    * Lấy các bước theo loại bảo dưỡng
    * @param {string} maintenanceType
-   * @returns {Array}
+   * @returns {Promise<Array>}
    */
-  findByType(maintenanceType) {
-    return this.db.prepare(`
+  async findByType(maintenanceType) {
+    const { rows } = await this.db.query(`
       SELECT * FROM maintenance_steps
-      WHERE maintenance_type = ?
+      WHERE maintenance_type = $1
       ORDER BY step_order
-    `).all(maintenanceType);
+    `, [maintenanceType]);
+    return rows;
   }
 
   /**
    * Lấy tất cả loại bảo dưỡng
-   * @returns {Array}
+   * @returns {Promise<Array>}
    */
-  getTypes() {
-    return this.db.prepare(`
-      SELECT DISTINCT maintenance_type FROM maintenance_steps ORDER BY maintenance_type
-    `).all().map((r) => r.maintenance_type);
+  async getTypes() {
+    const { rows } = await this.db.query(
+      'SELECT DISTINCT maintenance_type FROM maintenance_steps ORDER BY maintenance_type'
+    );
+    return rows.map((r) => r.maintenance_type);
   }
 }
 

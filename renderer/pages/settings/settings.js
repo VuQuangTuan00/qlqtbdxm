@@ -18,12 +18,14 @@ async function renderSettings(container) {
       <button class="tab-btn active" data-tab="profile">Hồ sơ cá nhân</button>
       <button class="tab-btn" data-tab="units">Quản lý đơn vị</button>
       ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="users">Quản lý người dùng</button>` : ''}
+      ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="dbconfig">Kết nối Database</button>` : ''}
       <button class="tab-btn" data-tab="about">Về hệ thống</button>
     </div>
 
     <div id="tab-profile" class="tab-content active"></div>
     <div id="tab-units"   class="tab-content"></div>
     <div id="tab-users"   class="tab-content"></div>
+    <div id="tab-dbconfig" class="tab-content"></div>
     <div id="tab-about"   class="tab-content"></div>
   `;
 
@@ -36,6 +38,7 @@ async function renderSettings(container) {
       document.getElementById(`tab-${tab}`).classList.add('active');
       if (tab === 'units') _loadUnitsTab();
       if (tab === 'users') _loadUsersTab();
+      if (tab === 'dbconfig') _loadDbConfigTab();
     });
   });
 
@@ -429,6 +432,108 @@ async function toggleUserActive(id, currentActive) {
   } else {
     toast.error('Lỗi', res.error);
   }
+}
+
+async function _loadDbConfigTab() {
+  const el = document.getElementById('tab-dbconfig');
+  if (!el) return;
+
+  el.innerHTML = `
+    <div style="max-width:560px;">
+      <div class="card">
+        <div class="card-header"><h5 class="card-title">Cấu hình kết nối Database</h5></div>
+        <div class="card-body">
+          <p style="color:var(--color-text-secondary);margin-bottom:var(--space-4);">
+            Cấu hình kết nối tới máy chủ PostgreSQL dùng chung trong mạng LAN.
+            Sau khi lưu, ứng dụng sẽ tự khởi động lại.
+          </p>
+          <div class="form-row">
+            <div class="form-group" style="flex:2;">
+              <label class="form-label required">Địa chỉ máy chủ (Host)</label>
+              <input type="text" class="form-control" id="db-host" placeholder="192.168.1.100" />
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label required">Cổng (Port)</label>
+              <input type="number" class="form-control" id="db-port" value="5432" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Tên database</label>
+            <input type="text" class="form-control" id="db-name" placeholder="qlqtbdxm" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label required">Tên đăng nhập</label>
+              <input type="text" class="form-control" id="db-user" placeholder="qlqt_user" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mật khẩu</label>
+              <input type="password" class="form-control" id="db-password" placeholder="Để trống = không đổi" />
+            </div>
+          </div>
+          <div id="db-test-result" style="display:none;margin-bottom:var(--space-4);"></div>
+          <div class="form-actions" style="display:flex;gap:var(--space-3);">
+            <button class="btn btn-secondary" id="btn-test-db">Kiểm tra kết nối</button>
+            <button class="btn btn-primary" id="btn-save-db">Lưu &amp; khởi động lại</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Load config hiện tại
+  const cfgRes = await api.invoke('dbconfig:get');
+  if (cfgRes.success) {
+    const c = cfgRes.data;
+    document.getElementById('db-host').value = c.host || '';
+    document.getElementById('db-port').value = c.port || 5432;
+    document.getElementById('db-name').value = c.database || '';
+    document.getElementById('db-user').value = c.user || '';
+  }
+
+  function _getFormConfig() {
+    return {
+      host:     document.getElementById('db-host').value.trim(),
+      port:     parseInt(document.getElementById('db-port').value) || 5432,
+      database: document.getElementById('db-name').value.trim(),
+      user:     document.getElementById('db-user').value.trim(),
+      password: document.getElementById('db-password').value,
+    };
+  }
+
+  function _showResult(success, message, latency) {
+    const el = document.getElementById('db-test-result');
+    el.style.display = 'block';
+    el.className = success ? 'alert alert-success' : 'alert alert-danger';
+    el.textContent = message + (latency ? ` (${latency}ms)` : '');
+  }
+
+  document.getElementById('btn-test-db').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-test-db');
+    btn.disabled = true;
+    btn.textContent = 'Đang kiểm tra...';
+    const res = await api.invoke('dbconfig:test', _getFormConfig());
+    btn.disabled = false;
+    btn.textContent = 'Kiểm tra kết nối';
+    _showResult(res.success, res.success ? res.data.message : res.error, res.data?.latency);
+  });
+
+  document.getElementById('btn-save-db').addEventListener('click', async () => {
+    const config = _getFormConfig();
+    if (!config.host || !config.database || !config.user) {
+      toast.warning('Thiếu thông tin', 'Vui lòng điền đầy đủ Host, Database và Tên đăng nhập');
+      return;
+    }
+    const ok = await modal.confirm({
+      title: 'Lưu cấu hình',
+      message: `Lưu kết nối tới ${config.host}:${config.port}/${config.database} và khởi động lại?`,
+      confirmText: 'Lưu & khởi động lại',
+      type: 'warning',
+    });
+    if (!ok) return;
+    if (!config.password) delete config.password;
+    await api.invoke('dbconfig:set', config);
+  });
 }
 
 // Globals for inline onclick

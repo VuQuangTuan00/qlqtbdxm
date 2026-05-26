@@ -13,10 +13,10 @@ let _session = null;
  * Đăng nhập
  * @param {string} username
  * @param {string} password
- * @returns {{ success: boolean, data?: Object, error?: string }}
+ * @returns {Promise<{ success: boolean, data?: Object, error?: string }>}
  */
-function login(username, password) {
-  const user = userRepo.findByUsername(username);
+async function login(username, password) {
+  const user = await userRepo.findByUsername(username);
 
   if (!user) {
     logger.warn(`[Auth] Đăng nhập thất bại - không tìm thấy: ${username}`);
@@ -45,12 +45,12 @@ function login(username, password) {
     loginAt: new Date().toISOString(),
   };
 
-  // Ghi audit log
+  // Ghi audit log (async, không block)
   try {
-    getDb().prepare(`
-      INSERT INTO audit_logs (user_id, action, target_table, target_id)
-      VALUES (?, 'login', 'users', ?)
-    `).run(user.id, user.id);
+    await getDb().query(
+      `INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, 'login', 'users', $2)`,
+      [user.id, user.id]
+    );
   } catch (e) {
     logger.warn('[Auth] Lỗi ghi audit log:', e.message);
   }
@@ -61,15 +61,16 @@ function login(username, password) {
 
 /**
  * Đăng xuất
+ * @returns {Promise<{ success: boolean }>}
  */
-function logout() {
+async function logout() {
   if (_session) {
     logger.info(`[Auth] Đăng xuất: ${_session.username}`);
     try {
-      getDb().prepare(`
-        INSERT INTO audit_logs (user_id, action, target_table, target_id)
-        VALUES (?, 'logout', 'users', ?)
-      `).run(_session.userId, _session.userId);
+      await getDb().query(
+        `INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, 'logout', 'users', $2)`,
+        [_session.userId, _session.userId]
+      );
     } catch (e) {}
   }
   _session = null;
@@ -105,10 +106,10 @@ function requireAdmin() {
  * @param {number} userId
  * @param {string} oldPassword
  * @param {string} newPassword
- * @returns {{ success: boolean }}
+ * @returns {Promise<{ success: boolean }>}
  */
-function changePassword(userId, oldPassword, newPassword) {
-  const user = userRepo.findById(userId);
+async function changePassword(userId, oldPassword, newPassword) {
+  const user = await userRepo.findById(userId);
   if (!user) return fail('Không tìm thấy người dùng');
 
   if (!comparePassword(oldPassword, user.password_hash)) {
@@ -119,7 +120,7 @@ function changePassword(userId, oldPassword, newPassword) {
     return fail('Mật khẩu mới phải ít nhất 6 ký tự');
   }
 
-  userRepo.updatePassword(userId, hashPassword(newPassword));
+  await userRepo.updatePassword(userId, hashPassword(newPassword));
   logger.info(`[Auth] Đổi mật khẩu: userId=${userId}`);
   return ok(null, 'Đổi mật khẩu thành công');
 }
