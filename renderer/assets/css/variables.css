@@ -1,71 +1,81 @@
 /* ============================================================
-   Biến CSS - Hệ thống màu sắc quân đội
+   Biến CSS - Theme quân sự tối (Dark Military + Gold)
    ============================================================ */
 
 :root {
-  /* --- Màu chính quân sự --- */
-  --color-military-darkest: #1a2410;
-  --color-military-dark:    #2C3E1F;
-  --color-military-medium:  #3D5228;
-  --color-military-light:   #4E6832;
-  --color-military-accent:  #6B8C42;
-  --color-military-pale:    #8FAF5C;
+  /* --- Palette nền tối quân sự --- */
+  --color-bg-deepest:       #070f07;
+  --color-bg-deep:          #0a1a0a;
+  --color-bg-base:          #0d1f0d;
+  --color-bg-raised:        #122412;
+  --color-bg-elevated:      #183018;
+  --color-bg-highlight:     #1e3c1e;
+
+  /* --- Gold accent --- */
+  --color-gold:             #c8a140;
+  --color-gold-light:       #ddb84e;
+  --color-gold-dim:         #a07830;
+  --color-gold-glow:        rgba(200, 161, 64, 0.18);
+  --color-gold-border:      rgba(200, 161, 64, 0.35);
 
   /* --- Sidebar --- */
-  --sidebar-bg:             var(--color-military-dark);
-  --sidebar-hover:          var(--color-military-medium);
-  --sidebar-active:         var(--color-military-light);
-  --sidebar-text:           #D4E0C4;
-  --sidebar-text-muted:     #8FAF5C;
-  --sidebar-border:         rgba(255,255,255,0.08);
+  --sidebar-bg:             #0a1a0a;
+  --sidebar-hover:          #183018;
+  --sidebar-active:         #1e4020;
+  --sidebar-active-bar:     var(--color-gold);
+  --sidebar-text:           #c0d4b8;
+  --sidebar-text-muted:     #5a7a5a;
+  --sidebar-border:         rgba(255,255,255,0.05);
   --sidebar-width:          240px;
   --sidebar-width-collapsed:64px;
 
-  /* --- Màu nền --- */
-  --bg-body:                #F0F2F5;
-  --bg-card:                #FFFFFF;
-  --bg-header:              #FFFFFF;
-  --bg-table-header:        #F7F8FA;
-  --bg-table-row-alt:       #FAFBFC;
-  --bg-input:               #FFFFFF;
+  /* --- Nền ứng dụng --- */
+  --bg-body:                #0d1f0d;
+  --bg-card:                #122412;
+  --bg-header:              #0f1f0f;
+  --bg-table-header:        #162a16;
+  --bg-table-row-alt:       #101e10;
+  --bg-input:               #162a16;
 
   /* --- Text --- */
-  --text-primary:           #1A1A2E;
-  --text-secondary:         #6B7280;
-  --text-muted:             #9CA3AF;
-  --text-inverse:           #FFFFFF;
-  --text-link:              #3D5228;
+  --text-primary:           #ddeedd;
+  --text-secondary:         #8aaa82;
+  --text-muted:             #506050;
+  --text-inverse:           #ffffff;
+  --text-heading:           #e8f0e0;
+  --text-gold:              var(--color-gold);
+  --text-link:              var(--color-gold);
 
   /* --- Trạng thái --- */
-  --color-success:          #22C55E;
-  --color-success-bg:       #DCFCE7;
-  --color-success-text:     #166534;
-  --color-warning:          #F59E0B;
-  --color-warning-bg:       #FEF3C7;
-  --color-warning-text:     #92400E;
-  --color-danger:           #EF4444;
-  --color-danger-bg:        #FEE2E2;
-  --color-danger-text:      #991B1B;
-  --color-info:             #3B82F6;
-  --color-info-bg:          #DBEAFE;
-  --color-info-text:        #1E40AF;
-  --color-neutral:          #6B7280;
-  --color-neutral-bg:       #F3F4F6;
-  --color-neutral-text:     #374151;
+  --color-success:          #3cb86a;
+  --color-success-bg:       rgba(60, 184, 106, 0.14);
+  --color-success-text:     #68d898;
+  --color-warning:          #d49830;
+  --color-warning-bg:       rgba(212, 152, 48, 0.14);
+  --color-warning-text:     #f0b840;
+  --color-danger:           #d85050;
+  --color-danger-bg:        rgba(216, 80, 80, 0.14);
+  --color-danger-text:      #f08888;
+  --color-info:             #3a88cc;
+  --color-info-bg:          rgba(58, 136, 204, 0.14);
+  --color-info-text:        #68aee8;
+  --color-neutral:          #607060;
+  --color-neutral-bg:       rgba(96, 112, 96, 0.14);
+  --color-neutral-text:     #90a890;
 
   /* --- Border --- */
-  --border-color:           #E5E7EB;
-  --border-color-dark:      #D1D5DB;
+  --border-color:           #1e361e;
+  --border-color-dark:      #2a4a2a;
   --border-radius-sm:       4px;
   --border-radius:          8px;
   --border-radius-lg:       12px;
   --border-radius-xl:       16px;
 
   /* --- Shadow --- */
-  --shadow-sm:              0 1px 2px rgba(0,0,0,0.05);
-  --shadow:                 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md:              0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
-  --shadow-lg:              0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --shadow-sm:              0 1px 3px rgba(0,0,0,0.4);
+  --shadow:                 0 2px 6px rgba(0,0,0,0.5);
+  --shadow-md:              0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg:              0 12px 32px rgba(0,0,0,0.6);
 
   /* --- Typography --- */
   --font-family:            'Segoe UI', system-ui, -apple-system, sans-serif;
