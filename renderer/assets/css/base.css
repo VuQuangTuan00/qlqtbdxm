@@ -28,7 +28,7 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2a4a2a; border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: #aabcaa; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--color-gold-dim); }
 
 input, textarea { user-select: text; }
@@ -186,7 +186,7 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 
 /* Select options dark */
 select.form-control option {
-  background-color: var(--color-bg-elevated);
+  background-color: var(--bg-input);
   color: var(--text-primary);
 }
 
@@ -288,7 +288,7 @@ select.form-control option {
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(13, 31, 13, 0.85);
+  background: rgba(244, 246, 244, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;

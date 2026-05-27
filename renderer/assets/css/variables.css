@@ -3,13 +3,13 @@
    ============================================================ */
 
 :root {
-  /* --- Palette nền tối quân sự --- */
+  /* --- Palette nền sáng --- */
   --color-bg-deepest:       #070f07;
   --color-bg-deep:          #0a1a0a;
-  --color-bg-base:          #0d1f0d;
-  --color-bg-raised:        #122412;
-  --color-bg-elevated:      #183018;
-  --color-bg-highlight:     #1e3c1e;
+  --color-bg-base:          #f4f6f4;
+  --color-bg-raised:        #eef3ee;
+  --color-bg-elevated:      #e4ede4;
+  --color-bg-highlight:     #d8e8d8;
 
   /* --- Gold accent --- */
   --color-gold:             #c8a140;
@@ -30,19 +30,19 @@
   --sidebar-width-collapsed:64px;
 
   /* --- Nền ứng dụng --- */
-  --bg-body:                #0d1f0d;
-  --bg-card:                #122412;
+  --bg-body:                #f4f6f4;
+  --bg-card:                #ffffff;
   --bg-header:              #0f1f0f;
-  --bg-table-header:        #162a16;
-  --bg-table-row-alt:       #101e10;
-  --bg-input:               #162a16;
+  --bg-table-header:        #f0f4ef;
+  --bg-table-row-alt:       #f8fbf7;
+  --bg-input:               #ffffff;
 
   /* --- Text --- */
-  --text-primary:           #ddeedd;
-  --text-secondary:         #8aaa82;
-  --text-muted:             #506050;
+  --text-primary:           #1a2e1a;
+  --text-secondary:         #4a6a4a;
+  --text-muted:             #8a9a8a;
   --text-inverse:           #ffffff;
-  --text-heading:           #e8f0e0;
+  --text-heading:           #0f2010;
   --text-gold:              var(--color-gold);
   --text-link:              var(--color-gold);
 
@@ -64,8 +64,8 @@
   --color-neutral-text:     #90a890;
 
   /* --- Border --- */
-  --border-color:           #1e361e;
-  --border-color-dark:      #2a4a2a;
+  --border-color:           #ccd8cc;
+  --border-color-dark:      #aabcaa;
   --border-radius-sm:       4px;
   --border-radius:          8px;
   --border-radius-lg:       12px;
