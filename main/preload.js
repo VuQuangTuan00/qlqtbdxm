@@ -70,6 +70,18 @@ const ALLOWED_INVOKE_CHANNELS = [
   'dbconfig:get',
   'dbconfig:set',
   'dbconfig:test',
+
+  // Vehicle Types & Steps
+  'vehicleType:list',
+  'vehicleType:get',
+  'vehicleType:create',
+  'vehicleType:update',
+  'vehicleType:delete',
+  'vehicleStep:list',
+  'vehicleStep:create',
+  'vehicleStep:update',
+  'vehicleStep:delete',
+  'vehicleStep:reorder',
 ];
 
 /**

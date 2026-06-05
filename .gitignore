@@ -16,3 +16,4 @@ Thumbs.db
 *.pkg
 coverage/
 .nyc_output/
+scripts/

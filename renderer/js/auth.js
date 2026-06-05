@@ -13,6 +13,21 @@ const auth = (() => {
   const sidebarAvatar   = document.getElementById('sidebar-avatar');
   const sidebarUsername = document.getElementById('sidebar-username');
   const sidebarRole     = document.getElementById('sidebar-role');
+  const authLoading         = document.getElementById('auth-loading');
+
+// ── Loading ───────────────────────────────────────────────────────
+//   function hideLoading() {
+//   if (authLoading) {
+//     authLoading.classList.add('hide');
+//     authLoading.style.pointerEvents = 'none';
+//     setTimeout(() => { if (authLoading) authLoading.style.display = 'none'; }, 100);
+//   }
+//   if (container) container.classList.add('visible');
+//   document.getElementById('login-form')?.focus();
+// }
+
+// window.addEventListener('DOMContentLoaded', hideLoading);
+// setTimeout(hideLoading, 100);
 
   function showApp(session) {
     store.setSession(session);

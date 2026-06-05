@@ -171,8 +171,13 @@ function _maintenanceTypeLabel(t) {
 }
 
 function _formatDate(d) {
-  if (!d) return '—';
-  return d.split('T')[0];
+  if (typeof d !== "string") {
+    console.error("Date is not string:", d);
+    return "";
+  }
+
+  const parts = d.split("-");
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
 
 router.register('equipment-detail', {
