@@ -3,6 +3,7 @@
 const { app, ipcMain } = require('electron');
 const path = require('path');
 
+
 // Load env
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 

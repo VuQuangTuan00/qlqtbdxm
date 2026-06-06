@@ -55,8 +55,9 @@ function _renderProfileTab(session) {
         <div class="card-header"><h5 class="card-title">Thông tin cá nhân</h5></div>
         <div class="card-body">
           <div style="display:flex;align-items:center;gap:var(--space-5);margin-bottom:var(--space-5);">
-            <div style="width:72px;height:72px;border-radius:50%;background:var(--color-military-medium);
-                 display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:white;">
+            <div style="width:72px;height:72px;border-radius:50%;background:var(--color-gold-glow);
+                 border:2px solid var(--color-gold-border);
+                 display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:var(--color-gold);">
               ${session?.fullName?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <div>
@@ -232,7 +233,7 @@ function _renderAboutTab() {
             </div>
             <div class="detail-item">
               <div class="detail-label">Cơ sở dữ liệu</div>
-              <div class="detail-value">SQLite (better-sqlite3)</div>
+              <div class="detail-value">PostgreSQL</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Nền tảng OS</div>
@@ -265,7 +266,6 @@ function openUnitForm(unit) {
     </div>
   `;
 
-  // Load units for parent
   api.listUnits().then((res) => {
     if (!res.success) return;
     const sel = content.querySelector('#unit-parent');
@@ -405,7 +405,6 @@ function openUserForm(roles) {
           const res = await api.createUser(data);
           if (res.success) {
             toast.success('Tạo người dùng thành công');
-            delete document.getElementById('tab-users').dataset?.loaded;
             c();
             _loadUsersTab();
           } else {
@@ -443,7 +442,7 @@ async function _loadDbConfigTab() {
       <div class="card">
         <div class="card-header"><h5 class="card-title">Cấu hình kết nối Database</h5></div>
         <div class="card-body">
-          <p style="color:var(--color-text-secondary);margin-bottom:var(--space-4);">
+          <p style="color:var(--text-secondary);margin-bottom:var(--space-4);">
             Cấu hình kết nối tới máy chủ PostgreSQL dùng chung trong mạng LAN.
             Sau khi lưu, ứng dụng sẽ tự khởi động lại.
           </p>
@@ -481,7 +480,6 @@ async function _loadDbConfigTab() {
     </div>
   `;
 
-  // Load config hiện tại
   const cfgRes = await api.invoke('dbconfig:get');
   if (cfgRes.success) {
     const c = cfgRes.data;
@@ -541,62 +539,8 @@ window.editUnit = editUnit;
 window.deleteUnit = deleteUnit;
 window.toggleUserActive = toggleUserActive;
 
+
 router.register('settings', {
   title: 'Cài Đặt Hệ Thống',
   render: (container) => renderSettings(container),
 });
-
-// router.register('maintenance-steps', {
-//   title: 'Quy Trình Công Nghệ',
-//   render: (container) => {
-//     container.innerHTML = `
-//       <div class="page-header">
-//         <div class="page-header-left">
-//           <h2 class="page-title">Quy Trình Công Nghệ</h2>
-//           <p class="page-subtitle">Các bước quy trình bảo dưỡng theo loại</p>
-//         </div>
-//       </div>
-//       <div class="card">
-//         <div class="card-body">
-//           <div class="alert alert-info">
-//             Chọn loại bảo dưỡng để xem quy trình các bước tương ứng.
-//           </div>
-//           <div class="filter-bar" style="margin-bottom:var(--space-4);">
-//             <select class="form-control" id="step-type-filter" style="max-width:200px;">
-//               <option value="dinh_ky">Bảo dưỡng định kỳ</option>
-//               <option value="dot_xuat">Bảo dưỡng đột xuất</option>
-//               <option value="sua_chua">Sửa chữa</option>
-//               <option value="kiem_tra">Kiểm tra</option>
-//             </select>
-//             <button class="btn btn-primary" id="btn-load-steps">Xem quy trình</button>
-//           </div>
-//           <div id="steps-display"></div>
-//         </div>
-//       </div>
-//     `;
-
-//     async function loadSteps() {
-//       const type = document.getElementById('step-type-filter').value;
-//       const res = await api.getPlanSteps(type);
-//       const el = document.getElementById('steps-display');
-//       if (!res.success) { el.innerHTML = `<div class="alert alert-danger">${res.error}</div>`; return; }
-//       const steps = res.data;
-//       if (!steps.length) { el.innerHTML = `<div class="alert alert-warning">Chưa có quy trình cho loại này</div>`; return; }
-//       el.innerHTML = `<div class="steps-list">
-//         ${steps.map((s) => `
-//           <div class="step-item">
-//             <div class="step-number">${s.step_order}</div>
-//             <div class="step-info">
-//               <div class="step-name">${s.step_name}</div>
-//               <div class="step-req">${s.technical_requirement || ''}</div>
-//               ${s.estimated_time ? `<div class="step-req">Thời gian dự kiến: ${s.estimated_time} phút</div>` : ''}
-//             </div>
-//           </div>
-//         `).join('')}
-//       </div>`;
-//     }
-
-//     document.getElementById('btn-load-steps').addEventListener('click', loadSteps);
-//     loadSteps();
-//   },
-// });

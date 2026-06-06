@@ -324,8 +324,26 @@ function _barItem(label, value, total, color) {
   `;
 }
 
-function _fmtDate(d) { return d ? d.split('T')[0] : '—'; }
+// function _fmtDate(d) { return d ? d.split('T')[0] : '—'; }
 
+function _fmtDate(d) {
+  if (!d) return "";
+
+  // Nếu là Date object
+  if (d instanceof Date) {
+    return d.toLocaleDateString("vi-VN");
+  }
+
+  // Nếu là string yyyy-mm-dd
+  if (typeof d === "string") {
+    const parts = d.split("-");
+    if (parts.length !== 3) return "";
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  console.error("Unsupported date type:", d);
+  return "";
+}
 router.register('reports', {
   title: 'Báo Cáo Tổng Hợp',
   render: (container) => renderReports(container),

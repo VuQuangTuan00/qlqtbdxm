@@ -295,10 +295,24 @@ function openAcceptanceForm(plan) {
   });
 }
 
-function _fmtDate(d) { return d ? d.split('T')[0] : '—'; }
+
 function _fmtDateTime(d) {
-  if (!d) return '—';
-  return d.replace('T', ' ').slice(0, 16);
+ if (!d) return "";
+
+  // Nếu là Date object
+  if (d instanceof Date) {
+    return d.toLocaleDateString("vi-VN");
+  }
+
+  // Nếu là string yyyy-mm-dd
+  if (typeof d === "string") {
+    const parts = d.split("-");
+    if (parts.length !== 3) return "";
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+
+  console.error("Unsupported date type:", d);
+  return "";
 }
 
 // Global for inline onclick
