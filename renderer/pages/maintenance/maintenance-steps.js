@@ -2,7 +2,7 @@
    Quy Trình Công Nghệ — Vehicle Types + Maintenance Steps
    ============================================================ */
 'use strict';
-
+console.log("maintenance-steps loaded");
 /* ── Hằng số ── */
 const MAINT_TYPES = {
   dinh_ky:  { label: 'Bảo dưỡng định kỳ',  icon: '🔧', badge: 'badge-info'    },
@@ -75,7 +75,7 @@ async function _loadVehicleGrid() {
   const opts = { search };
   if (!showInactive) opts.isActive = true;
 
-  const res = await api.invoke('vehicleType:list', opts);
+  const res = await window.electronAPI.invoke('vehicleType:list', opts);
   if (!res.success) {
     grid.innerHTML = `<div style="grid-column:1/-1;" class="alert alert-danger">${res.error}</div>`;
     return;
@@ -110,7 +110,7 @@ async function _loadVehicleGrid() {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id = parseInt(btn.dataset.id);
-        const res = await api.invoke('vehicleType:get', { id });
+        const res = await window.electronAPI.invoke('vehicleType:get', { id });
         if (res.success) openVehicleTypeForm(res.data);
         else toast.error('Lỗi', res.error);
       });
@@ -127,7 +127,7 @@ async function _loadVehicleGrid() {
           type: 'danger', confirmText: 'Xóa',
         });
         if (!ok) return;
-        const res = await api.invoke('vehicleType:delete', { id });
+        const res = await window.electronAPI.invoke('vehicleType:delete', { id });
         if (res.success) { toast.success('Đã xóa loại xe'); _loadVehicleGrid(); }
         else toast.error('Lỗi', res.error);
       });
@@ -221,7 +221,7 @@ async function renderVehicleDetail(container, params) {
   container.innerHTML = `<div style="display:flex;justify-content:center;padding:48px;">
     <div class="spinner"></div></div>`;
 
-  const res = await api.invoke('vehicleType:get', { id });
+  const res = await window.electronAPI.invoke('vehicleType:get', { id });
   if (!res.success) {
     container.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
     return;
@@ -241,7 +241,7 @@ async function renderVehicleDetail(container, params) {
 
 async function _renderDetailPage(container, vt, activeMaintType, onTabChange) {
   // Tải steps cho loại đang xem
-  const stepsRes = await api.invoke('vehicleStep:list', { vehicleTypeId: vt.id });
+  const stepsRes = await window.electronAPI.invoke('vehicleStep:list', { vehicleTypeId: vt.id });
   const allSteps = stepsRes.success ? stepsRes.data : [];
 
   const img = vt.image_url
@@ -366,7 +366,7 @@ async function _renderDetailPage(container, vt, activeMaintType, onTabChange) {
   if (_isAdmin()) {
     document.getElementById('btn-edit-vt')?.addEventListener('click', async () => {
       openVehicleTypeForm(vt, async () => {
-        const r = await api.invoke('vehicleType:get', { id: vt.id });
+        const r = await window.electronAPI.invoke('vehicleType:get', { id: vt.id });
         if (r.success) renderVehicleDetail(container, { id: vt.id });
       });
     });
@@ -432,7 +432,7 @@ function _renderStepsContent(steps, vt, maintType, container) {
           message: `Xóa bước "${step.step_name}"?`,
         });
         if (!ok) return;
-        const res = await api.invoke('vehicleStep:delete', { id });
+        const res = await window.electronAPI.invoke('vehicleStep:delete', { id });
         if (res.success) { toast.success('Đã xóa bước'); renderVehicleDetail(container, { id: vt.id }); }
         else toast.error('Lỗi', res.error);
       });
@@ -444,7 +444,7 @@ function _renderStepsContent(steps, vt, maintType, container) {
         const newOrder = [...steps];
         [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
         const orderedIds = newOrder.map((s) => s.id);
-        const res = await api.invoke('vehicleStep:reorder', { vehicleTypeId: vt.id, maintenanceType: maintType, orderedIds });
+        const res = await window.electronAPI.invoke('vehicleStep:reorder', { vehicleTypeId: vt.id, maintenanceType: maintType, orderedIds });
         if (res.success) renderVehicleDetail(container, { id: vt.id });
         else toast.error('Lỗi', res.error);
       });
@@ -456,7 +456,7 @@ function _renderStepsContent(steps, vt, maintType, container) {
         const newOrder = [...steps];
         [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
         const orderedIds = newOrder.map((s) => s.id);
-        const res = await api.invoke('vehicleStep:reorder', { vehicleTypeId: vt.id, maintenanceType: maintType, orderedIds });
+        const res = await window.electronAPI.invoke('vehicleStep:reorder', { vehicleTypeId: vt.id, maintenanceType: maintType, orderedIds });
         if (res.success) renderVehicleDetail(container, { id: vt.id });
         else toast.error('Lỗi', res.error);
       });
@@ -667,10 +667,10 @@ function openVehicleTypeForm(vt, onSave) {
 
           let res;
           if (isEdit) {
-            res = await api.invoke('vehicleType:update', { id: vt.id, data });
+            res = await window.electronAPI.invoke('vehicleType:update', { id: vt.id, data });
           } else {
             if (!data.type_code) { toast.warning('Thiếu thông tin', 'Vui lòng nhập mã loại xe'); return; }
-            res = await api.invoke('vehicleType:create', data);
+            res = await window.electronAPI.invoke('vehicleType:create', data);
           }
 
           if (res.success) {
@@ -772,9 +772,9 @@ function openStepForm(step, vehicleTypeId, defaultMaintType, onSave) {
 
           let res;
           if (isEdit) {
-            res = await api.invoke('vehicleStep:update', { id: step.id, data });
+            res = await window.electronAPI.invoke('vehicleStep:update', { id: step.id, data });
           } else {
-            res = await api.invoke('vehicleStep:create', data);
+            res = await window.electronAPI.invoke('vehicleStep:create', data);
           }
 
           if (res.success) {
@@ -802,6 +802,7 @@ function _fmtTime(minutes) {
 }
 
 /* ── Register route ── */
+console.log("register maintenance-steps");
 router.register('maintenance-steps', {
   title: 'Quy Trình Công Nghệ',
   render: (container) => renderMaintenanceSteps(container),
@@ -811,10 +812,3 @@ router.register('vehicle-detail', {
   title: 'Chi Tiết Loại Xe',
   render: (container, params) => renderVehicleDetail(container, params),
 });
-
-/* ── Expose api helpers ── */
-if (typeof api !== 'undefined') {
-  // Thêm các IPC calls vào api object nếu chưa có
-  const _origInvoke = api.invoke || window.electronAPI.invoke.bind(window.electronAPI);
-  if (!api.invoke) api.invoke = _origInvoke;
-}

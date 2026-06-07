@@ -170,14 +170,36 @@ function _maintenanceTypeLabel(t) {
   return map[t] || t;
 }
 
+// function _formatDate(d) {
+//   if (typeof d !== "string") {
+//     console.error("Date is not string:", d);
+//     return "";
+//   }
+
+//   const parts = d.split("-");
+//   return `${parts[2]}/${parts[1]}/${parts[0]}`;
+// }
 function _formatDate(d) {
-  if (typeof d !== "string") {
-    console.error("Date is not string:", d);
-    return "";
+  if (!d) return "";
+
+  // Nếu là Date object
+  if (d instanceof Date) {
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
   }
 
-  const parts = d.split("-");
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  // Nếu là string YYYY-MM-DD
+  if (typeof d === "string") {
+    const parts = d.split("-");
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
+
+  console.error("Invalid date value:", d);
+  return "";
 }
 
 router.register('equipment-detail', {
