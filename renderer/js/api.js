@@ -78,6 +78,9 @@ const api = (() => {
     reportEquipmentStatus:()             => invoke('report:equipmentStatus'),
     reportByPeriod:       (opts)         => invoke('report:maintenanceByPeriod', opts),
     reportOverdue:        ()             => invoke('report:overdueEquipment'),
+
+    // Generic invoke (dùng cho vehicleType, vehicleStep, dbconfig...)
+    invoke:               (channel, args) => invoke(channel, args),
   };
 })();
 

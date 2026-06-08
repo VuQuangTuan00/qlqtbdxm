@@ -16,7 +16,7 @@ const pool = new Pool({
   port:     parseInt(process.env.DB_PORT || '5432'),
   database: process.env.DB_NAME     || 'qlqtbdxm',
   user:     process.env.DB_USER     || 'qlqt_user',
-  password: process.env.DB_PASSWORD || '123456',
+  password: process.env.DB_PASSWORD || '111111',
   connectionTimeoutMillis: 5000,
 });
 
@@ -59,11 +59,12 @@ async function seed() {
 
     // ---- Đơn vị ----
     const units = [
-      { code: 'BTL-XM',   name: 'Bộ Tư lệnh Xe Máy',        parent: null },
-      { code: 'F309',     name: 'Quân đoàn 3',               parent: null },
-      { code: 'E1-F309',  name: 'Trung đoàn 1 - QĐ3',        parent: 'F309' },
-      { code: 'E2-F309',  name: 'Trung đoàn 2 - QĐ3',        parent: 'F309' },
-      { code: 'CO1-E1',   name: 'Đại đội 1 - Trung đoàn 1',  parent: 'E1-F309' },
+      { code: 'D1',   name: 'Tiểu Đoàn 1',        parent: null },
+      { code: 'D2',     name: 'Tiểu Đoàn 2',               parent: null },
+      { code: 'D3',  name: 'Tiểu Đoàn 3',        parent: null },
+      { code: 'HCKT',  name: 'Hậu Cần - Kỹ Thuật',        parent: null},
+      { code: 'CT',   name: 'Chính Trị',  parent: null },
+      { code: 'TM',   name: 'Tham Mưu',  parent: null },
     ];
 
     const unitIds = {};
@@ -102,12 +103,12 @@ async function seed() {
 
     // ---- Người dùng ----
     const users = [
-      { username: 'admin',       password: 'Admin@123',   full_name: 'Quản Trị Viên',            role: 'admin',      unit: 'BTL-XM' },
-      { username: 'chihuy01',    password: 'Pass@123',    full_name: 'Thiếu tá Nguyễn Văn An',   role: 'commander',  unit: 'F309' },
-      { username: 'thuchien1',   password: 'Pass@123',    full_name: 'Hạ sĩ Trần Văn Bình',     role: 'technician', unit: 'E1-F309' },
-      { username: 'thuchien2',   password: 'Pass@123',    full_name: 'Trung sĩ Lê Văn Cường',   role: 'technician', unit: 'E1-F309' },
-      { username: 'nghiemthu1',  password: 'Pass@123',    full_name: 'Trung úy Phạm Thị Dung',  role: 'inspector',  unit: 'F309' },
-      { username: 'baocao01',    password: 'Pass@123',    full_name: 'Hạ sĩ Hoàng Văn Em',      role: 'viewer',     unit: 'E2-F309' },
+      { username: 'admin',       password: '111111',   full_name: 'Quản Trị Viên',            role: 'admin',      unit: 'D1' },
+      { username: 'chihuy01',    password: '111111',    full_name: 'Thiếu tá Vũ Quang Tuấn',   role: 'commander',  unit: 'D2' },
+      { username: 'thuchien1',   password: '111111',    full_name: 'Hạ sĩ Nguyễn Đức Anh',     role: 'technician', unit: 'D3' },
+      { username: 'thuchien2',   password: '111111',    full_name: 'Trung úy Tạ Đỗ Tiến Đạt',   role: 'technician', unit: 'TM' },
+      { username: 'nghiemthu1',  password: '111111',    full_name: 'Trung úy Nguyễn Gia Anh',  role: 'inspector',  unit: 'HCKT' },
+      { username: 'baocao01',    password: '111111',    full_name: 'Hạ sĩ Phạm Văn Chiến',      role: 'viewer',     unit: 'CT' },
     ];
 
     const userIds = {};
@@ -125,14 +126,14 @@ async function seed() {
     const { rows: [{ n: userCount }] } = await client.query('SELECT COUNT(*) as n FROM users');
     console.log('[Seed] Người dùng:', userCount);
 
-    // ---- Trang bị ----
+    // ---- Trang bị ---- 
     const equipments = [
-      { code: 'XM-ZIL-001',  name: 'Xe ô tô ZIL-131',    model: 'ZIL-131',   sn: 'ZIL-001-2015',  year: 2015, unit: 'E1-F309', status: 'active' },
-      { code: 'XM-ZIL-002',  name: 'Xe ô tô ZIL-131',    model: 'ZIL-131',   sn: 'ZIL-002-2016',  year: 2016, unit: 'E1-F309', status: 'maintenance' },
-      { code: 'XM-BTR-001',  name: 'Xe bọc thép BTR-80', model: 'BTR-80',    sn: 'BTR-001-2018',  year: 2018, unit: 'CO1-E1', status: 'active' },
-      { code: 'XM-GAZ-001',  name: 'Xe ô tô GAZ-66',     model: 'GAZ-66',    sn: 'GAZ-001-2014',  year: 2014, unit: 'CO1-E1', status: 'active' },
-      { code: 'XM-URAL-001', name: 'Xe URAL-4320',       model: 'URAL-4320', sn: 'URAL-001-2019', year: 2019, unit: 'E2-F309', status: 'active' },
-      { code: 'XM-URAL-002', name: 'Xe URAL-4320',       model: 'URAL-4320', sn: 'URAL-002-2020', year: 2020, unit: 'E2-F309', status: 'inactive' },
+      { code: 'KAMAZ-65525',  name: 'Xe Tải KAMAZ 65525',    model: 'KAMAZ-65525',   sn: 'KAMAZ-65525-2015',  year: 2015, unit: 'D3', status: 'active' },
+      { code: 'MS-20S',  name: 'Xe Bắc Cầu MS-20S',    model: 'MS-20S',   sn: 'MS-20S-2016',  year: 2016, unit: 'HCKT', status: 'maintenance' },
+      { code: 'GSP-55',  name: 'Phà Vượt Sông GSP-55', model: 'GSP-55',    sn: 'GSP-55-2018',  year: 2018, unit: 'HCKT', status: 'active' },
+      { code: 'PMP',  name: 'Xe Cầu Phao PMP',     model: 'PMP',    sn: 'PMP-2014',  year: 2014, unit: 'HCKT', status: 'active' },
+      { code: 'PZM-2', name: 'Máy Đào Hào PZM-2',       model: 'PZM-2', sn: 'PZM-2-2019', year: 2019, unit: 'HCKT', status: 'active' },
+      { code: 'EOV-4421', name: 'Máy Xúc EOV-4421',       model: 'EOV-4421', sn: 'EOV-4421-2020', year: 2020, unit: 'HCKT', status: 'inactive' },
     ];
 
     const equipIds = {};
@@ -199,8 +200,8 @@ async function seed() {
     // ---- Kế hoạch mẫu (hoàn thành) ----
     const adminId = userIds['admin'];
     const cmdId   = userIds['chihuy01'];
-    const eq1Id   = equipIds['XM-ZIL-001'];
-    const eq2Id   = equipIds['XM-ZIL-002'];
+    const eq1Id   = equipIds['KAMAZ-65525'];
+    const eq2Id   = equipIds['PMP'];
 
     const { rows: [existPlan1] } = await client.query(
       `SELECT id FROM maintenance_plans WHERE plan_code = $1`, ['KH-202401-0001']
@@ -243,10 +244,7 @@ async function seed() {
 
     console.log('\n[Seed] Hoàn thành! Dữ liệu mẫu đã được tạo.');
     console.log('\nTài khoản đăng nhập:');
-    console.log('  admin      / Admin@123   (Quản trị viên)');
-    console.log('  chihuy01   / Pass@123    (Chỉ huy)');
-    console.log('  thuchien1  / Pass@123    (Thợ kỹ thuật)');
-    console.log('  nghiemthu1 / Pass@123    (Kiểm tra)\n');
+    console.log('  admin      / 1111111   (Quản trị viên)');
 
   } catch (err) {
     console.error('[Seed] Lỗi:', err.message);

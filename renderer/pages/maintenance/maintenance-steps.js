@@ -4,7 +4,7 @@
 'use strict';
 console.log("maintenance-steps loaded");
 /* ── Hằng số ── */
-const MAINT_TYPES = {
+const VT_MAINT_TYPES = {
   dinh_ky:  { label: 'Bảo dưỡng định kỳ',  icon: '🔧', badge: 'badge-info'    },
   dot_xuat: { label: 'Bảo dưỡng đột xuất', icon: '⚡', badge: 'badge-warning' },
   sua_chua: { label: 'Sửa chữa',            icon: '🔩', badge: 'badge-danger'  },
@@ -138,12 +138,12 @@ async function _loadVehicleGrid() {
 function _renderVehicleCard(vt) {
   const img = vt.image_url
     ? `<img src="${vt.image_url}" alt="${vt.type_name}"
-          style="width:100%;height:160px;object-fit:cover;border-radius:var(--border-radius-sm);" />`
+          style="width:100%;height:160px;object-fit:contain;border-radius:var(--border-radius-sm);" />`
     : `<div style="width:100%;height:160px;display:flex;align-items:center;justify-content:center;
             background:linear-gradient(135deg,var(--color-bg-elevated),var(--color-bg-highlight));
             border-radius:var(--border-radius-sm);font-size:64px;">🚗</div>`;
 
-  const stepBadges = Object.entries(MAINT_TYPES).map(([k, v]) => `
+  const stepBadges = Object.entries(VT_MAINT_TYPES).map(([k, v]) => `
     <span class="badge ${v.badge}" style="font-size:10px;">${v.icon} ${vt[`steps_${k}`] || ''}</span>
   `).join('');
 
@@ -246,13 +246,13 @@ async function _renderDetailPage(container, vt, activeMaintType, onTabChange) {
 
   const img = vt.image_url
     ? `<img src="${vt.image_url}" alt="${vt.type_name}"
-            style="width:100%;height:220px;object-fit:cover;border-radius:var(--border-radius);" />`
+            style="width:100%;height:220px;object-fit:contain;border-radius:var(--border-radius);" />`
     : `<div style="width:100%;height:220px;display:flex;align-items:center;justify-content:center;
                background:linear-gradient(135deg,var(--color-bg-elevated),var(--color-bg-highlight));
                border-radius:var(--border-radius);font-size:80px;">🚗</div>`;
 
   const stepsByType = {};
-  Object.keys(MAINT_TYPES).forEach((t) => {
+  Object.keys(VT_MAINT_TYPES).forEach((t) => {
     stepsByType[t] = allSteps.filter((s) => s.maintenance_type === t);
   });
 
@@ -293,7 +293,7 @@ async function _renderDetailPage(container, vt, activeMaintType, onTabChange) {
             <div style="margin-top:var(--space-4);">
               ${vt.description ? `<p class="text-sm" style="color:var(--text-secondary);margin-bottom:var(--space-3);">${vt.description}</p>` : ''}
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);">
-                ${Object.entries(MAINT_TYPES).map(([k, v]) => `
+                ${Object.entries(VT_MAINT_TYPES).map(([k, v]) => `
                   <div style="text-align:center;padding:var(--space-2);background:var(--bg-table-header);border-radius:var(--border-radius-sm);">
                     <div class="fw-bold" style="font-size:20px;color:var(--color-gold);">${stepsByType[k].length}</div>
                     <div class="text-xs text-muted">${v.icon} ${v.label.replace('Bảo dưỡng ','')}</div>
@@ -332,7 +332,7 @@ async function _renderDetailPage(container, vt, activeMaintType, onTabChange) {
       <div class="card">
         <div class="card-header" style="padding:0 var(--space-5);border-bottom:none;">
           <div class="tabs" style="margin-bottom:0;border-bottom:1px solid var(--border-color);">
-            ${Object.entries(MAINT_TYPES).map(([k, v]) => `
+            ${Object.entries(VT_MAINT_TYPES).map(([k, v]) => `
               <button class="tab-btn ${k === activeMaintType ? 'active' : ''}"
                 data-mtype="${k}"
                 style="display:flex;align-items:center;gap:5px;">
@@ -699,7 +699,7 @@ function openStepForm(step, vehicleTypeId, defaultMaintType, onSave) {
       <div class="form-group">
         <label class="form-label required">Loại bảo dưỡng</label>
         <select class="form-control" id="sf-mtype" ${isEdit ? 'disabled' : ''}>
-          ${Object.entries(MAINT_TYPES).map(([k, v]) =>
+          ${Object.entries(VT_MAINT_TYPES).map(([k, v]) =>
             `<option value="${k}" ${(step?.maintenance_type || defaultMaintType) === k ? 'selected' : ''}>${v.icon} ${v.label}</option>`
           ).join('')}
         </select>
@@ -812,3 +812,6 @@ router.register('vehicle-detail', {
   title: 'Chi Tiết Loại Xe',
   render: (container, params) => renderVehicleDetail(container, params),
 });
+if (typeof api !== 'undefined' && !api.invoke) {
+  api.invoke = (channel, args) => window.electronAPI.invoke(channel, args);
+}
