@@ -135,8 +135,8 @@ td .cell-sub { font-size: var(--font-size-xs); color: var(--text-secondary); mar
   animation: slideUp 0.2s ease;
   overflow: hidden;
 }
-.modal-sm { max-width: 400px; }
-.modal-lg { max-width: 800px; }
+.modal-sm { max-width: 1000px; }
+.modal-lg { max-width: 1000px; }
 .modal-xl { max-width: 1000px; }
 
 .modal-header {

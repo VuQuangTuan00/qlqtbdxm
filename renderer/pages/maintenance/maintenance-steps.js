@@ -144,7 +144,7 @@ function _renderVehicleCard(v) {
   const src = _imgSrc(v.img_path);
   const img = src
     ? `<img src="${src}" alt="${v.vehicle_name}" data-has-fallback
-           style="width:100%;height:160px;object-fit:contain;border-radius:var(--border-radius-sm);" />
+           style="width:100%;height:260px;object-fit:contain;border-radius:var(--border-radius-sm);" />
        <div style="display:none;width:100%;height:160px;align-items:center;justify-content:center;
            background:linear-gradient(135deg,var(--color-bg-elevated),var(--color-bg-highlight));
            border-radius:var(--border-radius-sm);font-size:64px;">🚗</div>`
@@ -584,7 +584,7 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
     });
   } else {
     if (!_isAdmin()) {
-      toast.warning('Không có quyền', 'Chỉ admin mới có thể upload file PDF');
+      toast.warning('Không có file', 'Hãy truy cập sau');
       return;
     }
     openUploadForm(item, activeTab, onRefresh);
