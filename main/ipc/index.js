@@ -15,7 +15,7 @@ function registerAllIpcHandlers() {
     require('./acceptance.ipc'),
     require('./report.ipc'),
     require('./db-config.ipc'),
-    require('./vehicle-type.ipc'),
+    require('./vehicle.ipc'),
   ];
 
   for (const mod of modules) {

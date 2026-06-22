@@ -4,7 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" />
+    content="default-src 'self';
+             script-src 'self' https://cdnjs.cloudflare.com;
+             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+             font-src 'self' https://fonts.gstatic.com;
+             img-src 'self' data: file:;
+             worker-src blob:;
+             object-src blob:;" />
   <title>QLQT Bảo Dưỡng Xe Máy Quân Đội</title>
   <link rel="stylesheet" href="assets/css/variables.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
@@ -23,6 +29,7 @@
   <div class="login-card">
 
     <!-- Panel trái: Form đăng nhập -->
+     <!-- <img src="assets/images/logo.png" alt="Logo" class="login-logo" style="object-fit:contain;" /> -->
     <div class="login-panel-left">
       <div class="login-icon">🛡️</div>
       <h2 class="login-title">ĐĂNG NHẬP</h2>
@@ -90,7 +97,7 @@
         
         <a class="nav-item" data-route="maintenance-steps" href="#">
           <span class="nav-item-icon">⚙️</span>
-          <span class="nav-item-label">QUY TRÌNH CÔNG NGHỆ</span>
+          <span class="nav-item-label">DANH SÁCH TRANG BỊ</span>
         </a>
       </div>
 
@@ -161,6 +168,7 @@
 <script src="pages/maintenance/plan-list.js"></script>
 <script src="pages/maintenance/plan-detail.js"></script>
 <script src="pages/reports/report.js"></script>
+<script src="js/components/pdf-preview-modal.js"></script>
 <script src="pages/maintenance/maintenance-steps.js"></script>
 <script src="pages/settings/settings.js"></script>
 </body>

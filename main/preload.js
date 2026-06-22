@@ -71,17 +71,26 @@ const ALLOWED_INVOKE_CHANNELS = [
   'dbconfig:set',
   'dbconfig:test',
 
-  // Vehicle Types & Steps
+  // Vehicle & Engine Maintenance (kiến trúc mới)
+  'vehicle:list',
+  'vehicle:get',
+  'vehicle:create',
+  'vehicle:update',
+  'vehicle:delete',
+  'engineMaintenance:list',
+  'engineMaintenance:create',
+  'engineMaintenance:update',
+  'engineMaintenance:delete',
+  'engineMaintenance:reorder',
+  'engineMaintenance:uploadFile',
+  'engineMaintenance:deleteFile',
+  'engineMaintenance:readFile',
+
+  // Vehicle Type
   'vehicleType:list',
-  'vehicleType:get',
   'vehicleType:create',
   'vehicleType:update',
   'vehicleType:delete',
-  'vehicleStep:list',
-  'vehicleStep:create',
-  'vehicleStep:update',
-  'vehicleStep:delete',
-  'vehicleStep:reorder',
 ];
 
 /**

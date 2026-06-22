@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check main/repositories/vehicle.repository.js)",
+      "Bash(node --check main/repositories/engine-maintenance.repository.js)",
+      "Bash(node --check main/services/vehicle.service.js)",
+      "Bash(node --check main/ipc/vehicle.ipc.js)",
+      "Bash(node --check main/ipc/index.js)",
+      "Bash(node --check renderer/js/router.js)",
+      "Bash(node --check renderer/js/auth.js)",
+      "Bash(grep -rn \"manufacturer\\\\|origin_country\\\\|created_by\\\\|updated_at\\\\|created_at\\\\|uploadedBy\\\\|uploadedAt\\\\|uploaded_by\\\\|uploaded_at\\\\|vf-manufacturer\\\\|vf-country\\\\|vf-desc\" main/repositories/ main/services/vehicle.service.js renderer/pages/maintenance/maintenance-steps.js)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(node --check main/repositories/vehicle-type.repository.js)",
+      "Bash(node --check main/preload.js)",
+      "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\repositories\\\\vehicle.repository.js\")",
+      "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\repositories\\\\vehicle-type.repository.js\")",
+      "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\services\\\\vehicle.service.js\")",
+      "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\ipc\\\\vehicle.ipc.js\")"
+    ]
+  }
+}

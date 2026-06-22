@@ -1,5 +1,9 @@
 -- ============================================================
 -- Migration 002: Loại xe và quy trình bảo dưỡng riêng từng xe
+-- Nội dung: tạo vehicle_types, vehicle_maintenance_steps (kiến trúc cũ)
+-- ĐÃ ĐƯỢC THAY THẾ bởi 003_vehicle_engine_maintenance.sql (kiến trúc mới)
+-- 004_cleanup_old_vehicle_schema.sql sẽ DROP các bảng này sau khi migrate
+-- KHÔNG đổi tên file này vì cơ chế runMigrations() theo dõi theo filename
 -- ============================================================
 
 -- --------------------------------

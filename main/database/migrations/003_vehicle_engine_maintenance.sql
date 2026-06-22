@@ -11,13 +11,7 @@ CREATE TABLE IF NOT EXISTS vehicle (
     vehicle_name    VARCHAR(200) NOT NULL,
     img_name        VARCHAR(255),
     img_path        TEXT,
-    description     TEXT,
-    manufacturer    VARCHAR(100),
-    origin_country  VARCHAR(100),
-    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
-    created_by      INTEGER REFERENCES users(id),
-    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- --------------------------------
@@ -32,17 +26,18 @@ CREATE TABLE IF NOT EXISTS engine_maintenance (
 
     tech_process_file_name  VARCHAR(255),
     tech_process_file_path  TEXT,
-    tech_process_uploaded_by INTEGER REFERENCES users(id),
-    tech_process_uploaded_at TIMESTAMP,
 
     norm_ktkt_file_name     VARCHAR(255),
-    norm_ktkt_file_path     TEXT,
-    norm_ktkt_uploaded_by   INTEGER REFERENCES users(id),
-    norm_ktkt_uploaded_at   TIMESTAMP,
+    norm_ktkt_file_path     TEXT
+);
 
-    created_by      INTEGER REFERENCES users(id),
-    created_at      TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMP NOT NULL DEFAULT NOW()
+-- --------------------------------
+-- Loại hình trang bị (vehicle_type)
+-- --------------------------------
+CREATE TABLE IF NOT EXISTS vehicle_type (
+    vehicle_type_id   SERIAL PRIMARY KEY,
+    vehicle_id        INTEGER NOT NULL REFERENCES vehicle(vehicle_id) ON DELETE CASCADE,
+    vehicle_type_name VARCHAR(200) NOT NULL
 );
 
 -- --------------------------------
@@ -58,6 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_vehicle_active            ON vehicle(is_active);
 CREATE INDEX IF NOT EXISTS idx_engine_maint_vehicle       ON engine_maintenance(vehicle_id);
 CREATE INDEX IF NOT EXISTS idx_engine_maint_order         ON engine_maintenance(vehicle_id, display_order);
 CREATE INDEX IF NOT EXISTS idx_equipments_vehicle         ON equipments(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_vehicle_type_vehicle       ON vehicle_type(vehicle_id);
 
 -- --------------------------------
 -- Migrate dữ liệu cũ từ vehicle_types / vehicle_maintenance_steps
@@ -68,8 +64,8 @@ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'vehicle_types') THEN
 
     -- Copy loại xe cũ sang bảng vehicle mới
-    INSERT INTO vehicle (vehicle_name, img_path, description, manufacturer, origin_country, is_active, created_by, created_at)
-    SELECT type_name, image_url, description, manufacturer, origin_country, is_active, created_by, created_at
+    INSERT INTO vehicle (vehicle_name, img_path, is_active)
+    SELECT type_name, image_url, is_active
     FROM vehicle_types
     ON CONFLICT DO NOTHING;
 
@@ -83,11 +79,10 @@ BEGIN
     -- Gộp các bước quy trình cũ (theo maintenance_type) thành hạng mục đơn giản
     -- Mỗi step cũ trở thành 1 hạng mục (không có file — cần admin upload lại)
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'vehicle_maintenance_steps') THEN
-      INSERT INTO engine_maintenance (vehicle_id, maintenance_name, display_order, created_at)
+      INSERT INTO engine_maintenance (vehicle_id, maintenance_name, display_order)
       SELECT v.vehicle_id,
              vms.step_name || ' (' || vms.maintenance_type || ')',
-             vms.step_order,
-             vms.created_at
+             vms.step_order
       FROM vehicle_maintenance_steps vms
       JOIN vehicle_types vt ON vt.id = vms.vehicle_type_id
       JOIN vehicle v ON v.vehicle_name = vt.type_name
@@ -109,12 +104,12 @@ BEGIN
   SELECT COUNT(*) INTO cnt FROM vehicle;
   IF cnt = 0 THEN
 
-    INSERT INTO vehicle (vehicle_name, description, manufacturer, origin_country)
-    VALUES ('Xe ô tô ZIL-131', 'Xe tải quân sự 3 cầu chủ động, tải trọng 3.5 tấn', 'ZIL', 'Liên Xô')
+    INSERT INTO vehicle (vehicle_name)
+    VALUES ('Xe ô tô ZIL-131')
     RETURNING vehicle_id INTO v_zil;
 
-    INSERT INTO vehicle (vehicle_name, description, manufacturer, origin_country)
-    VALUES ('Xe bọc thép chở quân BTR-80', 'Xe bọc thép bánh lốp 8x8, chở 7 lính chiến đấu', 'GAZ', 'Nga')
+    INSERT INTO vehicle (vehicle_name)
+    VALUES ('Xe bọc thép chở quân BTR-80')
     RETURNING vehicle_id INTO v_btr;
 
     INSERT INTO engine_maintenance (vehicle_id, maintenance_name, display_order) VALUES

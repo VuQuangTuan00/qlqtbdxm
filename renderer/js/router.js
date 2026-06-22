@@ -26,7 +26,6 @@ const router = (() => {
    */
   function navigate(name, params = {}) {
     const route = _routes[name];
-    console.log(`[Router] Navigating to: ${name}`, params);
     if (!route) {
       console.warn(`[Router] Route không tìm thấy: ${name}`);
       return;
