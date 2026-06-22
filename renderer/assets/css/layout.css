@@ -188,10 +188,7 @@ body::before {
 /* Icon */
 .login-icon {
   font-size: 28px;
-  color: #c9a84c;
-  margin-bottom: 10px;
-  /* Replace emoji with shield look */
-  line-height: 1;
+ text-align: center;
 }
 
 /* Title */
@@ -470,14 +467,16 @@ body::before {
 }
 
 .sidebar-brand {
-  display: flex;
   align-items: center;
   gap: 10px;
   padding: 18px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   flex-shrink: 0;
 }
-.sidebar-brand-icon { font-size: 22px; }
+.sidebar-brand-icon { 
+  font-size: 22px;
+  text-align:center;
+}
 .sidebar-brand-title {
   font-family: 'Oswald', sans-serif;
   font-size: 13px;
@@ -486,11 +485,15 @@ body::before {
   letter-spacing: 1px;
   text-transform: uppercase;
   line-height: 1.2;
+  text-align: center;
+  margin-bottom:5px
 }
 .sidebar-brand-subtitle {
-  font-size: 10px;
-  color: var(--sidebar-text-muted, #5a7a5a);
+  font-size: 15px;
+  color: #bdb900;
   letter-spacing: 0.5px;
+  text-align: center;
+  font-weight: 800;
 }
 
 .sidebar-nav {
