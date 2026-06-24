@@ -1,0 +1,19 @@
+1. Mở SQL Shell (psql) và chạy:
+CREATE USER qlqt_user WITH PASSWORD '123456';
+CREATE DATABASE qlqtbdxm OWNER qlqt_user;
+GRANT ALL PRIVILEGES ON DATABASE qlqtbdxm TO qlqt_user;
+
+2. QLQT Bảo Dưỡng XM Setup.exe
+Chuột phải → Run as administrator
+Cài xong → KHÔNG mở vội
+
+3.C:\Users\<TênUser>\AppData\Local\QLQT Bảo Dưỡng XM
+Tạo file .env với nội dung:
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=matkhau_postgres
+DB_NAME=qlqtbdxm
+
+4. Chuột phải icon → Run as administrator
+

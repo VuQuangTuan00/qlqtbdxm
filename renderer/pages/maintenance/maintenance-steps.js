@@ -26,6 +26,13 @@ function _wireImgFallbacks(container) {
    ROUTE: maintenance-steps — Grid danh sách xe
    ════════════════════════════════════════════════════════════ */
 async function renderMaintenanceSteps(container) {
+  const resTypes = await window.electronAPI.invoke('vehicleType:list');
+  const typeList = (resTypes.success ? resTypes.data : []);
+
+  const typeOptions = typeList.map(
+    (t) => `<option value="${t.vehicle_type_id}">${t.vehicle_type_name}</option>`
+  ).join('');
+
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
@@ -36,7 +43,19 @@ async function renderMaintenanceSteps(container) {
 
     <div class="filter-bar" style="margin-bottom:var(--space-5);">
       <input type="text" class="form-control search-input" id="v-search"
-        placeholder="🔍 Tìm theo tên xe..." />
+        placeholder="🔍 Tìm theo tên xe..." style="min-width:220px;" />
+
+      <select class="form-control" id="v-type" style="min-width:160px;">
+        <option value="">Tất cả loại hình</option>
+        <option value="none">— Chưa phân loại</option>
+        ${typeOptions}
+      </select>
+
+      <select class="form-control" id="v-sort" style="min-width:160px;">
+        <option value="files">Dữ liệu đã có file</option>
+        <option value="name">Sắp xếp A → Z</option>
+      </select>
+
       ${_isAdmin() ? `
         <button class="btn btn-outline btn-sm" id="btn-manage-types">🏷️ Loại hình</button>
         <button class="btn btn-primary" id="btn-add-vehicle">+ Thêm xe</button>
@@ -61,6 +80,9 @@ async function renderMaintenanceSteps(container) {
     timer = setTimeout(_loadVehicleGrid, 400);
   });
 
+  document.getElementById('v-type').addEventListener('change', _loadVehicleGrid);
+  document.getElementById('v-sort').addEventListener('change', _loadVehicleGrid);
+
   if (_isAdmin()) {
     document.getElementById('btn-manage-types').addEventListener('click', () => openVehicleTypeManager());
     document.getElementById('btn-add-vehicle').addEventListener('click', () => openVehicleForm(null));
@@ -71,11 +93,15 @@ async function _loadVehicleGrid() {
   const grid = document.getElementById('vehicle-grid');
   if (!grid) return;
 
-  const search = document.getElementById('v-search')?.value || '';
+  const search  = document.getElementById('v-search')?.value || '';
+  const typeRaw = document.getElementById('v-type')?.value   || '';
+  const sort    = document.getElementById('v-sort')?.value   || 'files';
 
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;"><div class="spinner"></div></div>`;
 
-  const opts = { search, isActive: true };
+  const opts = { search, isActive: true, sort };
+  if (typeRaw === 'none')  opts.typeId = 'none';
+  else if (typeRaw)        opts.typeId = parseInt(typeRaw);
 
   const res = await window.electronAPI.invoke('vehicle:list', opts);
   if (!res.success) {
@@ -498,9 +524,9 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
     ? `<span class="badge badge-success" style="font-size:10px;">📄 Có file</span>`
     : `<span class="badge badge-warning" style="font-size:10px;">⚠️ Chưa có file</span>`;
 
-  const fileInfo = hasFile
-    ? `<div class="text-xs text-muted" style="margin-top:2px;">📎 ${fileName}</div>`
-    : '';
+  // const fileInfo = hasFile
+  //   ? `<div class="text-xs text-muted" style="margin-top:2px;">📎 ${fileName}</div>`
+  //   : '';
 
   const editBtns = (editMode && _isAdmin()) ? `
     <div class="bar-actions" style="display:flex;flex-direction:column;gap:3px;margin-left:var(--space-2);">
@@ -538,7 +564,6 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
           <span class="fw-medium" style="color:var(--text-heading);">${item.maintenance_name}</span>
           ${fileBadge}
         </div>
-        ${fileInfo}
       </div>
 
       ${editBtns}

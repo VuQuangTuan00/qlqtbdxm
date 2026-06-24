@@ -13,7 +13,7 @@ function register() {
   ipcMain.handle('dbconfig:get', async () => {
     try {
       const config = getDbConfig();
-      return response.success({
+      return response.ok({
         host: config.host,
         port: config.port,
         database: config.database,
@@ -22,7 +22,7 @@ function register() {
       });
     } catch (err) {
       logger.error('[DBConfig] Lỗi đọc config:', err);
-      return response.error(err.message);
+      return response.fail(err.message);
     }
   });
 
@@ -36,10 +36,10 @@ function register() {
         app.relaunch();
         app.exit(0);
       }, 500);
-      return response.success({ message: 'Đã lưu, đang khởi động lại ứng dụng...' });
+      return response.ok({ message: 'Đã lưu, đang khởi động lại ứng dụng...' });
     } catch (err) {
       logger.error('[DBConfig] Lỗi lưu config:', err);
-      return response.error(err.message);
+      return response.fail(err.message);
     }
   });
 
@@ -64,14 +64,14 @@ function register() {
       const latency = Date.now() - start;
       const version = rows[0]?.version?.split(' ').slice(0, 2).join(' ') || 'PostgreSQL';
       logger.info(`[DBConfig] Test kết nối thành công: ${config.host}:${config.port} (${latency}ms)`);
-      return response.success({
+      return response.ok({
         message: `Kết nối thành công! ${version}`,
         latency,
       });
     } catch (err) {
       try { await testPool.end(); } catch (_) {}
       logger.warn(`[DBConfig] Test kết nối thất bại: ${err.message}`);
-      return response.error(`Kết nối thất bại: ${err.message}`);
+      return response.fail(`Kết nối thất bại: ${err.message}`);
     }
   });
 }

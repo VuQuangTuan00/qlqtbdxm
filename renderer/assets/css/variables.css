@@ -1,84 +1,84 @@
 /* ============================================================
-   Biến CSS - Theme quân sự tối (Dark Military + Gold)
+   Biến CSS - Theme Light Military
    ============================================================ */
 
 :root {
-  /* --- Palette nền sáng --- */
+  /* --- Palette nền --- */
   --color-bg-deepest:       #070f07;
   --color-bg-deep:          #0a1a0a;
-  --color-bg-base:          #f4f6f4;
-  --color-bg-raised:        #eef3ee;
-  --color-bg-elevated:      #e4ede4;
-  --color-bg-highlight:     #d8e8d8;
+  --color-bg-base:          #f0f4ec;
+  --color-bg-raised:        #f8faf6;
+  --color-bg-elevated:      #f3f4f6;
+  --color-bg-highlight:     #e5e7eb;
 
-  /* --- Gold accent --- */
-  --color-gold:             #c8a140;
-  --color-gold-light:       #ddb84e;
-  --color-gold-dim:         #a07830;
-  --color-gold-glow:        rgba(200, 161, 64, 0.18);
-  --color-gold-border:      rgba(200, 161, 64, 0.35);
+  /* --- Olive accent (thay Gold) --- */
+  --color-gold:             #4a7c59;
+  --color-gold-light:       #5a8f6a;
+  --color-gold-dim:         #3a6347;
+  --color-gold-glow:        rgba(74,124,89,0.12);
+  --color-gold-border:      rgba(74,124,89,0.25);
 
   /* --- Sidebar --- */
-  --sidebar-bg:             #0a1a0a;
-  --sidebar-hover:          #183018;
-  --sidebar-active:         #1e4020;
-  --sidebar-active-bar:     var(--color-gold);
-  --sidebar-text:           #c0d4b8;
-  --sidebar-text-muted:     #5a7a5a;
-  --sidebar-border:         rgba(255,255,255,0.05);
-  --sidebar-width:          240px;
+  --sidebar-bg:             #ffffff;
+  --sidebar-hover:          #f3f4f6;
+  --sidebar-active:         #1a1a1a;
+  --sidebar-active-bar:     transparent;
+  --sidebar-text:           #374151;
+  --sidebar-text-muted:     #9ca3af;
+  --sidebar-border:         rgba(0,0,0,0.06);
+  --sidebar-width:          200px;
   --sidebar-width-collapsed:64px;
 
   /* --- Nền ứng dụng --- */
-  --bg-body:                #f4f6f4;
+  --bg-body:                #f0f4ec;
   --bg-card:                #ffffff;
-  --bg-header:              #0f1f0f;
-  --bg-table-header:        #f0f4ef;
-  --bg-table-row-alt:       #f8fbf7;
+  --bg-header:              #ffffff;
+  --bg-table-header:        #f8faf6;
+  --bg-table-row-alt:       #fafcf8;
   --bg-input:               #ffffff;
 
   /* --- Text --- */
-  --text-primary:           #1a2e1a;
-  --text-secondary:         #4a6a4a;
-  --text-muted:             #8a9a8a;
+  --text-primary:           #1a1a1a;
+  --text-secondary:         #6b7280;
+  --text-muted:             #9ca3af;
   --text-inverse:           #ffffff;
-  --text-heading:           #0f2010;
-  --text-gold:              var(--color-gold);
-  --text-link:              var(--color-gold);
+  --text-heading:           #111827;
+  --text-gold:              #4a7c59;
+  --text-link:              #4a7c59;
 
   /* --- Trạng thái --- */
-  --color-success:          #3cb86a;
-  --color-success-bg:       rgba(60, 184, 106, 0.14);
-  --color-success-text:     #68d898;
-  --color-warning:          #d49830;
-  --color-warning-bg:       rgba(212, 152, 48, 0.14);
-  --color-warning-text:     #f0b840;
-  --color-danger:           #d85050;
-  --color-danger-bg:        rgba(216, 80, 80, 0.14);
-  --color-danger-text:      #f08888;
-  --color-info:             #3a88cc;
-  --color-info-bg:          rgba(58, 136, 204, 0.14);
-  --color-info-text:        #68aee8;
-  --color-neutral:          #607060;
-  --color-neutral-bg:       rgba(96, 112, 96, 0.14);
-  --color-neutral-text:     #90a890;
+  --color-success:          #16a34a;
+  --color-success-bg:       #dcfce7;
+  --color-success-text:     #15803d;
+  --color-warning:          #d97706;
+  --color-warning-bg:       #fef3c7;
+  --color-warning-text:     #b45309;
+  --color-danger:           #dc2626;
+  --color-danger-bg:        #fee2e2;
+  --color-danger-text:      #b91c1c;
+  --color-info:             #2563eb;
+  --color-info-bg:          #dbeafe;
+  --color-info-text:        #1d4ed8;
+  --color-neutral:          #6b7280;
+  --color-neutral-bg:       #f3f4f6;
+  --color-neutral-text:     #4b5563;
 
   /* --- Border --- */
-  --border-color:           #ccd8cc;
-  --border-color-dark:      #aabcaa;
-  --border-radius-sm:       4px;
-  --border-radius:          8px;
-  --border-radius-lg:       12px;
-  --border-radius-xl:       16px;
+  --border-color:           rgba(0,0,0,0.07);
+  --border-color-dark:      rgba(0,0,0,0.12);
+  --border-radius-sm:       8px;
+  --border-radius:          12px;
+  --border-radius-lg:       16px;
+  --border-radius-xl:       20px;
 
   /* --- Shadow --- */
-  --shadow-sm:              0 1px 3px rgba(0,0,0,0.4);
-  --shadow:                 0 2px 6px rgba(0,0,0,0.5);
-  --shadow-md:              0 4px 12px rgba(0,0,0,0.5);
-  --shadow-lg:              0 12px 32px rgba(0,0,0,0.6);
+  --shadow-sm:              0 1px 3px rgba(0,0,0,0.06);
+  --shadow:                 0 2px 8px rgba(0,0,0,0.07);
+  --shadow-md:              0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg:              0 8px 24px rgba(0,0,0,0.10);
 
   /* --- Typography --- */
-  --font-family:            'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-family:            'Inter', system-ui, -apple-system, sans-serif;
   --font-size-xs:           11px;
   --font-size-sm:           12px;
   --font-size-base:         14px;

@@ -1,18 +1,15 @@
 'use strict';
 
-const { app, ipcMain } = require('electron');
+const { app, ipcMain, shell } = require('electron');
 const path = require('path');
 
-
-// Load env
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const logger = require('./utils/logger');
-const { initDatabase, closeDatabase } = require('./database/index');
+const { initDatabase, closeDatabase, getDbConfig } = require('./database/index');
 const { createMainWindow } = require('./window-manager');
 const registerAllIpcHandlers = require('./ipc/index');
 
-// Đơn instance
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
@@ -24,19 +21,31 @@ let mainWindow = null;
 app.whenReady().then(async () => {
   logger.info('[App] Khởi động ứng dụng QLQT Bảo Dưỡng Xe Máy...');
 
+  // db-config handlers không cần DB — đăng ký trước để màn hình setup hoạt động
+  require('./ipc/db-config.ipc').register();
+
+  let dbError = null;
   try {
     await initDatabase();
     logger.info('[App] Database đã sẵn sàng');
+    registerAllIpcHandlers();
+    logger.info('[App] IPC handlers đã đăng ký');
   } catch (err) {
     logger.error('[App] Lỗi khởi tạo database:', err);
-    app.quit();
-    return;
+    dbError = err.message;
   }
 
-  registerAllIpcHandlers();
-  logger.info('[App] IPC handlers đã đăng ký');
-
   mainWindow = createMainWindow();
+
+  if (dbError) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      const cfg = getDbConfig();
+      mainWindow.webContents.send('app:db-setup', {
+        error: dbError,
+        config: { host: cfg.host, port: cfg.port, database: cfg.database, user: cfg.user },
+      });
+    });
+  }
 
   app.on('activate', () => {
     if (!mainWindow || mainWindow.isDestroyed()) {

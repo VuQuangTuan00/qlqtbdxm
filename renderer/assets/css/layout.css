@@ -22,7 +22,7 @@
   box-shadow: var(--shadow-sm);
   transition: border-color var(--transition-fast);
 }
-.stat-card:hover { border-color: var(--color-gold-border); }
+.stat-card:hover { box-shadow: var(--shadow-md); }
 .stat-card-label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -455,9 +455,9 @@ body::before {
 
 /* Sidebar */
 #sidebar {
-  width: var(--sidebar-width, 240px);
-  background: var(--sidebar-bg, #0a1a0a);
-  border-right: 1px solid rgba(255,255,255,0.05);
+  width: var(--sidebar-width, 200px);
+  background: var(--sidebar-bg, #ffffff);
+  border-right: 1px solid rgba(0,0,0,0.07);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -470,7 +470,7 @@ body::before {
   align-items: center;
   gap: 10px;
   padding: 18px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(0,0,0,0.07);
   flex-shrink: 0;
 }
 .sidebar-brand-icon { 
@@ -480,9 +480,9 @@ body::before {
 .sidebar-brand-title {
   font-family: 'Oswald', sans-serif;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--color-gold, #c8a140);
-  letter-spacing: 1px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   line-height: 1.2;
   text-align: center;
@@ -490,7 +490,7 @@ body::before {
 }
 .sidebar-brand-subtitle {
   font-size: 15px;
-  color: #bdb900;
+  color: #374151;
   letter-spacing: 0.5px;
   text-align: center;
   font-weight: 800;
@@ -514,31 +514,32 @@ body::before {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 16px;
-  color: var(--sidebar-text, #c0d4b8);
+  padding: 9px 12px;
+  margin: 1px 8px;
+  border-radius: 10px;
+  color: var(--sidebar-text, #374151);
   font-size: 12px;
   font-weight: 500;
   text-decoration: none;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   transition: all 0.15s;
-  border-left: 2px solid transparent;
+  border-left: none;
   cursor: pointer;
 }
 .nav-item:hover {
-  background: var(--sidebar-hover, #183018);
-  color: var(--color-gold-light, #ddb84e);
+  background: var(--sidebar-hover, #f3f4f6);
+  color: #1a1a1a;
   text-decoration: none;
 }
 .nav-item.active {
-  background: var(--sidebar-active, #1e4020);
-  color: var(--color-gold, #c8a140);
-  border-left-color: var(--sidebar-active-bar, #c8a140);
+  background: var(--sidebar-active, #1a1a1a);
+  color: #ffffff;
 }
 .nav-item-icon { font-size: 15px; flex-shrink: 0; }
 .nav-item-label { font-family: 'Oswald', sans-serif; letter-spacing: 1px; font-size: 11px; }
 
 .sidebar-footer {
-  border-top: 1px solid rgba(255,255,255,0.05);
+  border-top: 1px solid rgba(0,0,0,0.07);
   padding: 12px;
   flex-shrink: 0;
 }
@@ -551,26 +552,26 @@ body::before {
   cursor: pointer;
   transition: background 0.15s;
 }
-.sidebar-user:hover { background: var(--sidebar-hover, #183018); }
+.sidebar-user:hover { background: var(--sidebar-hover, #f3f4f6); }
 .sidebar-user-avatar {
   width: 32px; height: 32px;
   border-radius: 50%;
-  background: var(--color-gold-glow, rgba(200,161,64,0.18));
-  border: 1px solid var(--color-gold-border, rgba(200,161,64,0.35));
+  background: #f3f4f6;
+  border: 1px solid rgba(0,0,0,0.08);
   display: flex; align-items: center; justify-content: center;
   font-size: 13px;
-  color: var(--color-gold, #c8a140);
+  color: #374151;
   font-weight: 700;
   flex-shrink: 0;
 }
 .sidebar-user-name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--sidebar-text, #c0d4b8);
+  color: var(--sidebar-text, #374151);
 }
 .sidebar-user-role {
   font-size: 10px;
-  color: var(--sidebar-text-muted, #5a7a5a);
+  color: var(--sidebar-text-muted, #9ca3af);
 }
 
 /* Main content */
@@ -579,13 +580,13 @@ body::before {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--bg-body, #f4f6f4);
+  background: var(--bg-body, #f0f4ec);
 }
 
 #topbar {
   height: 52px;
-  background: var(--bg-header, #0f1f0f);
-  border-bottom: 1px solid rgba(201,168,76,0.15);
+  background: var(--bg-header, #ffffff);
+  border-bottom: 1px solid rgba(0,0,0,0.07);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -596,10 +597,9 @@ body::before {
 .topbar-title {
   font-family: 'Oswald', sans-serif;
   font-size: 14px;
-  font-weight: 600;
-  color: var(--color-gold, #c8a140);
-  letter-spacing: 2px;
-  text-transform: uppercase;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0;
 }
 .topbar-actions { display: flex; align-items: center; gap: 10px; }
 

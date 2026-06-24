@@ -89,6 +89,7 @@ async function updateVehicle(id, data, userId) {
   if (vehicle_name    !== undefined) updateData.vehicle_name    = vehicle_name.trim();
   if (is_active       !== undefined) updateData.is_active       = is_active;
   if (vehicle_type_id !== undefined) updateData.vehicle_type_id = vehicle_type_id || null;
+  updateData.updated_at = new Date();
 
   if (remove_img) {
     _deleteFile(existing.img_path);

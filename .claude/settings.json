@@ -15,7 +15,19 @@
       "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\repositories\\\\vehicle.repository.js\")",
       "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\repositories\\\\vehicle-type.repository.js\")",
       "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\services\\\\vehicle.service.js\")",
-      "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\ipc\\\\vehicle.ipc.js\")"
+      "Bash(node --check \"c:\\\\LuDoan279\\\\QuanLyQuyTrinhBaoDuognXeMay\\\\main\\\\ipc\\\\vehicle.ipc.js\")",
+      "PowerShell(& \"C:\\\\Program Files\\\\PostgreSQL\\\\18\\\\bin\\\\psql.exe\" -U qlqt_user -d qlqtbdxm -h 127.0.0.1 -p 5432 -c \"SELECT 1;\" 2>&1)",
+      "Read(//c/Program Files/**)",
+      "PowerShell(netstat -ano)",
+      "PowerShell(\\(Get-Command psql -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell(& \"C:\\\\Tools\\\\PostgreSQL\\\\bin\\\\psql.exe\" -U qlqt_user -d qlqtbdxm -h 127.0.0.1 -p 5432 -c \"SELECT current_user, current_database\\(\\);\" 2>&1)",
+      "PowerShell($env:PGPASSWORD = \"123456\"; & \"C:\\\\Tools\\\\PostgreSQL\\\\bin\\\\psql.exe\" -U qlqt_user -d qlqtbdxm -h 127.0.0.1 -p 5432 -c \"SELECT 1;\" 2>&1; $env:PGPASSWORD = \"\")",
+      "PowerShell($userData = \"$env:APPDATA\\\\qlqtbdxm\"; if \\(Test-Path \"$userData\\\\db-config.json\"\\) { Get-Content \"$userData\\\\db-config.json\" } else { \"Không có db-config.json trong $userData\" })",
+      "PowerShell(Remove-Item \"$env:APPDATA\\\\qlqtbdxm\\\\db-config.json\" -Confirm:$false; Write-Host \"Đã xóa db-config.json\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('build',{}\\), indent=2\\)\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\LuDoan279\\QuanLyQuyTrinhBaoDuognXeMay\\renderer\\assets"
     ]
   }
 }

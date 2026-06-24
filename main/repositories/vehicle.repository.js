@@ -41,7 +41,7 @@ class VehicleRepository extends BaseRepository {
     return !!(await this.findById(id));
   }
 
-  async listWithStats({ search = '', isActive = null } = {}) {
+  async listWithStats({ search = '', isActive = null, typeId = null, sort = 'updated' } = {}) {
     const conditions = ['1=1'];
     const params = [];
     let idx = 1;
@@ -56,8 +56,22 @@ class VehicleRepository extends BaseRepository {
       params.push(isActive);
       idx++;
     }
+    if (typeId === 'none') {
+      conditions.push(`v.vehicle_type_id IS NULL`);
+    } else if (typeId !== null) {
+      conditions.push(`v.vehicle_type_id = $${idx}`);
+      params.push(typeId);
+      idx++;
+    }
 
-    const where = conditions.join(' AND ');
+    const where   = conditions.join(' AND ');
+    const orderBy = sort === 'name'
+      ? 'v.vehicle_name ASC'
+      : `(
+          COUNT(DISTINCT CASE WHEN em.tech_process_file_path IS NOT NULL THEN em.engine_maintenance_id END) +
+          COUNT(DISTINCT CASE WHEN em.norm_ktkt_file_path   IS NOT NULL THEN em.engine_maintenance_id END)
+        ) DESC, v.vehicle_name ASC`;
+
     const { rows } = await this.db.query(`
       SELECT v.*,
              vt.vehicle_type_name,
@@ -73,7 +87,7 @@ class VehicleRepository extends BaseRepository {
       LEFT JOIN engine_maintenance em  ON em.vehicle_id = v.vehicle_id
       WHERE ${where}
       GROUP BY v.vehicle_id, vt.vehicle_type_name
-      ORDER BY v.vehicle_name
+      ORDER BY ${orderBy}
     `, params);
     return rows;
   }

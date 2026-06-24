@@ -28,8 +28,8 @@ body {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #aabcaa; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-gold-dim); }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.28); }
 
 input, textarea { user-select: text; }
 
@@ -62,47 +62,47 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
   font-weight: var(--font-weight-medium);
   font-family: var(--font-family);
   line-height: 1.5;
-  border-radius: var(--border-radius-sm);
+  border-radius: 10px;
   border: 1px solid transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
   text-decoration: none;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
-.btn:focus { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.btn:focus { outline: 2px solid #4a7c59; outline-offset: 2px; }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--color-bg-elevated), var(--color-bg-highlight));
-  color: var(--color-gold-light);
-  border-color: var(--color-gold-border);
+  background: #1a1a1a;
+  color: #ffffff;
+  border-color: transparent;
 }
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--color-bg-highlight), #264a26);
-  border-color: var(--color-gold);
-  color: var(--color-gold-light);
+  background: #374151;
+  color: #ffffff;
 }
 
 .btn-gold {
-  background: linear-gradient(135deg, var(--color-gold), var(--color-gold-dim));
-  color: var(--color-bg-deepest);
-  border-color: var(--color-gold);
-  font-weight: var(--font-weight-bold);
+  background: #4a7c59;
+  color: #ffffff;
+  border-color: #4a7c59;
+  font-weight: var(--font-weight-semibold);
 }
 .btn-gold:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--color-gold-light), var(--color-gold));
+  background: #3a6347;
+  border-color: #3a6347;
 }
 
 .btn-secondary {
-  background-color: var(--color-bg-elevated);
-  color: var(--text-primary);
-  border-color: var(--border-color-dark);
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: rgba(0,0,0,0.08);
 }
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--color-bg-highlight);
-  border-color: var(--color-gold-dim);
-  color: var(--color-gold-light);
+  background-color: #e5e7eb;
+  color: #1a1a1a;
+  border-color: rgba(0,0,0,0.12);
 }
 
 .btn-danger {
@@ -110,7 +110,7 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
   color: #fff;
   border-color: var(--color-danger);
 }
-.btn-danger:hover:not(:disabled) { background-color: #c03030; }
+.btn-danger:hover:not(:disabled) { background-color: #b91c1c; }
 
 .btn-success {
   background-color: var(--color-success);
@@ -126,12 +126,13 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
 
 .btn-outline {
   background: transparent;
-  color: var(--color-gold);
-  border-color: var(--color-gold-border);
+  color: #4a7c59;
+  border-color: rgba(74,124,89,0.35);
 }
 .btn-outline:hover:not(:disabled) {
-  background: var(--color-gold-glow);
-  border-color: var(--color-gold);
+  background: rgba(74,124,89,0.08);
+  border-color: #4a7c59;
+  color: #3a6347;
 }
 
 .btn-sm  { padding: 4px 10px; font-size: var(--font-size-xs); }
@@ -141,9 +142,9 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
   background: transparent;
   border: none;
   color: var(--text-secondary);
-  border-radius: var(--border-radius-sm);
+  border-radius: 8px;
 }
-.btn-icon:hover { background-color: var(--color-bg-elevated); color: var(--color-gold-light); }
+.btn-icon:hover { background-color: #f3f4f6; color: #1a1a1a; }
 
 /* ================================================================
    FORM CONTROLS
@@ -159,7 +160,7 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 .form-label.required::after { content: ' *'; color: var(--color-danger-text); }
 
@@ -170,21 +171,20 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
   font-family: var(--font-family);
   color: var(--text-primary);
   background-color: var(--bg-input);
-  border: 1px solid var(--border-color-dark);
-  border-radius: var(--border-radius-sm);
+  border: 1px solid rgba(0,0,0,0.12);
+  border-radius: 10px;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   outline: none;
 }
 .form-control:focus {
-  border-color: var(--color-gold);
-  box-shadow: 0 0 0 3px var(--color-gold-glow);
+  border-color: #4a7c59;
+  box-shadow: 0 0 0 3px rgba(74,124,89,0.12);
 }
 .form-control.error { border-color: var(--color-danger); }
 .form-control::placeholder { color: var(--text-muted); }
 select.form-control { cursor: pointer; }
 textarea.form-control { resize: vertical; min-height: 80px; }
 
-/* Select options dark */
 select.form-control option {
   background-color: var(--bg-input);
   color: var(--text-primary);
@@ -208,13 +208,13 @@ select.form-control option {
    ================================================================ */
 .card {
   background-color: var(--bg-card);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  border: 1px solid rgba(0,0,0,0.06);
 }
 .card-header {
   padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -228,7 +228,7 @@ select.form-control option {
 .card-body  { padding: var(--space-6); }
 .card-footer {
   padding: var(--space-4) var(--space-6);
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid rgba(0,0,0,0.06);
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -245,14 +245,14 @@ select.form-control option {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
-.badge-success { background: var(--color-success-bg); color: var(--color-success-text); border: 1px solid rgba(60,184,106,0.25); }
-.badge-warning { background: var(--color-warning-bg); color: var(--color-warning-text); border: 1px solid rgba(212,152,48,0.25); }
-.badge-danger  { background: var(--color-danger-bg);  color: var(--color-danger-text);  border: 1px solid rgba(216,80,80,0.25); }
-.badge-info    { background: var(--color-info-bg);    color: var(--color-info-text);    border: 1px solid rgba(58,136,204,0.25); }
-.badge-neutral { background: var(--color-neutral-bg); color: var(--color-neutral-text); border: 1px solid rgba(96,112,96,0.25); }
-.badge-gold    { background: var(--color-gold-glow);  color: var(--color-gold-light);   border: 1px solid var(--color-gold-border); }
+.badge-success { background: #dcfce7; color: #15803d; }
+.badge-warning { background: #fef3c7; color: #b45309; }
+.badge-danger  { background: #fee2e2; color: #b91c1c; }
+.badge-info    { background: #dbeafe; color: #1d4ed8; }
+.badge-neutral { background: #f3f4f6; color: #4b5563; }
+.badge-gold    { background: rgba(74,124,89,0.12); color: #3a6347; border: 1px solid rgba(74,124,89,0.25); }
 
 /* ================================================================
    ALERTS
@@ -266,10 +266,10 @@ select.form-control option {
   gap: var(--space-2);
   border: 1px solid transparent;
 }
-.alert-danger  { background: var(--color-danger-bg);  color: var(--color-danger-text);  border-color: rgba(216,80,80,0.3); }
-.alert-success { background: var(--color-success-bg); color: var(--color-success-text); border-color: rgba(60,184,106,0.3); }
-.alert-warning { background: var(--color-warning-bg); color: var(--color-warning-text); border-color: rgba(212,152,48,0.3); }
-.alert-info    { background: var(--color-info-bg);    color: var(--color-info-text);    border-color: rgba(58,136,204,0.3); }
+.alert-danger  { background: #fee2e2; color: #b91c1c; border-color: rgba(220,38,38,0.2); }
+.alert-success { background: #dcfce7; color: #15803d; border-color: rgba(22,163,74,0.2); }
+.alert-warning { background: #fef3c7; color: #b45309; border-color: rgba(217,119,6,0.2); }
+.alert-info    { background: #dbeafe; color: #1d4ed8; border-color: rgba(37,99,235,0.2); }
 
 /* ================================================================
    SPINNER
@@ -278,8 +278,8 @@ select.form-control option {
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 2px solid var(--border-color-dark);
-  border-top-color: var(--color-gold);
+  border: 2px solid rgba(0,0,0,0.08);
+  border-top-color: #4a7c59;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
@@ -288,7 +288,7 @@ select.form-control option {
 .loading-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(244, 246, 244, 0.85);
+  background: rgba(240,244,236,0.88);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -315,14 +315,15 @@ select.form-control option {
   border-bottom: 2px solid transparent;
   cursor: pointer;
   transition: all var(--transition-fast);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   margin-bottom: -1px;
   font-family: var(--font-family);
 }
-.tab-btn:hover { color: var(--color-gold-light); }
+.tab-btn:hover { color: #374151; }
 .tab-btn.active {
-  color: var(--color-gold);
-  border-bottom-color: var(--color-gold);
+  color: #1a1a1a;
+  border-bottom-color: #1a1a1a;
+  font-weight: var(--font-weight-semibold);
 }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -336,7 +337,7 @@ select.form-control option {
 .text-center   { text-align: center; }
 .text-right    { text-align: right; }
 .text-muted    { color: var(--text-muted); }
-.text-gold     { color: var(--color-gold); }
+.text-gold     { color: #4a7c59; }
 .text-success  { color: var(--color-success-text); }
 .text-danger   { color: var(--color-danger-text); }
 .text-warning  { color: var(--color-warning-text); }

@@ -99,6 +99,7 @@ const ALLOWED_INVOKE_CHANNELS = [
 const ALLOWED_ON_CHANNELS = [
   'app:notification',
   'app:updateAvailable',
+  'app:db-setup',
 ];
 
 /**

@@ -14,8 +14,8 @@ function registerAllIpcHandlers() {
     require('./maintenance-log.ipc'),
     require('./acceptance.ipc'),
     require('./report.ipc'),
-    require('./db-config.ipc'),
     require('./vehicle.ipc'),
+    // db-config.ipc đăng ký riêng trong main/index.js (không cần DB)
   ];
 
   for (const mod of modules) {
