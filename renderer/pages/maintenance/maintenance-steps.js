@@ -561,7 +561,7 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
 
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;">
-          <span class="fw-medium" style="color:var(--text-heading);">${item.maintenance_name}</span>
+          <span class="fw-medium" style="color:var(--text-heading); text-transform: uppercase;">${item.maintenance_name}</span>
           ${fileBadge}
         </div>
       </div>

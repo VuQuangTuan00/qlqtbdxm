@@ -189,6 +189,7 @@ body::before {
 .login-icon {
   font-size: 28px;
  text-align: center;
+
 }
 
 /* Title */
@@ -489,7 +490,7 @@ body::before {
   margin-bottom:5px
 }
 .sidebar-brand-subtitle {
-  font-size: 15px;
+  font-size: 13px;
   color: #374151;
   letter-spacing: 0.5px;
   text-align: center;
