@@ -24,7 +24,16 @@
       "PowerShell($env:PGPASSWORD = \"123456\"; & \"C:\\\\Tools\\\\PostgreSQL\\\\bin\\\\psql.exe\" -U qlqt_user -d qlqtbdxm -h 127.0.0.1 -p 5432 -c \"SELECT 1;\" 2>&1; $env:PGPASSWORD = \"\")",
       "PowerShell($userData = \"$env:APPDATA\\\\qlqtbdxm\"; if \\(Test-Path \"$userData\\\\db-config.json\"\\) { Get-Content \"$userData\\\\db-config.json\" } else { \"Không có db-config.json trong $userData\" })",
       "PowerShell(Remove-Item \"$env:APPDATA\\\\qlqtbdxm\\\\db-config.json\" -Confirm:$false; Write-Host \"Đã xóa db-config.json\")",
-      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('build',{}\\), indent=2\\)\\)\")"
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('build',{}\\), indent=2\\)\\)\")",
+      "Bash(ls \"C:/Users/quang/AppData/Roaming/qlqtbdxm/\" 2>/dev/null || echo \"folder not found\")",
+      "Read(//c/Users/quang/AppData/Roaming/qlqtbdxm/**)",
+      "Bash(ls \"C:/Users/quang/AppData/Roaming/qlqtbdxm/vehicle-images/\" | head -20 *)",
+      "Read(//c/Users/quang/AppData/Roaming/qlqtbdxm/vehicle-images/**)",
+      "Bash(ls \"C:/Users/quang/AppData/Roaming/qlqtbdxm/maintenance-files/\" | head -10 *)",
+      "Read(//c/Users/quang/AppData/Roaming/qlqtbdxm/maintenance-files/**)",
+      "Bash(ls \"C:/Users/quang/AppData/Roaming/qlqtbdxm/maintenance-files/\" | wc -l *)",
+      "Bash(ls \"C:/Users/quang/AppData/Roaming/qlqtbdxm/vehicle-images/\" | sort)",
+      "Bash(ls \"C:/Users/quang/AppData/Roaming/qlqtbdxm/maintenance-files/\" | sort | head -82)"
     ],
     "additionalDirectories": [
       "c:\\LuDoan279\\QuanLyQuyTrinhBaoDuognXeMay\\renderer\\assets"

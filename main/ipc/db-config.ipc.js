@@ -4,7 +4,7 @@ const { ipcMain, app } = require('electron');
 const { Pool } = require('pg');
 const path = require('path');
 const fs = require('fs');
-const { getDbConfig } = require('../database');
+const { getDbConfig, getDbMode } = require('../database');
 const response = require('../utils/response');
 const logger = require('../utils/logger');
 
@@ -39,6 +39,15 @@ function register() {
       return response.ok({ message: 'Đã lưu, đang khởi động lại ứng dụng...' });
     } catch (err) {
       logger.error('[DBConfig] Lỗi lưu config:', err);
+      return response.fail(err.message);
+    }
+  });
+
+  // Lấy mode hiện tại (sqlite / postgres)
+  ipcMain.handle('dbconfig:getMode', async () => {
+    try {
+      return response.ok(getDbMode());
+    } catch (err) {
       return response.fail(err.message);
     }
   });

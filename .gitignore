@@ -17,3 +17,8 @@ Thumbs.db
 coverage/
 .nyc_output/
 scripts/
+# Demo assets (large binaries — copy manually before build)
+demo-assets/vehicle-images/*
+demo-assets/maintenance-files/*
+!demo-assets/vehicle-images/.gitkeep
+!demo-assets/maintenance-files/.gitkeep

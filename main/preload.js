@@ -70,6 +70,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   'dbconfig:get',
   'dbconfig:set',
   'dbconfig:test',
+  'dbconfig:getMode',
+
+  // Sync
+  'sync:fromPostgres',
 
   // Vehicle & Engine Maintenance (kiến trúc mới)
   'vehicle:list',
@@ -100,6 +104,7 @@ const ALLOWED_ON_CHANNELS = [
   'app:notification',
   'app:updateAvailable',
   'app:db-setup',
+  'app:first-run',
 ];
 
 /**

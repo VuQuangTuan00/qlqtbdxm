@@ -7,8 +7,8 @@ const { app } = require('electron');
 const vehicleRepo      = require('../repositories/vehicle.repository');
 const engineRepo       = require('../repositories/engine-maintenance.repository');
 const vehicleTypeRepo  = require('../repositories/vehicle-type.repository');
-const { getDb }    = require('../database/index');
-const { ok, fail } = require('../utils/response');
+const { getDb, isDemo } = require('../database/index');
+const { ok, fail }      = require('../utils/response');
 const logger       = require('../utils/logger');
 
 // ── Helpers file ────────────────────────────────────────────────
@@ -37,8 +37,26 @@ function _saveFile(dir, originalName, buffer) {
 
 function _deleteFile(filePath) {
   try {
-    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    const abs = _resolveFilePath(filePath);
+    if (abs && fs.existsSync(abs)) fs.unlinkSync(abs);
   } catch (e) {}
+}
+
+/**
+ * Chuyển relative path → absolute path.
+ * Demo (SQLite): lưu "vehicle-images/name.jpg" → resolve tới userData/vehicle-images/name.jpg
+ * Production (PG): lưu absolute path → trả nguyên
+ */
+function _resolveFilePath(p) {
+  if (!p) return null;
+  if (path.isAbsolute(p)) return p;
+  return path.join(app.getPath('userData'), p);
+}
+
+function _storePath(absolutePath) {
+  if (!absolutePath) return null;
+  if (isDemo()) return path.relative(app.getPath('userData'), absolutePath).replace(/\\/g, '/');
+  return absolutePath;
 }
 
 // ── Vehicle CRUD ────────────────────────────────────────────────
@@ -64,7 +82,7 @@ async function createVehicle(data, userId) {
     const buf   = Buffer.from(img_buffer);
     const saved = _saveFile(_vehicleImgDir(), img_name, buf);
     savedImgName = saved.name;
-    savedImgPath = saved.filePath;
+    savedImgPath = _storePath(saved.filePath);
   }
 
   const v = await vehicleRepo.create({
@@ -100,7 +118,7 @@ async function updateVehicle(id, data, userId) {
     const buf   = Buffer.from(img_buffer);
     const saved = _saveFile(_vehicleImgDir(), img_name, buf);
     updateData.img_name = saved.name;
-    updateData.img_path = saved.filePath;
+    updateData.img_path = _storePath(saved.filePath);
   }
 
   await vehicleRepo.update(id, updateData);
@@ -192,10 +210,11 @@ async function uploadFile(id, tab, fileData, userId) {
 
   const buf   = Buffer.from(file_buffer);
   const saved = _saveFile(_pdfDir(), file_name, buf);
+  const storedPath = _storePath(saved.filePath);
 
   const updateData = tab === 'tech_process'
-    ? { tech_process_file_name: saved.name, tech_process_file_path: saved.filePath }
-    : { norm_ktkt_file_name: saved.name, norm_ktkt_file_path: saved.filePath };
+    ? { tech_process_file_name: saved.name, tech_process_file_path: storedPath }
+    : { norm_ktkt_file_name: saved.name, norm_ktkt_file_path: storedPath };
 
   await engineRepo.update(id, updateData);
   return ok({ file_name: saved.name }, 'Upload thành công');
@@ -224,9 +243,10 @@ async function readFile(id, tab) {
   const fileName = tab === 'tech_process' ? item.tech_process_file_name : item.norm_ktkt_file_name;
 
   if (!filePath) return fail('Chưa có file');
-  if (!fs.existsSync(filePath)) return fail('File không tồn tại trên đĩa');
+  const absPath = _resolveFilePath(filePath);
+  if (!fs.existsSync(absPath)) return fail('File không tồn tại trên đĩa');
 
-  const buffer = fs.readFileSync(filePath);
+  const buffer = fs.readFileSync(absPath);
   return ok({ base64: buffer.toString('base64'), file_name: fileName });
 }
 
