@@ -7,7 +7,7 @@ const fs   = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const logger = require('./utils/logger');
-const { initDatabase, closeDatabase, getDbConfig, getDb, isDemo } = require('./database/index');
+const { initDatabase, closeDatabase, getDbConfig, getDb, isDemo, getDbMode } = require('./database/index');
 const { setupDemoAssets } = require('./utils/setup-demo-assets');
 const { seedSqlite }      = require('../scripts/seed-sqlite-runtime');
 const { createMainWindow } = require('./window-manager');
@@ -38,15 +38,18 @@ app.whenReady().then(async () => {
   } else {
     let dbError = null;
     try {
+      // Demo mode: copy demo.db TRƯỚC khi mở database
+      // (nếu chạy từ build — bỏ qua trong dev mode)
+      if (getDbMode() === 'sqlite') {
+        const { copied } = await setupDemoAssets();
+        if (copied > 0) logger.info(`[App] Đã copy ${copied} demo asset vào userData`);
+      }
+
       await initDatabase();
       logger.info('[App] Database đã sẵn sàng');
 
       if (isDemo()) {
-        // Copy demo assets nếu chạy từ build (bỏ qua trong dev mode)
-        const { copied } = await setupDemoAssets();
-        if (copied > 0) logger.info(`[App] Đã copy ${copied} demo asset vào userData`);
-
-        // Auto-seed nếu DB còn trống (lần đầu mở demo mode)
+        // Auto-seed chỉ khi DB còn trống (dev mode, không có pre-built demo.db)
         const { rows } = await getDb().query('SELECT COUNT(*) AS c FROM users');
         if (!parseInt(rows[0].c)) {
           logger.info('[App] SQLite trống — đang seed dữ liệu demo...');

@@ -17,7 +17,8 @@ Thumbs.db
 coverage/
 .nyc_output/
 scripts/
-# Demo assets (large binaries — copy manually before build)
+# Demo assets (large binaries — generate with: npm run export-demo)
+demo-assets/demo.db
 demo-assets/vehicle-images/*
 demo-assets/maintenance-files/*
 !demo-assets/vehicle-images/.gitkeep

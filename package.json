@@ -9,6 +9,7 @@
     "build": "npm run clean && electron-builder --win",
     "seed": "node scripts/seed.js",
     "reset-db": "node scripts/reset-db.js",
+    "export-demo": "node scripts/export-demo-db.js",
     "postinstall": "electron-rebuild -f -w better-sqlite3",
     "clean": "rimraf dist build"
   },
@@ -46,21 +47,18 @@
     ],
     "extraResources": [
       {
+        "from": "demo-assets/demo.db",
+        "to":   "demo-assets/demo.db"
+      },
+      {
         "from": "demo-assets/vehicle-images",
         "to": "demo-assets/vehicle-images",
-        "filter": [
-          "**/*.jpg",
-          "**/*.jpeg",
-          "**/*.png",
-          "**/*.webp"
-        ]
+        "filter": ["**/*.jpg", "**/*.jpeg", "**/*.png", "**/*.webp"]
       },
       {
         "from": "demo-assets/maintenance-files",
         "to": "demo-assets/maintenance-files",
-        "filter": [
-          "**/*.pdf"
-        ]
+        "filter": ["**/*.pdf"]
       }
     ],
     "linux": {
