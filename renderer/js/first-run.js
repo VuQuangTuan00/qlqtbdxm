@@ -38,21 +38,21 @@ window.electronAPI.on('app:first-run', () => {
           <div style="font-size:16px;font-weight:700;margin-bottom:8px;
                       color:var(--text-primary,#1a1a2e);">Chế độ Demo</div>
           <div style="font-size:13px;color:var(--text-secondary,#666);line-height:1.6;">
-            Dùng <strong>SQLite</strong> nội bộ, không cần PostgreSQL.<br>
+            Dùng <strong>SQLite</strong> nội bộ, không cần kết nối mạng.<br>
             Dữ liệu mẫu có sẵn — phù hợp để trình diễn và khám phá phần mềm.
           </div>
         </div>
 
-        <div id="fr-card-postgres"
+        <div id="fr-card-sqlserver"
              style="background:#fff;border:2px solid #e0e0e0;border-radius:12px;
                     padding:28px 20px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;
                     text-align:center;">
-          <div style="font-size:44px;margin-bottom:10px;">🐘</div>
+          <div style="font-size:44px;margin-bottom:10px;">🗄️</div>
           <div style="font-size:16px;font-weight:700;margin-bottom:8px;
                       color:var(--text-primary,#1a1a2e);">Chế độ Production</div>
           <div style="font-size:13px;color:var(--text-secondary,#666);line-height:1.6;">
-            Kết nối <strong>PostgreSQL</strong> qua mạng LAN.<br>
-            Dữ liệu thực, nhiều máy sử dụng chung — cần máy chủ PostgreSQL đang hoạt động.
+            Kết nối <strong>SQL Server</strong> qua mạng LAN.<br>
+            Dữ liệu thực, nhiều máy dùng chung — cần máy chủ SQL Server đang hoạt động.
           </div>
         </div>
 
@@ -68,29 +68,29 @@ window.electronAPI.on('app:first-run', () => {
         </button>
       </div>
 
-      <!-- Form PostgreSQL (hiện khi chọn Production) -->
-      <div id="fr-pg-form"
+      <!-- Form SQL Server (hiện khi chọn Production) -->
+      <div id="fr-ss-form"
            style="display:none;background:#fff;border:1px solid #e0e0e0;
                   border-radius:12px;padding:24px;margin-bottom:16px;">
         <div style="font-weight:700;font-size:15px;margin-bottom:16px;
-                    color:var(--text-primary,#1a1a2e);">Thông tin kết nối PostgreSQL</div>
+                    color:var(--text-primary,#1a1a2e);">Thông tin kết nối SQL Server</div>
 
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;">
           <div>
             <label style="display:block;font-size:12px;font-weight:600;
                           margin-bottom:4px;color:var(--text-secondary,#555);">
-              Địa chỉ máy chủ (Host) *
+              Địa chỉ máy chủ (Server) *
             </label>
-            <input type="text" id="fr-host" placeholder="192.168.1.100"
+            <input type="text" id="fr-server" placeholder="192.168.1.100 hoặc SERVER\INSTANCE"
                    style="width:100%;padding:8px 10px;border:1px solid #ccc;
                           border-radius:6px;font-size:13px;box-sizing:border-box;" />
           </div>
           <div>
             <label style="display:block;font-size:12px;font-weight:600;
                           margin-bottom:4px;color:var(--text-secondary,#555);">
-              Cổng (Port) *
+              Cổng (Port)
             </label>
-            <input type="number" id="fr-port" value="5432"
+            <input type="number" id="fr-port" value="1433"
                    style="width:100%;padding:8px 10px;border:1px solid #ccc;
                           border-radius:6px;font-size:13px;box-sizing:border-box;" />
           </div>
@@ -110,9 +110,9 @@ window.electronAPI.on('app:first-run', () => {
           <div>
             <label style="display:block;font-size:12px;font-weight:600;
                           margin-bottom:4px;color:var(--text-secondary,#555);">
-              Tên đăng nhập *
+              Tên đăng nhập (SQL Auth) *
             </label>
-            <input type="text" id="fr-user" placeholder="qlqt_user"
+            <input type="text" id="fr-user" placeholder="sa hoặc qlqt_user"
                    style="width:100%;padding:8px 10px;border:1px solid #ccc;
                           border-radius:6px;font-size:13px;box-sizing:border-box;" />
           </div>
@@ -137,7 +137,7 @@ window.electronAPI.on('app:first-run', () => {
                          background:#f5f5f5;cursor:pointer;font-size:13px;">
             Kiểm tra kết nối
           </button>
-          <button id="fr-btn-save-pg"
+          <button id="fr-btn-save-ss"
                   style="padding:8px 24px;border:none;border-radius:6px;
                          background:var(--color-gold,#b8860b);color:#fff;
                          font-size:14px;font-weight:700;cursor:pointer;">
@@ -162,17 +162,17 @@ window.electronAPI.on('app:first-run', () => {
     selectedMode = mode;
     const active   = 'var(--color-gold,#b8860b)';
     const inactive = '#e0e0e0';
-    document.getElementById('fr-card-sqlite').style.borderColor   = mode === 'sqlite'   ? active : inactive;
-    document.getElementById('fr-card-postgres').style.borderColor = mode === 'postgres' ? active : inactive;
-    document.getElementById('fr-card-sqlite').style.boxShadow   = mode === 'sqlite'   ? '0 0 0 3px rgba(184,134,11,.15)' : '';
-    document.getElementById('fr-card-postgres').style.boxShadow = mode === 'postgres' ? '0 0 0 3px rgba(184,134,11,.15)' : '';
+    document.getElementById('fr-card-sqlite').style.borderColor    = mode === 'sqlite'    ? active : inactive;
+    document.getElementById('fr-card-sqlserver').style.borderColor = mode === 'sqlserver' ? active : inactive;
+    document.getElementById('fr-card-sqlite').style.boxShadow    = mode === 'sqlite'    ? '0 0 0 3px rgba(184,134,11,.15)' : '';
+    document.getElementById('fr-card-sqlserver').style.boxShadow = mode === 'sqlserver' ? '0 0 0 3px rgba(184,134,11,.15)' : '';
 
-    document.getElementById('fr-sqlite-action').style.display = mode === 'sqlite'   ? 'block' : 'none';
-    document.getElementById('fr-pg-form').style.display       = mode === 'postgres' ? 'block' : 'none';
+    document.getElementById('fr-sqlite-action').style.display = mode === 'sqlite'    ? 'block' : 'none';
+    document.getElementById('fr-ss-form').style.display       = mode === 'sqlserver' ? 'block' : 'none';
   }
 
-  document.getElementById('fr-card-sqlite').addEventListener('click',   () => _selectMode('sqlite'));
-  document.getElementById('fr-card-postgres').addEventListener('click', () => _selectMode('postgres'));
+  document.getElementById('fr-card-sqlite').addEventListener('click',    () => _selectMode('sqlite'));
+  document.getElementById('fr-card-sqlserver').addEventListener('click', () => _selectMode('sqlserver'));
 
   /* ── Demo: 1 click → lưu + relaunch ──────────────────────── */
   document.getElementById('fr-btn-sqlite').addEventListener('click', async () => {
@@ -182,11 +182,11 @@ window.electronAPI.on('app:first-run', () => {
     await window.electronAPI.invoke('dbconfig:set', { mode: 'sqlite' });
   });
 
-  /* ── PostgreSQL: test + save ──────────────────────────────── */
-  function _getPgConfig() {
+  /* ── SQL Server: test + save ──────────────────────────────── */
+  function _getSsConfig() {
     return {
-      host:     document.getElementById('fr-host').value.trim(),
-      port:     parseInt(document.getElementById('fr-port').value) || 5432,
+      server:   document.getElementById('fr-server').value.trim(),
+      port:     parseInt(document.getElementById('fr-port').value) || 1433,
       database: document.getElementById('fr-db').value.trim(),
       user:     document.getElementById('fr-user').value.trim(),
       password: document.getElementById('fr-pass').value,
@@ -205,7 +205,7 @@ window.electronAPI.on('app:first-run', () => {
     const btn = document.getElementById('fr-btn-test');
     btn.disabled = true;
     btn.textContent = 'Đang kiểm tra...';
-    const res = await window.electronAPI.invoke('dbconfig:test', _getPgConfig());
+    const res = await window.electronAPI.invoke('dbconfig:test', _getSsConfig());
     btn.disabled = false;
     btn.textContent = 'Kiểm tra kết nối';
     const msg = res.success
@@ -214,15 +214,15 @@ window.electronAPI.on('app:first-run', () => {
     _showTestResult(res.success, msg);
   });
 
-  document.getElementById('fr-btn-save-pg').addEventListener('click', async () => {
-    const cfg = _getPgConfig();
-    if (!cfg.host || !cfg.database || !cfg.user) {
-      _showTestResult(false, 'Vui lòng điền đầy đủ Host, Database và Tên đăng nhập');
+  document.getElementById('fr-btn-save-ss').addEventListener('click', async () => {
+    const cfg = _getSsConfig();
+    if (!cfg.server || !cfg.database || !cfg.user) {
+      _showTestResult(false, 'Vui lòng điền đầy đủ Server, Database và Tên đăng nhập');
       return;
     }
-    const btn = document.getElementById('fr-btn-save-pg');
+    const btn = document.getElementById('fr-btn-save-ss');
     btn.disabled = true;
     btn.textContent = 'Đang lưu...';
-    await window.electronAPI.invoke('dbconfig:set', { mode: 'postgres', ...cfg });
+    await window.electronAPI.invoke('dbconfig:set', { mode: 'sqlserver', ...cfg });
   });
 });

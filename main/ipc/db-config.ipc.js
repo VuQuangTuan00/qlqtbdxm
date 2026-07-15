@@ -1,12 +1,12 @@
 'use strict';
 
 const { ipcMain, app } = require('electron');
-const { Pool } = require('pg');
+const sql  = require('mssql');
 const path = require('path');
-const fs = require('fs');
+const fs   = require('fs');
 const { getDbConfig, getDbMode } = require('../database');
 const response = require('../utils/response');
-const logger = require('../utils/logger');
+const logger   = require('../utils/logger');
 
 function register() {
   // Lấy config hiện tại (ẩn password)
@@ -14,10 +14,10 @@ function register() {
     try {
       const config = getDbConfig();
       return response.ok({
-        host: config.host,
-        port: config.port,
+        server:   config.server || config.host || '',
+        port:     config.port,
         database: config.database,
-        user: config.user,
+        user:     config.user,
         password: '',
       });
     } catch (err) {
@@ -43,7 +43,7 @@ function register() {
     }
   });
 
-  // Lấy mode hiện tại (sqlite / postgres)
+  // Lấy mode hiện tại (sqlite / sqlserver)
   ipcMain.handle('dbconfig:getMode', async () => {
     try {
       return response.ok(getDbMode());
@@ -52,33 +52,42 @@ function register() {
     }
   });
 
-  // Kiểm tra kết nối với config được truyền vào
+  // Kiểm tra kết nối SQL Server với config được truyền vào
   ipcMain.handle('dbconfig:test', async (_event, config) => {
     const start = Date.now();
-    const testPool = new Pool({
-      host: config.host,
-      port: parseInt(config.port) || 5432,
-      database: config.database,
-      user: config.user,
-      password: config.password,
-      max: 1,
-      connectionTimeoutMillis: 5000,
-    });
-
+    let pool;
     try {
-      const client = await testPool.connect();
-      const { rows } = await client.query('SELECT version()');
-      client.release();
-      await testPool.end();
-      const latency = Date.now() - start;
-      const version = rows[0]?.version?.split(' ').slice(0, 2).join(' ') || 'PostgreSQL';
-      logger.info(`[DBConfig] Test kết nối thành công: ${config.host}:${config.port} (${latency}ms)`);
+      pool = await sql.connect({
+        server:   config.server || config.host || '127.0.0.1',
+        port:     parseInt(config.port) || 1433,
+        database: config.database,
+        user:     config.user,
+        password: config.password,
+        options: {
+          encrypt:                false,
+          trustServerCertificate: true,
+          enableArithAbort:       true,
+        },
+        pool:              { max: 1, min: 0 },
+        connectionTimeout: 5000,
+        requestTimeout:    5000,
+      });
+
+      const { recordset } = await pool.request()
+        .query('SELECT @@VERSION AS version, @@SERVERNAME AS server_name');
+      await pool.close();
+
+      const latency  = Date.now() - start;
+      const fullVer  = recordset[0]?.version || '';
+      const shortVer = fullVer.split('\n')[0].trim() || 'SQL Server';
+
+      logger.info(`[DBConfig] Test kết nối thành công: ${config.server}:${config.port} (${latency}ms)`);
       return response.ok({
-        message: `Kết nối thành công! ${version}`,
+        message: `Kết nối thành công! ${shortVer}`,
         latency,
       });
     } catch (err) {
-      try { await testPool.end(); } catch (_) {}
+      try { if (pool) await pool.close(); } catch (_) {}
       logger.warn(`[DBConfig] Test kết nối thất bại: ${err.message}`);
       return response.fail(`Kết nối thất bại: ${err.message}`);
     }

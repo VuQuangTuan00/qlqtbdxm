@@ -439,7 +439,7 @@ async function _loadDbConfigTab() {
 
   // Lấy mode hiện tại
   const modeRes = await api.invoke('dbconfig:getMode');
-  const currentMode = modeRes.success ? modeRes.data : 'postgres';
+  const currentMode = modeRes.success ? modeRes.data : 'sqlserver';
 
   el.innerHTML = `
     <div style="max-width:600px;display:flex;flex-direction:column;gap:var(--space-5);">
@@ -454,16 +454,16 @@ async function _loadDbConfigTab() {
                 <div style="font-size:36px;margin-bottom:8px;">🗃️</div>
                 <div class="fw-bold" style="margin-bottom:4px;">Demo (SQLite)</div>
                 <div class="text-muted" style="font-size:var(--font-size-sm);">
-                  Dữ liệu mẫu nội bộ, không cần PostgreSQL.<br>Dùng để giới thiệu phần mềm.
+                  Dữ liệu mẫu nội bộ, không cần kết nối mạng.<br>Dùng để giới thiệu phần mềm.
                 </div>
               </div>
             </div>
-            <div id="mode-card-postgres" class="card" style="cursor:pointer;border:2px solid transparent;transition:border-color 0.2s;">
+            <div id="mode-card-sqlserver" class="card" style="cursor:pointer;border:2px solid transparent;transition:border-color 0.2s;">
               <div class="card-body" style="text-align:center;padding:var(--space-5);">
-                <div style="font-size:36px;margin-bottom:8px;">🐘</div>
-                <div class="fw-bold" style="margin-bottom:4px;">Production (PostgreSQL)</div>
+                <div style="font-size:36px;margin-bottom:8px;">🗄️</div>
+                <div class="fw-bold" style="margin-bottom:4px;">Production (SQL Server)</div>
                 <div class="text-muted" style="font-size:var(--font-size-sm);">
-                  Kết nối máy chủ PostgreSQL dùng chung trong mạng LAN.
+                  Kết nối máy chủ SQL Server dùng chung trong mạng LAN.
                 </div>
               </div>
             </div>
@@ -472,24 +472,24 @@ async function _loadDbConfigTab() {
         </div>
       </div>
 
-      <!-- Đồng bộ từ PostgreSQL (chỉ hiện khi đang ở chế độ SQLite) -->
+      <!-- Đồng bộ từ SQL Server (chỉ hiện khi đang ở chế độ SQLite) -->
       ${currentMode === 'sqlite' ? `
       <div class="card" id="sync-card">
         <div class="card-header">
-          <h5 class="card-title">Đồng bộ dữ liệu từ PostgreSQL</h5>
+          <h5 class="card-title">Đồng bộ dữ liệu từ SQL Server</h5>
         </div>
         <div class="card-body">
           <p style="color:var(--text-secondary);font-size:13px;margin-bottom:var(--space-4);">
-            Kéo toàn bộ dữ liệu từ máy chủ PostgreSQL về SQLite, ghi đè dữ liệu hiện tại.
+            Kéo toàn bộ dữ liệu từ máy chủ SQL Server về SQLite, ghi đè dữ liệu hiện tại.
           </p>
           <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;">
             <div>
-              <label class="form-label required">Địa chỉ máy chủ (Host)</label>
-              <input type="text" class="form-control" id="sync-host" placeholder="192.168.1.100" />
+              <label class="form-label required">Địa chỉ máy chủ (Server)</label>
+              <input type="text" class="form-control" id="sync-server" placeholder="192.168.1.100 hoặc SERVER\INST" />
             </div>
             <div>
               <label class="form-label required">Cổng</label>
-              <input type="number" class="form-control" id="sync-port" value="5432" />
+              <input type="number" class="form-control" id="sync-port" value="1433" />
             </div>
           </div>
           <div class="form-group">
@@ -499,7 +499,7 @@ async function _loadDbConfigTab() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:var(--space-4);">
             <div>
               <label class="form-label required">Tên đăng nhập</label>
-              <input type="text" class="form-control" id="sync-user" placeholder="qlqt_user" />
+              <input type="text" class="form-control" id="sync-user" placeholder="sa hoặc qlqt_user" />
             </div>
             <div>
               <label class="form-label">Mật khẩu</label>
@@ -512,18 +512,18 @@ async function _loadDbConfigTab() {
       </div>
       ` : ''}
 
-      <!-- Cấu hình PostgreSQL (chỉ hiện khi chọn postgres) -->
-      <div class="card" id="pg-config-card">
-        <div class="card-header"><h5 class="card-title">Kết nối PostgreSQL</h5></div>
+      <!-- Cấu hình SQL Server (chỉ hiện khi chọn sqlserver) -->
+      <div class="card" id="ss-config-card">
+        <div class="card-header"><h5 class="card-title">Kết nối SQL Server</h5></div>
         <div class="card-body">
           <div class="form-row">
             <div class="form-group" style="flex:2;">
-              <label class="form-label required">Địa chỉ máy chủ (Host)</label>
-              <input type="text" class="form-control" id="db-host" placeholder="192.168.1.100" />
+              <label class="form-label required">Địa chỉ máy chủ (Server)</label>
+              <input type="text" class="form-control" id="db-server" placeholder="192.168.1.100 hoặc SERVER\INSTANCE" />
             </div>
             <div class="form-group" style="flex:1;">
               <label class="form-label required">Cổng (Port)</label>
-              <input type="number" class="form-control" id="db-port" value="5432" />
+              <input type="number" class="form-control" id="db-port" value="1433" />
             </div>
           </div>
           <div class="form-group">
@@ -532,8 +532,8 @@ async function _loadDbConfigTab() {
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label required">Tên đăng nhập</label>
-              <input type="text" class="form-control" id="db-user" placeholder="qlqt_user" />
+              <label class="form-label required">Tên đăng nhập (SQL Auth)</label>
+              <input type="text" class="form-control" id="db-user" placeholder="sa hoặc qlqt_user" />
             </div>
             <div class="form-group">
               <label class="form-label">Mật khẩu</label>
@@ -555,10 +555,9 @@ async function _loadDbConfigTab() {
   let selectedMode = currentMode;
 
   function _highlightMode(mode) {
-    const goldBorder = '2px solid var(--color-gold)';
-    document.getElementById('mode-card-sqlite').style.borderColor   = mode === 'sqlite'   ? 'var(--color-gold)' : 'transparent';
-    document.getElementById('mode-card-postgres').style.borderColor = mode === 'postgres' ? 'var(--color-gold)' : 'transparent';
-    document.getElementById('pg-config-card').style.display = mode === 'postgres' ? '' : 'none';
+    document.getElementById('mode-card-sqlite').style.borderColor    = mode === 'sqlite'    ? 'var(--color-gold)' : 'transparent';
+    document.getElementById('mode-card-sqlserver').style.borderColor = mode === 'sqlserver' ? 'var(--color-gold)' : 'transparent';
+    document.getElementById('ss-config-card').style.display = mode === 'sqlserver' ? '' : 'none';
   }
 
   _highlightMode(selectedMode);
@@ -567,9 +566,9 @@ async function _loadDbConfigTab() {
     selectedMode = 'sqlite';
     _highlightMode('sqlite');
   });
-  document.getElementById('mode-card-postgres').addEventListener('click', () => {
-    selectedMode = 'postgres';
-    _highlightMode('postgres');
+  document.getElementById('mode-card-sqlserver').addEventListener('click', () => {
+    selectedMode = 'sqlserver';
+    _highlightMode('sqlserver');
   });
 
   document.getElementById('btn-apply-mode').addEventListener('click', async () => {
@@ -577,7 +576,7 @@ async function _loadDbConfigTab() {
       toast.info('Không thay đổi', 'Chế độ hiện tại không đổi');
       return;
     }
-    const label = selectedMode === 'sqlite' ? 'Demo (SQLite)' : 'Production (PostgreSQL)';
+    const label = selectedMode === 'sqlite' ? 'Demo (SQLite)' : 'Production (SQL Server)';
     const confirmed = await modal.confirm({
       title: 'Chuyển chế độ',
       message: `Chuyển sang chế độ ${label} và khởi động lại?`,
@@ -587,27 +586,26 @@ async function _loadDbConfigTab() {
     if (!confirmed) return;
 
     let saveConfig = { mode: selectedMode };
-    if (selectedMode === 'postgres') {
-      const pgCfg = _getFormConfig();
-      saveConfig = { mode: 'postgres', ...pgCfg };
+    if (selectedMode === 'sqlserver') {
+      saveConfig = { mode: 'sqlserver', ..._getFormConfig() };
     }
     await api.invoke('dbconfig:set', saveConfig);
   });
 
-  // ── Tải config PG ────────────────────────────────────────────
+  // ── Tải config SQL Server ─────────────────────────────────────
   const cfgRes = await api.invoke('dbconfig:get');
   if (cfgRes.success) {
     const c = cfgRes.data;
-    document.getElementById('db-host').value = c.host || '';
-    document.getElementById('db-port').value = c.port || 5432;
-    document.getElementById('db-name').value = c.database || '';
-    document.getElementById('db-user').value = c.user || '';
+    document.getElementById('db-server').value = c.server || c.host || '';
+    document.getElementById('db-port').value   = c.port || 1433;
+    document.getElementById('db-name').value   = c.database || '';
+    document.getElementById('db-user').value   = c.user || '';
   }
 
   function _getFormConfig() {
     return {
-      host:     document.getElementById('db-host').value.trim(),
-      port:     parseInt(document.getElementById('db-port').value) || 5432,
+      server:   document.getElementById('db-server').value.trim(),
+      port:     parseInt(document.getElementById('db-port').value) || 1433,
       database: document.getElementById('db-name').value.trim(),
       user:     document.getElementById('db-user').value.trim(),
       password: document.getElementById('db-password').value,
@@ -621,24 +619,24 @@ async function _loadDbConfigTab() {
     r.textContent = message + (latency ? ` (${latency}ms)` : '');
   }
 
-  // ── Đồng bộ từ PostgreSQL (chỉ có khi đang ở SQLite mode) ──
+  // ── Đồng bộ từ SQL Server (chỉ có khi đang ở SQLite mode) ──
   if (currentMode === 'sqlite') {
     document.getElementById('btn-sync-start').addEventListener('click', async () => {
       const syncCfg = {
-        host:     document.getElementById('sync-host').value.trim(),
-        port:     parseInt(document.getElementById('sync-port').value) || 5432,
+        server:   document.getElementById('sync-server').value.trim(),
+        port:     parseInt(document.getElementById('sync-port').value) || 1433,
         database: document.getElementById('sync-db').value.trim(),
         user:     document.getElementById('sync-user').value.trim(),
         password: document.getElementById('sync-pass').value,
       };
-      if (!syncCfg.host || !syncCfg.database || !syncCfg.user) {
-        toast.warning('Thiếu thông tin', 'Vui lòng điền Host, Database và Tên đăng nhập');
+      if (!syncCfg.server || !syncCfg.database || !syncCfg.user) {
+        toast.warning('Thiếu thông tin', 'Vui lòng điền Server, Database và Tên đăng nhập');
         return;
       }
 
       const confirmed = await modal.confirm({
         title: 'Xác nhận đồng bộ',
-        message: `Kéo dữ liệu từ ${syncCfg.host}:${syncCfg.port}/${syncCfg.database} về SQLite?\nDữ liệu hiện tại sẽ bị ghi đè.`,
+        message: `Kéo dữ liệu từ ${syncCfg.server}:${syncCfg.port}/${syncCfg.database} về SQLite?\nDữ liệu hiện tại sẽ bị ghi đè.`,
         confirmText: 'Bắt đầu đồng bộ',
         type: 'warning',
       });
@@ -650,14 +648,14 @@ async function _loadDbConfigTab() {
       btn.textContent = 'Đang đồng bộ...';
       resultEl.style.display = 'none';
 
-      const res = await api.invoke('sync:fromPostgres', syncCfg);
+      const res = await api.invoke('sync:fromSqlServer', syncCfg);
 
       btn.disabled = false;
       btn.textContent = 'Bắt đầu đồng bộ';
       resultEl.style.display = 'block';
 
       if (res.success) {
-        const rows = res.data;
+        const rows  = res.data;
         const total = Object.values(rows).reduce((a, b) => a + b, 0);
         const detail = Object.entries(rows)
           .filter(([, c]) => c > 0)
@@ -686,19 +684,19 @@ async function _loadDbConfigTab() {
 
   document.getElementById('btn-save-db').addEventListener('click', async () => {
     const config = _getFormConfig();
-    if (!config.host || !config.database || !config.user) {
-      toast.warning('Thiếu thông tin', 'Vui lòng điền đầy đủ Host, Database và Tên đăng nhập');
+    if (!config.server || !config.database || !config.user) {
+      toast.warning('Thiếu thông tin', 'Vui lòng điền đầy đủ Server, Database và Tên đăng nhập');
       return;
     }
     const confirmed = await modal.confirm({
       title: 'Lưu cấu hình',
-      message: `Lưu kết nối tới ${config.host}:${config.port}/${config.database} và khởi động lại?`,
+      message: `Lưu kết nối tới ${config.server}:${config.port}/${config.database} và khởi động lại?`,
       confirmText: 'Lưu & khởi động lại',
       type: 'warning',
     });
     if (!confirmed) return;
     if (!config.password) delete config.password;
-    await api.invoke('dbconfig:set', { mode: 'postgres', ...config });
+    await api.invoke('dbconfig:set', { mode: 'sqlserver', ...config });
   });
 }
 

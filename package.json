@@ -20,7 +20,7 @@
     "better-sqlite3": "^9.6.0",
     "dotenv": "^16.6.1",
     "electron-log": "^5.1.2",
-    "pg": "^8.21.0"
+    "mssql": "^11.0.1"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
@@ -48,17 +48,24 @@
     "extraResources": [
       {
         "from": "demo-assets/demo.db",
-        "to":   "demo-assets/demo.db"
+        "to": "demo-assets/demo.db"
       },
       {
         "from": "demo-assets/vehicle-images",
         "to": "demo-assets/vehicle-images",
-        "filter": ["**/*.jpg", "**/*.jpeg", "**/*.png", "**/*.webp"]
+        "filter": [
+          "**/*.jpg",
+          "**/*.jpeg",
+          "**/*.png",
+          "**/*.webp"
+        ]
       },
       {
         "from": "demo-assets/maintenance-files",
         "to": "demo-assets/maintenance-files",
-        "filter": ["**/*.pdf"]
+        "filter": [
+          "**/*.pdf"
+        ]
       }
     ],
     "linux": {
@@ -66,13 +73,11 @@
       "category": "Utility"
     },
     "win": {
-     
       "target": "nsis"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-     
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "QLQT Bảo Dưỡng XM"

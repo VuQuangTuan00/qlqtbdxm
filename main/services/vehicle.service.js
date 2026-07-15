@@ -59,17 +59,25 @@ function _storePath(absolutePath) {
   return absolutePath;
 }
 
+// Resolve img_path về absolute trước khi gửi sang renderer
+// (SQLite lưu relative path → renderer cần absolute để dùng file:// URL)
+function _resolveVehicle(v) {
+  if (v && v.img_path) v.img_path = _resolveFilePath(v.img_path);
+  return v;
+}
+
 // ── Vehicle CRUD ────────────────────────────────────────────────
 
 async function listVehicles(opts = {}) {
-  return ok(await vehicleRepo.listWithStats(opts));
+  const rows = await vehicleRepo.listWithStats(opts);
+  return ok(rows.map(_resolveVehicle));
 }
 
 async function getVehicle(id) {
   const v = await vehicleRepo.findByIdFull(id);
   if (!v) return fail('Không tìm thấy loại xe');
   v.equipments = await vehicleRepo.getEquipments(id);
-  return ok(v);
+  return ok(_resolveVehicle(v));
 }
 
 async function createVehicle(data, userId) {
@@ -94,7 +102,7 @@ async function createVehicle(data, userId) {
 
   await _audit(userId, 'create', 'vehicle', v.vehicle_id);
   logger.info(`[Vehicle] Tạo: ${vehicle_name}`);
-  return ok(await vehicleRepo.findByIdFull(v.vehicle_id), 'Tạo loại xe thành công');
+  return ok(_resolveVehicle(await vehicleRepo.findByIdFull(v.vehicle_id)), 'Tạo loại xe thành công');
 }
 
 async function updateVehicle(id, data, userId) {
@@ -123,7 +131,7 @@ async function updateVehicle(id, data, userId) {
 
   await vehicleRepo.update(id, updateData);
   await _audit(userId, 'update', 'vehicle', id);
-  return ok(await vehicleRepo.findByIdFull(id), 'Cập nhật thành công');
+  return ok(_resolveVehicle(await vehicleRepo.findByIdFull(id)), 'Cập nhật thành công');
 }
 
 async function deleteVehicle(id, userId) {

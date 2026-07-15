@@ -1,21 +1,21 @@
 'use strict';
 
 /* ============================================================
-   Database Router — chọn PostgreSQL hoặc SQLite theo mode
+   Database Router — chọn SQL Server hoặc SQLite theo mode
    Đọc mode từ db-config.json trong userData:
-     { "mode": "sqlite" }   → Demo mode (SQLite)
-     { "mode": "postgres" } → Production mode (PostgreSQL, default)
+     { "mode": "sqlite" }     → Demo mode (SQLite)
+     { "mode": "sqlserver" }  → Production mode (SQL Server, default)
    ============================================================ */
 
 const path = require('path');
 const fs   = require('fs');
 
 const {
-  initPostgresDatabase,
-  getPostgresDb,
-  closePostgresDatabase,
+  initMssqlDatabase,
+  getMssqlDb,
+  closeMssqlDatabase,
   getDbConfig,
-} = require('./postgres');
+} = require('./mssql');
 
 const {
   initSqliteDatabase,
@@ -23,7 +23,7 @@ const {
   closeSqliteDatabase,
 } = require('./sqlite');
 
-let _mode = null; // 'postgres' | 'sqlite'
+let _mode = null; // 'sqlserver' | 'sqlite'
 
 function getDbMode() {
   try {
@@ -32,11 +32,12 @@ function getDbMode() {
       const cfgPath = path.join(app.getPath('userData'), 'db-config.json');
       if (fs.existsSync(cfgPath)) {
         const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-        if (cfg.mode === 'sqlite') return 'sqlite';
+        if (cfg.mode === 'sqlite')    return 'sqlite';
+        if (cfg.mode === 'sqlserver') return 'sqlserver';
       }
     }
   } catch (_) {}
-  return 'postgres';
+  return 'sqlserver';
 }
 
 async function initDatabase() {
@@ -45,20 +46,20 @@ async function initDatabase() {
     console.log('[DB] Chế độ DEMO — SQLite');
     return await initSqliteDatabase();
   }
-  console.log('[DB] Chế độ PRODUCTION — PostgreSQL');
-  return await initPostgresDatabase();
+  console.log('[DB] Chế độ PRODUCTION — SQL Server');
+  return await initMssqlDatabase();
 }
 
 function getDb() {
   if (_mode === 'sqlite') return getSqliteDb();
-  return getPostgresDb();
+  return getMssqlDb();
 }
 
 async function closeDatabase() {
   if (_mode === 'sqlite') {
     closeSqliteDatabase();
   } else {
-    await closePostgresDatabase();
+    await closeMssqlDatabase();
   }
 }
 

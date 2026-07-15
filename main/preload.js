@@ -73,7 +73,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'dbconfig:getMode',
 
   // Sync
-  'sync:fromPostgres',
+  'sync:fromSqlServer',
 
   // Vehicle & Engine Maintenance (kiến trúc mới)
   'vehicle:list',
