@@ -15,7 +15,6 @@ function registerAllIpcHandlers() {
     require('./acceptance.ipc'),
     require('./report.ipc'),
     require('./vehicle.ipc'),
-    require('./sync.ipc'),
     // db-config.ipc đăng ký riêng trong main/index.js (không cần DB)
   ];
 

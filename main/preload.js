@@ -70,10 +70,6 @@ const ALLOWED_INVOKE_CHANNELS = [
   'dbconfig:get',
   'dbconfig:set',
   'dbconfig:test',
-  'dbconfig:getMode',
-
-  // Sync
-  'sync:fromSqlServer',
 
   // Vehicle & Engine Maintenance (kiến trúc mới)
   'vehicle:list',

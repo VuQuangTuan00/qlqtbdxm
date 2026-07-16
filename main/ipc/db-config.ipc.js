@@ -4,7 +4,7 @@ const { ipcMain, app } = require('electron');
 const sql  = require('mssql');
 const path = require('path');
 const fs   = require('fs');
-const { getDbConfig, getDbMode } = require('../database');
+const { getDbConfig } = require('../database');
 const response = require('../utils/response');
 const logger   = require('../utils/logger');
 
@@ -30,7 +30,15 @@ function register() {
   ipcMain.handle('dbconfig:set', async (_event, config) => {
     try {
       const configPath = path.join(app.getPath('userData'), 'db-config.json');
-      fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+      // Giữ lại password cũ nếu request không gửi password mới
+      if (!config.password && fs.existsSync(configPath)) {
+        try {
+          const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+          if (existing.password) config = { ...config, password: existing.password };
+        } catch (_) {}
+      }
+      // Luôn lưu với mode sqlserver
+      fs.writeFileSync(configPath, JSON.stringify({ mode: 'sqlserver', ...config }, null, 2), 'utf-8');
       logger.info(`[DBConfig] Đã lưu config vào ${configPath}`);
       setTimeout(() => {
         app.relaunch();
@@ -43,28 +51,19 @@ function register() {
     }
   });
 
-  // Lấy mode hiện tại (sqlite / sqlserver)
-  ipcMain.handle('dbconfig:getMode', async () => {
-    try {
-      return response.ok(getDbMode());
-    } catch (err) {
-      return response.fail(err.message);
-    }
-  });
-
   // Kiểm tra kết nối SQL Server với config được truyền vào
   ipcMain.handle('dbconfig:test', async (_event, config) => {
     const start = Date.now();
     let pool;
     try {
       pool = await sql.connect({
-        server:   config.server || config.host || '127.0.0.1',
+        server:   config.server || config.host || 'localhost',
         port:     parseInt(config.port) || 1433,
         database: config.database,
         user:     config.user,
         password: config.password,
         options: {
-          encrypt:                false,
+          encrypt:                true,
           trustServerCertificate: true,
           enableArithAbort:       true,
         },

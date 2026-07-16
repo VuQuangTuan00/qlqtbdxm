@@ -233,7 +233,7 @@ function _renderAboutTab() {
             </div>
             <div class="detail-item">
               <div class="detail-label">Cơ sở dữ liệu</div>
-              <div class="detail-value">PostgreSQL</div>
+              <div class="detail-value">SQL Server</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Nền tảng OS</div>
@@ -437,89 +437,16 @@ async function _loadDbConfigTab() {
   const el = document.getElementById('tab-dbconfig');
   if (!el) return;
 
-  // Lấy mode hiện tại
-  const modeRes = await api.invoke('dbconfig:getMode');
-  const currentMode = modeRes.success ? modeRes.data : 'sqlserver';
-
   el.innerHTML = `
-    <div style="max-width:600px;display:flex;flex-direction:column;gap:var(--space-5);">
-
-      <!-- Chọn chế độ -->
+    <div style="max-width:600px;">
       <div class="card">
-        <div class="card-header"><h5 class="card-title">Chế độ hoạt động</h5></div>
-        <div class="card-body">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-bottom:var(--space-4);">
-            <div id="mode-card-sqlite" class="card" style="cursor:pointer;border:2px solid transparent;transition:border-color 0.2s;">
-              <div class="card-body" style="text-align:center;padding:var(--space-5);">
-                <div style="font-size:36px;margin-bottom:8px;">🗃️</div>
-                <div class="fw-bold" style="margin-bottom:4px;">Demo (SQLite)</div>
-                <div class="text-muted" style="font-size:var(--font-size-sm);">
-                  Dữ liệu mẫu nội bộ, không cần kết nối mạng.<br>Dùng để giới thiệu phần mềm.
-                </div>
-              </div>
-            </div>
-            <div id="mode-card-sqlserver" class="card" style="cursor:pointer;border:2px solid transparent;transition:border-color 0.2s;">
-              <div class="card-body" style="text-align:center;padding:var(--space-5);">
-                <div style="font-size:36px;margin-bottom:8px;">🗄️</div>
-                <div class="fw-bold" style="margin-bottom:4px;">Production (SQL Server)</div>
-                <div class="text-muted" style="font-size:var(--font-size-sm);">
-                  Kết nối máy chủ SQL Server dùng chung trong mạng LAN.
-                </div>
-              </div>
-            </div>
-          </div>
-          <button class="btn btn-primary" id="btn-apply-mode">Áp dụng &amp; khởi động lại</button>
-        </div>
-      </div>
-
-      <!-- Đồng bộ từ SQL Server (chỉ hiện khi đang ở chế độ SQLite) -->
-      ${currentMode === 'sqlite' ? `
-      <div class="card" id="sync-card">
-        <div class="card-header">
-          <h5 class="card-title">Đồng bộ dữ liệu từ SQL Server</h5>
-        </div>
-        <div class="card-body">
-          <p style="color:var(--text-secondary);font-size:13px;margin-bottom:var(--space-4);">
-            Kéo toàn bộ dữ liệu từ máy chủ SQL Server về SQLite, ghi đè dữ liệu hiện tại.
-          </p>
-          <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px;">
-            <div>
-              <label class="form-label required">Địa chỉ máy chủ (Server)</label>
-              <input type="text" class="form-control" id="sync-server" placeholder="192.168.1.100 hoặc SERVER\INST" />
-            </div>
-            <div>
-              <label class="form-label required">Cổng</label>
-              <input type="number" class="form-control" id="sync-port" value="1433" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Tên database</label>
-            <input type="text" class="form-control" id="sync-db" placeholder="qlqtbdxm" />
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:var(--space-4);">
-            <div>
-              <label class="form-label required">Tên đăng nhập</label>
-              <input type="text" class="form-control" id="sync-user" placeholder="sa hoặc qlqt_user" />
-            </div>
-            <div>
-              <label class="form-label">Mật khẩu</label>
-              <input type="password" class="form-control" id="sync-pass" />
-            </div>
-          </div>
-          <div id="sync-result" style="display:none;margin-bottom:var(--space-4);"></div>
-          <button class="btn btn-primary" id="btn-sync-start">Bắt đầu đồng bộ</button>
-        </div>
-      </div>
-      ` : ''}
-
-      <!-- Cấu hình SQL Server (chỉ hiện khi chọn sqlserver) -->
-      <div class="card" id="ss-config-card">
         <div class="card-header"><h5 class="card-title">Kết nối SQL Server</h5></div>
         <div class="card-body">
           <div class="form-row">
             <div class="form-group" style="flex:2;">
               <label class="form-label required">Địa chỉ máy chủ (Server)</label>
-              <input type="text" class="form-control" id="db-server" placeholder="192.168.1.100 hoặc SERVER\INSTANCE" />
+              <input type="text" class="form-control" id="db-server"
+                     placeholder="192.168.1.100 hoặc SERVER\INSTANCE" />
             </div>
             <div class="form-group" style="flex:1;">
               <label class="form-label required">Cổng (Port)</label>
@@ -528,7 +455,7 @@ async function _loadDbConfigTab() {
           </div>
           <div class="form-group">
             <label class="form-label required">Tên database</label>
-            <input type="text" class="form-control" id="db-name" placeholder="qlqtbdxm" />
+            <input type="text" class="form-control" id="db-name" placeholder="QTCN" />
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -537,69 +464,27 @@ async function _loadDbConfigTab() {
             </div>
             <div class="form-group">
               <label class="form-label">Mật khẩu</label>
-              <input type="password" class="form-control" id="db-password" placeholder="Để trống = không đổi" />
+              <input type="password" class="form-control" id="db-password"
+                     placeholder="Để trống = không đổi" />
             </div>
           </div>
           <div id="db-test-result" style="display:none;margin-bottom:var(--space-4);"></div>
           <div class="form-actions" style="display:flex;gap:var(--space-3);">
             <button class="btn btn-secondary" id="btn-test-db">Kiểm tra kết nối</button>
-            <button class="btn btn-primary" id="btn-save-db">Lưu &amp; khởi động lại</button>
+            <button class="btn btn-primary"   id="btn-save-db">Lưu &amp; khởi động lại</button>
           </div>
         </div>
       </div>
-
     </div>
   `;
 
-  // ── Chọn mode ────────────────────────────────────────────────
-  let selectedMode = currentMode;
-
-  function _highlightMode(mode) {
-    document.getElementById('mode-card-sqlite').style.borderColor    = mode === 'sqlite'    ? 'var(--color-gold)' : 'transparent';
-    document.getElementById('mode-card-sqlserver').style.borderColor = mode === 'sqlserver' ? 'var(--color-gold)' : 'transparent';
-    document.getElementById('ss-config-card').style.display = mode === 'sqlserver' ? '' : 'none';
-  }
-
-  _highlightMode(selectedMode);
-
-  document.getElementById('mode-card-sqlite').addEventListener('click', () => {
-    selectedMode = 'sqlite';
-    _highlightMode('sqlite');
-  });
-  document.getElementById('mode-card-sqlserver').addEventListener('click', () => {
-    selectedMode = 'sqlserver';
-    _highlightMode('sqlserver');
-  });
-
-  document.getElementById('btn-apply-mode').addEventListener('click', async () => {
-    if (selectedMode === currentMode) {
-      toast.info('Không thay đổi', 'Chế độ hiện tại không đổi');
-      return;
-    }
-    const label = selectedMode === 'sqlite' ? 'Demo (SQLite)' : 'Production (SQL Server)';
-    const confirmed = await modal.confirm({
-      title: 'Chuyển chế độ',
-      message: `Chuyển sang chế độ ${label} và khởi động lại?`,
-      confirmText: 'Áp dụng & khởi động lại',
-      type: 'warning',
-    });
-    if (!confirmed) return;
-
-    let saveConfig = { mode: selectedMode };
-    if (selectedMode === 'sqlserver') {
-      saveConfig = { mode: 'sqlserver', ..._getFormConfig() };
-    }
-    await api.invoke('dbconfig:set', saveConfig);
-  });
-
-  // ── Tải config SQL Server ─────────────────────────────────────
   const cfgRes = await api.invoke('dbconfig:get');
   if (cfgRes.success) {
     const c = cfgRes.data;
-    document.getElementById('db-server').value = c.server || c.host || '';
-    document.getElementById('db-port').value   = c.port || 1433;
+    document.getElementById('db-server').value = c.server || '';
+    document.getElementById('db-port').value   = c.port   || 1433;
     document.getElementById('db-name').value   = c.database || '';
-    document.getElementById('db-user').value   = c.user || '';
+    document.getElementById('db-user').value   = c.user   || '';
   }
 
   function _getFormConfig() {
@@ -615,61 +500,8 @@ async function _loadDbConfigTab() {
   function _showResult(success, message, latency) {
     const r = document.getElementById('db-test-result');
     r.style.display = 'block';
-    r.className = success ? 'alert alert-success' : 'alert alert-danger';
-    r.textContent = message + (latency ? ` (${latency}ms)` : '');
-  }
-
-  // ── Đồng bộ từ SQL Server (chỉ có khi đang ở SQLite mode) ──
-  if (currentMode === 'sqlite') {
-    document.getElementById('btn-sync-start').addEventListener('click', async () => {
-      const syncCfg = {
-        server:   document.getElementById('sync-server').value.trim(),
-        port:     parseInt(document.getElementById('sync-port').value) || 1433,
-        database: document.getElementById('sync-db').value.trim(),
-        user:     document.getElementById('sync-user').value.trim(),
-        password: document.getElementById('sync-pass').value,
-      };
-      if (!syncCfg.server || !syncCfg.database || !syncCfg.user) {
-        toast.warning('Thiếu thông tin', 'Vui lòng điền Server, Database và Tên đăng nhập');
-        return;
-      }
-
-      const confirmed = await modal.confirm({
-        title: 'Xác nhận đồng bộ',
-        message: `Kéo dữ liệu từ ${syncCfg.server}:${syncCfg.port}/${syncCfg.database} về SQLite?\nDữ liệu hiện tại sẽ bị ghi đè.`,
-        confirmText: 'Bắt đầu đồng bộ',
-        type: 'warning',
-      });
-      if (!confirmed) return;
-
-      const btn = document.getElementById('btn-sync-start');
-      const resultEl = document.getElementById('sync-result');
-      btn.disabled = true;
-      btn.textContent = 'Đang đồng bộ...';
-      resultEl.style.display = 'none';
-
-      const res = await api.invoke('sync:fromSqlServer', syncCfg);
-
-      btn.disabled = false;
-      btn.textContent = 'Bắt đầu đồng bộ';
-      resultEl.style.display = 'block';
-
-      if (res.success) {
-        const rows  = res.data;
-        const total = Object.values(rows).reduce((a, b) => a + b, 0);
-        const detail = Object.entries(rows)
-          .filter(([, c]) => c > 0)
-          .map(([t, c]) => `<span style="margin-right:12px;"><strong>${t}</strong>: ${c}</span>`)
-          .join('');
-        resultEl.className = 'alert alert-success';
-        resultEl.innerHTML = `<div style="margin-bottom:6px;font-weight:600;">Đồng bộ thành công — ${total} bản ghi</div><div style="font-size:12px;color:#2e7d32;">${detail}</div>`;
-        toast.success('Đồng bộ hoàn tất', `${total} bản ghi đã đồng bộ`);
-      } else {
-        resultEl.className = 'alert alert-danger';
-        resultEl.textContent = res.error;
-        toast.error('Lỗi đồng bộ', res.error);
-      }
-    });
+    r.className     = success ? 'alert alert-success' : 'alert alert-danger';
+    r.textContent   = message + (latency ? ` (${latency}ms)` : '');
   }
 
   document.getElementById('btn-test-db').addEventListener('click', async () => {

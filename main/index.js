@@ -7,9 +7,7 @@ const fs   = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const logger = require('./utils/logger');
-const { initDatabase, closeDatabase, getDbConfig, getDb, isDemo, getDbMode } = require('./database/index');
-const { setupDemoAssets } = require('./utils/setup-demo-assets');
-const { seedSqlite }      = require('../scripts/seed-sqlite-runtime');
+const { initDatabase, closeDatabase, getDbConfig, getDb } = require('./database/index');
 const { createMainWindow } = require('./window-manager');
 const registerAllIpcHandlers = require('./ipc/index');
 
@@ -27,10 +25,10 @@ app.whenReady().then(async () => {
   // db-config handlers không cần DB — đăng ký trước để màn hình setup hoạt động
   require('./ipc/db-config.ipc').register();
 
-  // Lần đầu chạy: chưa có db-config.json → hiển thị màn hình chọn chế độ
+  // Lần đầu chạy: chưa có db-config.json → hiển thị màn hình nhập credentials
   const cfgPath = path.join(app.getPath('userData'), 'db-config.json');
   if (!fs.existsSync(cfgPath)) {
-    logger.info('[App] Lần đầu khởi chạy — hiển thị màn hình chọn chế độ');
+    logger.info('[App] Lần đầu khởi chạy — hiển thị màn hình nhập kết nối SQL Server');
     mainWindow = createMainWindow();
     mainWindow.webContents.once('did-finish-load', () => {
       mainWindow.webContents.send('app:first-run', {});
@@ -38,32 +36,17 @@ app.whenReady().then(async () => {
   } else {
     let dbError = null;
     try {
-      // Demo mode: copy demo.db TRƯỚC khi mở database
-      // (nếu chạy từ build — bỏ qua trong dev mode)
-      if (getDbMode() === 'sqlite') {
-        const { copied } = await setupDemoAssets();
-        if (copied > 0) logger.info(`[App] Đã copy ${copied} demo asset vào userData`);
-      }
-
       await initDatabase();
       logger.info('[App] Database đã sẵn sàng');
-
-      if (isDemo()) {
-        // Auto-seed chỉ khi DB còn trống (dev mode, không có pre-built demo.db)
-        const { rows } = await getDb().query('SELECT COUNT(*) AS c FROM users');
-        if (!parseInt(rows[0].c)) {
-          logger.info('[App] SQLite trống — đang seed dữ liệu demo...');
-          await seedSqlite(getDb(), app.getPath('userData'));
-          logger.info('[App] Seed demo hoàn tất');
-        }
-      }
-
-      registerAllIpcHandlers();
-      logger.info('[App] IPC handlers đã đăng ký');
     } catch (err) {
       logger.error('[App] Lỗi khởi tạo database:', err);
       dbError = err.message;
     }
+
+    // Luôn đăng ký handlers dù DB có lỗi hay không,
+    // tránh "No handler registered" khi renderer gọi IPC trong lúc overlay hiển thị
+    registerAllIpcHandlers();
+    logger.info('[App] IPC handlers đã đăng ký');
 
     mainWindow = createMainWindow();
 
@@ -72,7 +55,7 @@ app.whenReady().then(async () => {
         const cfg = getDbConfig();
         mainWindow.webContents.send('app:db-setup', {
           error: dbError,
-          config: { host: cfg.host, port: cfg.port, database: cfg.database, user: cfg.user },
+          config: { server: cfg.server || cfg.host, port: cfg.port, database: cfg.database, user: cfg.user },
         });
       });
     }

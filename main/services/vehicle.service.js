@@ -7,7 +7,7 @@ const { app } = require('electron');
 const vehicleRepo      = require('../repositories/vehicle.repository');
 const engineRepo       = require('../repositories/engine-maintenance.repository');
 const vehicleTypeRepo  = require('../repositories/vehicle-type.repository');
-const { getDb, isDemo } = require('../database/index');
+const { getDb } = require('../database/index');
 const { ok, fail }      = require('../utils/response');
 const logger       = require('../utils/logger');
 
@@ -42,11 +42,6 @@ function _deleteFile(filePath) {
   } catch (e) {}
 }
 
-/**
- * Chuyển relative path → absolute path.
- * Demo (SQLite): lưu "vehicle-images/name.jpg" → resolve tới userData/vehicle-images/name.jpg
- * Production (PG): lưu absolute path → trả nguyên
- */
 function _resolveFilePath(p) {
   if (!p) return null;
   if (path.isAbsolute(p)) return p;
@@ -54,13 +49,9 @@ function _resolveFilePath(p) {
 }
 
 function _storePath(absolutePath) {
-  if (!absolutePath) return null;
-  if (isDemo()) return path.relative(app.getPath('userData'), absolutePath).replace(/\\/g, '/');
-  return absolutePath;
+  return absolutePath || null;
 }
 
-// Resolve img_path về absolute trước khi gửi sang renderer
-// (SQLite lưu relative path → renderer cần absolute để dùng file:// URL)
 function _resolveVehicle(v) {
   if (v && v.img_path) v.img_path = _resolveFilePath(v.img_path);
   return v;

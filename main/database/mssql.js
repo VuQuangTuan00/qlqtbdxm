@@ -21,11 +21,11 @@ function getDbConfig() {
   } catch (_) {}
 
   return {
-    server:   process.env.DB_SERVER   || process.env.DB_HOST || '127.0.0.1',
-    port:     parseInt(process.env.DB_PORT || '1433'),
-    database: process.env.DB_NAME     || 'qlqtbdxm',
-    user:     process.env.DB_USER     || 'qlqt_user',
-    password: process.env.DB_PASSWORD || '123456',
+    server:       process.env.DB_SERVER   || process.env.DB_HOST || '127.20.10.3',
+    instanceName: process.env.DB_INSTANCE || 'MSSQLSERVER',
+    database:     process.env.DB_NAME     || 'QTCN',
+    user:         process.env.DB_USER     || 'qtcn',
+    password:     process.env.DB_PASSWORD || '1',
   };
 }
 
@@ -39,6 +39,9 @@ function _transformSql(sqlStr) {
 
   // 2. ILIKE → LIKE (SQL Server case-insensitive by default)
   s = s.replace(/\bILIKE\b/gi, 'LIKE');
+
+  // 2b. CURRENT_DATE → CAST(GETDATE() AS DATE)
+  s = s.replace(/\bCURRENT_DATE\b/gi, 'CAST(GETDATE() AS DATE)');
 
   // 3. INSERT INTO t (cols) VALUES (...) RETURNING *
   //    → INSERT INTO t (cols) OUTPUT INSERTED.* VALUES (...)
@@ -120,13 +123,13 @@ async function initMssqlDatabase() {
   const cfg = getDbConfig();
 
   _pool = await sql.connect({
-    server:   cfg.server || cfg.host || '127.0.0.1',
-    port:     parseInt(cfg.port) || 1433,
+    server:   cfg.server || cfg.host || '127.20.10.3',
     database: cfg.database,
     user:     cfg.user,
     password: cfg.password,
     options: {
-      encrypt:                false,
+      instanceName:           cfg.instanceName || 'MSSQLSERVER',
+      encrypt:                true,
       trustServerCertificate: true,
       enableArithAbort:       true,
     },
@@ -139,7 +142,7 @@ async function initMssqlDatabase() {
     requestTimeout:    60000,
   });
 
-  console.log(`[MSSQL] Kết nối thành công: ${cfg.server || cfg.host}:${cfg.port}/${cfg.database}`);
+  console.log(`[MSSQL] Kết nối thành công: ${cfg.server || cfg.host}\\${cfg.instanceName || 'MSSQLSERVER'}/${cfg.database}`);
   await _runMigrations();
   return _pool;
 }
@@ -174,13 +177,41 @@ async function _runMigrations() {
     await tx.begin();
     try {
       for (const batch of batches) {
-        if (batch.trim()) await new sql.Request(tx).query(batch);
+        if (!batch.trim()) continue;
+
+        // tedious có thể phát ra NHIỀU sự kiện 'error' trong một batch (lỗi cụ thể
+        // rồi tới message tổng kết như "Could not create constraint or index.
+        // See previous errors."). mssql chỉ reject với lỗi CUỐI CÙNG — ta phải tự
+        // bắt hết để không mất lỗi gốc thật.
+        const req = new sql.Request(tx);
+        const sqlErrors = [];
+        req.on('error', (e) => sqlErrors.push(e.message));
+
+        try {
+          await req.query(batch);
+        } catch (batchErr) {
+          if (sqlErrors.length) {
+            batchErr.message =
+              `${batchErr.message}\n--- Toàn bộ lỗi SQL Server trong batch (theo thứ tự) ---\n` +
+              sqlErrors.map((m, i) => `  [${i + 1}] ${m}`).join('\n') +
+              `\n--- Batch gây lỗi ---\n${batch.trim().slice(0, 500)}`;
+          }
+          throw batchErr;
+        }
       }
       await new sql.Request(tx).input('fn', sql.NVarChar(255), file)
         .query('INSERT INTO _migrations (filename) VALUES (@fn)');
       await tx.commit();
     } catch (err) {
-      await tx.rollback();
+      // Rollback có thể tự throw lỗi thứ cấp (vd. "Transaction has been aborted"
+      // khi SQL Server đã tự abort transaction do lỗi nghiêm trọng ở batch trước).
+      // Bắt riêng để KHÔNG che mất lỗi gốc — lỗi gốc mới là nguyên nhân thật.
+      try {
+        await tx.rollback();
+      } catch (rollbackErr) {
+        console.error('[MSSQL] Rollback thất bại (transaction đã bị server tự abort):', rollbackErr.message);
+      }
+      console.error(`[MSSQL] Migration '${file}' thất bại — lỗi gốc:`, err.message);
       throw err;
     }
   }

@@ -67,26 +67,33 @@ class VehicleRepository extends BaseRepository {
     const where   = conditions.join(' AND ');
     const orderBy = sort === 'name'
       ? 'v.vehicle_name ASC'
-      : `(
-          COUNT(DISTINCT CASE WHEN em.tech_process_file_path IS NOT NULL THEN em.engine_maintenance_id END) +
-          COUNT(DISTINCT CASE WHEN em.norm_ktkt_file_path   IS NOT NULL THEN em.engine_maintenance_id END)
-        ) DESC, v.vehicle_name ASC`;
+      : `(ISNULL(s.tech_file_count, 0) + ISNULL(s.norm_file_count, 0)) DESC, v.vehicle_name ASC`;
 
     const { rows } = await this.db.query(`
-      SELECT v.*,
-             vt.vehicle_type_name,
-             COUNT(DISTINCT e.id)                                                    AS equipment_count,
-             COUNT(DISTINCT em.engine_maintenance_id)                                AS maintenance_count,
-             COUNT(DISTINCT CASE WHEN em.tech_process_file_path IS NOT NULL
-                                 THEN em.engine_maintenance_id END)                  AS tech_file_count,
-             COUNT(DISTINCT CASE WHEN em.norm_ktkt_file_path IS NOT NULL
-                                 THEN em.engine_maintenance_id END)                  AS norm_file_count
+      WITH stats AS (
+        SELECT
+          v.vehicle_id,
+          COUNT(DISTINCT e.id)                                                                              AS equipment_count,
+          COUNT(DISTINCT em.engine_maintenance_id)                                                          AS maintenance_count,
+          COUNT(DISTINCT CASE WHEN em.tech_process_file_path IS NOT NULL THEN em.engine_maintenance_id END) AS tech_file_count,
+          COUNT(DISTINCT CASE WHEN em.norm_ktkt_file_path    IS NOT NULL THEN em.engine_maintenance_id END) AS norm_file_count
+        FROM vehicle v
+        LEFT JOIN equipments e          ON e.vehicle_id = v.vehicle_id
+        LEFT JOIN engine_maintenance em ON em.vehicle_id = v.vehicle_id
+        GROUP BY v.vehicle_id
+      )
+      SELECT
+        v.vehicle_id, v.vehicle_name, v.img_name, v.img_path,
+        v.is_active, v.vehicle_type_id, v.updated_at,
+        vt.vehicle_type_name,
+        ISNULL(s.equipment_count,   0) AS equipment_count,
+        ISNULL(s.maintenance_count, 0) AS maintenance_count,
+        ISNULL(s.tech_file_count,   0) AS tech_file_count,
+        ISNULL(s.norm_file_count,   0) AS norm_file_count
       FROM vehicle v
-      LEFT JOIN vehicle_type vt        ON vt.vehicle_type_id = v.vehicle_type_id
-      LEFT JOIN equipments e           ON e.vehicle_id = v.vehicle_id
-      LEFT JOIN engine_maintenance em  ON em.vehicle_id = v.vehicle_id
+      LEFT JOIN vehicle_type vt ON vt.vehicle_type_id = v.vehicle_type_id
+      LEFT JOIN stats s         ON s.vehicle_id = v.vehicle_id
       WHERE ${where}
-      GROUP BY v.vehicle_id, vt.vehicle_type_name
       ORDER BY ${orderBy}
     `, params);
     return rows;

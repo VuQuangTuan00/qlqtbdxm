@@ -26,7 +26,7 @@ IF NOT EXISTS (
 )
   ALTER TABLE units
     ADD CONSTRAINT fk_units_parent
-      FOREIGN KEY (parent_unit_id) REFERENCES units(id) ON DELETE SET NULL;
+      FOREIGN KEY (parent_unit_id) REFERENCES units(id) ON DELETE NO ACTION;
 GO
 
 -- ----------------------------------------------------------------
