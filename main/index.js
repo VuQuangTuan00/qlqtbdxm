@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const logger = require('./utils/logger');
 const { initDatabase, closeDatabase, getDbConfig, getDb, isDemo } = require('./database/index');
 const { setupDemoAssets } = require('./utils/setup-demo-assets');
-const { seedSqlite }      = require('../scripts/seed-sqlite-runtime');
+const { seedSqlite }      = require('../scripts/seed');
 const { createMainWindow } = require('./window-manager');
 const registerAllIpcHandlers = require('./ipc/index');
 
@@ -26,6 +26,8 @@ app.whenReady().then(async () => {
 
   // db-config handlers không cần DB — đăng ký trước để màn hình setup hoạt động
   require('./ipc/db-config.ipc').register();
+  // Đăng ký trước khi tạo cửa sổ vì renderer gọi auth:getSession ngay khi tải.
+  registerAllIpcHandlers();
 
   // Lần đầu chạy: chưa có db-config.json → hiển thị màn hình chọn chế độ
   const cfgPath = path.join(app.getPath('userData'), 'db-config.json');
@@ -55,7 +57,6 @@ app.whenReady().then(async () => {
         }
       }
 
-      registerAllIpcHandlers();
       logger.info('[App] IPC handlers đã đăng ký');
     } catch (err) {
       logger.error('[App] Lỗi khởi tạo database:', err);

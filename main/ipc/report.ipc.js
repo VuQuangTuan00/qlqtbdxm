@@ -27,7 +27,7 @@ function register() {
           WHERE status IN ('pending','approved','in_progress') AND planned_date < CURRENT_DATE
         `),
         db.query('SELECT COUNT(*) as c FROM units'),
-        db.query('SELECT COUNT(*) as c FROM users WHERE is_active = true'),
+        db.query('SELECT COUNT(*) as c FROM users WHERE is_active = 1'),
       ]);
 
       const summary = {

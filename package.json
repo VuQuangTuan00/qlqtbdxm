@@ -19,7 +19,7 @@
     "better-sqlite3": "^9.6.0",
     "dotenv": "^16.6.1",
     "electron-log": "^5.1.2",
-    "pg": "^8.21.0"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
@@ -68,13 +68,11 @@
       "category": "Utility"
     },
     "win": {
-     
       "target": "nsis"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-     
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "QLQT Bảo Dưỡng XM"
