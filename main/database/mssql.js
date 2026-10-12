@@ -3,8 +3,34 @@
 const sql  = require('mssql');
 const path = require('path');
 const fs   = require('fs');
+const logger = require('../utils/logger');
 
 let _pool = null;
+
+function getConnectionTarget(cfg) {
+  const port = parseInt(cfg.port, 10);
+  if (port) return `${cfg.server || cfg.host || 'localhost'}:${port}`;
+  return `${cfg.server || cfg.host || 'localhost'}\\${cfg.instanceName || 'MSSQLSERVER'}`;
+}
+
+function logSqlError(stage, cfg, err) {
+  const safeErr = {
+    name: err?.name,
+    message: err?.message,
+    code: err?.code,
+    number: err?.number,
+    state: err?.state,
+    severity: err?.severity,
+    server: err?.server,
+    database: err?.database,
+    stack: err?.stack,
+  };
+
+  logger.error(`[MSSQL] ${stage} - target=${getConnectionTarget(cfg)} database=${cfg.database || 'N/A'} user=${cfg.user || 'N/A'}`);
+  logger.error('[MSSQL] Chi tiết lỗi:', JSON.stringify(safeErr, null, 2));
+  console.error(`[MSSQL] ${stage} - target=${getConnectionTarget(cfg)} database=${cfg.database || 'N/A'} user=${cfg.user || 'N/A'}`);
+  console.error('[MSSQL] Chi tiết lỗi:', safeErr);
+}
 
 // ── Config ───────────────────────────────────────────────────────
 
@@ -25,7 +51,7 @@ function getDbConfig() {
     instanceName: process.env.DB_INSTANCE || 'MSSQLSERVER',
     database:     process.env.DB_NAME     || 'QTCN',
     user:         process.env.DB_USER     || 'qtcn',
-    password:     process.env.DB_PASSWORD || '1',
+    password:     process.env.DB_PASSWORD || '111111',
   };
 }
 
@@ -121,54 +147,69 @@ async function initMssqlDatabase() {
   if (_pool) return _pool;
 
   const cfg = getDbConfig();
+  const port = parseInt(cfg.port, 10);
+  const useInstance = !port && cfg.instanceName;
 
-  _pool = await sql.connect({
-    server:   cfg.server || cfg.host || '127.20.10.3',
-    database: cfg.database,
-    user:     cfg.user,
-    password: cfg.password,
-    options: {
-      instanceName:           cfg.instanceName || 'MSSQLSERVER',
-      encrypt:                true,
-      trustServerCertificate: true,
-      enableArithAbort:       true,
-    },
-    pool: {
-      max:               10,
-      min:               0,
-      idleTimeoutMillis: 30000,
-    },
-    connectionTimeout: 5000,
-    requestTimeout:    60000,
-  });
+  logger.info(`[MSSQL] Bắt đầu kết nối: ${getConnectionTarget(cfg)} / ${cfg.database} / user=${cfg.user || 'N/A'}`);
+  console.log(`[MSSQL] Bắt đầu kết nối: ${getConnectionTarget(cfg)} / ${cfg.database} / user=${cfg.user || 'N/A'}`);
 
-  console.log(`[MSSQL] Kết nối thành công: ${cfg.server || cfg.host}\\${cfg.instanceName || 'MSSQLSERVER'}/${cfg.database}`);
-  await _runMigrations();
-  return _pool;
+  try {
+    _pool = await sql.connect({
+      server:   cfg.server || cfg.host || '127.20.10.3',
+      ...(port ? { port } : {}),
+      database: cfg.database,
+      user:     cfg.user,
+      password: cfg.password,
+      options: {
+        ...(useInstance ? { instanceName: cfg.instanceName } : {}),
+        encrypt:                true,
+        trustServerCertificate: true,
+        enableArithAbort:       true,
+      },
+      pool: {
+        max:               10,
+        min:               0,
+        idleTimeoutMillis: 30000,
+      },
+      connectionTimeout: 15000,
+      requestTimeout:    60000,
+    });
+
+    logger.info(`[MSSQL] Kết nối thành công: ${getConnectionTarget(cfg)}/${cfg.database}`);
+    console.log(`[MSSQL] Kết nối thành công: ${getConnectionTarget(cfg)}/${cfg.database}`);
+    await _runMigrations();
+    return _pool;
+  } catch (err) {
+    _pool = null;
+    logSqlError('connect', cfg, err);
+    throw err;
+  }
 }
 
 async function _runMigrations() {
-  // Create migration tracking table
-  await _pool.request().query(`
-    IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '_migrations' AND schema_id = SCHEMA_ID('dbo'))
-    CREATE TABLE _migrations (
-      id         INT IDENTITY(1,1) PRIMARY KEY,
-      filename   NVARCHAR(255) NOT NULL UNIQUE,
-      applied_at DATETIME2 DEFAULT GETDATE()
-    )
-  `);
+  try {
+    // Create migration tracking table
+    await _pool.request().query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '_migrations' AND schema_id = SCHEMA_ID('dbo'))
+      CREATE TABLE _migrations (
+        id         INT IDENTITY(1,1) PRIMARY KEY,
+        filename   NVARCHAR(255) NOT NULL UNIQUE,
+        applied_at DATETIME2 DEFAULT GETDATE()
+      )
+    `);
 
-  const migrDir = path.join(__dirname, 'migrations-mssql');
-  if (!fs.existsSync(migrDir)) return;
+    const migrDir = path.join(__dirname, 'migrations-mssql');
+    if (!fs.existsSync(migrDir)) return;
 
-  const files = fs.readdirSync(migrDir).filter((f) => f.endsWith('.sql')).sort();
-  const { recordset } = await _pool.request().query('SELECT filename FROM _migrations');
-  const applied = new Set(recordset.map((r) => r.filename));
+    const files = fs.readdirSync(migrDir).filter((f) => f.endsWith('.sql')).sort();
+    const { recordset } = await _pool.request().query('SELECT filename FROM _migrations');
+    const applied = new Set(recordset.map((r) => r.filename));
 
-  for (const file of files) {
-    if (applied.has(file)) continue;
-    console.log(`[MSSQL] Migration: ${file}`);
-    const content = fs.readFileSync(path.join(migrDir, file), 'utf-8');
+    for (const file of files) {
+      if (applied.has(file)) continue;
+      logger.info(`[MSSQL] Migration bắt đầu: ${file}`);
+      console.log(`[MSSQL] Migration: ${file}`);
+      const content = fs.readFileSync(path.join(migrDir, file), 'utf-8');
 
     // Split on GO batch separator (T-SQL convention)
     const batches = content.split(/^\s*GO\s*$/im).filter((b) => b.trim());
@@ -199,21 +240,30 @@ async function _runMigrations() {
           throw batchErr;
         }
       }
-      await new sql.Request(tx).input('fn', sql.NVarChar(255), file)
-        .query('INSERT INTO _migrations (filename) VALUES (@fn)');
-      await tx.commit();
-    } catch (err) {
-      // Rollback có thể tự throw lỗi thứ cấp (vd. "Transaction has been aborted"
-      // khi SQL Server đã tự abort transaction do lỗi nghiêm trọng ở batch trước).
-      // Bắt riêng để KHÔNG che mất lỗi gốc — lỗi gốc mới là nguyên nhân thật.
-      try {
-        await tx.rollback();
-      } catch (rollbackErr) {
-        console.error('[MSSQL] Rollback thất bại (transaction đã bị server tự abort):', rollbackErr.message);
+        await new sql.Request(tx).input('fn', sql.NVarChar(255), file)
+          .query('INSERT INTO _migrations (filename) VALUES (@fn)');
+        await tx.commit();
+        logger.info(`[MSSQL] Migration hoàn tất: ${file}`);
+      } catch (err) {
+        // Rollback có thể tự throw lỗi thứ cấp (vd. "Transaction has been aborted"
+        // khi SQL Server đã tự abort transaction do lỗi nghiêm trọng ở batch trước).
+        // Bắt riêng để KHÔNG che mất lỗi gốc — lỗi gốc mới là nguyên nhân thật.
+        try {
+          await tx.rollback();
+        } catch (rollbackErr) {
+          const msg = rollbackErr?.message || 'unknown rollback error';
+          logger.error('[MSSQL] Rollback thất bại (transaction đã bị server tự abort):', msg);
+          console.error('[MSSQL] Rollback thất bại (transaction đã bị server tự abort):', msg);
+        }
+        logger.error(`[MSSQL] Migration '${file}' thất bại — lỗi gốc: ${err?.message || err}`);
+        logSqlError(`migration:${file}`, getDbConfig(), err);
+        throw err;
       }
-      console.error(`[MSSQL] Migration '${file}' thất bại — lỗi gốc:`, err.message);
-      throw err;
     }
+  } catch (err) {
+    logger.error('[MSSQL] _runMigrations failed:', err?.message || err);
+    logSqlError('migrations', getDbConfig(), err);
+    throw err;
   }
 }
 

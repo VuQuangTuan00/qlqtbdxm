@@ -68,8 +68,8 @@ function register() {
           enableArithAbort:       true,
         },
         pool:              { max: 1, min: 0 },
-        connectionTimeout: 5000,
-        requestTimeout:    5000,
+        connectionTimeout: 15000,
+        requestTimeout:    15000,
       });
 
       const { recordset } = await pool.request()
