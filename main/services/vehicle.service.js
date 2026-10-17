@@ -2,7 +2,7 @@
 
 const path = require('path');
 const fs   = require('fs');
-const { app } = require('electron');
+const { app, shell } = require('electron');
 
 const vehicleRepo      = require('../repositories/vehicle.repository');
 const engineRepo       = require('../repositories/engine-maintenance.repository');
@@ -42,10 +42,21 @@ function _deleteFile(filePath) {
   } catch (e) {}
 }
 
-function _resolveFilePath(p) {
+function _resolveFilePath(p, fallbackFolder) {
   if (!p) return null;
-  if (path.isAbsolute(p)) return p;
-  return path.join(app.getPath('userData'), p);
+  const userDataPath = app.getPath('userData');
+  const normalizedPath = p.replace(/[\\/]/g, path.sep);
+  const storedPath = path.isAbsolute(normalizedPath)
+    ? normalizedPath
+    : path.join(userDataPath, normalizedPath);
+  if (fs.existsSync(storedPath) || !fallbackFolder) return storedPath;
+
+  const fileName = path.basename(normalizedPath);
+  const candidatePaths = [
+    path.join(userDataPath, 'uploads', fileName),
+    path.join(userDataPath, fallbackFolder, fileName),
+  ];
+  return candidatePaths.find((candidate) => fs.existsSync(candidate)) || storedPath;
 }
 
 function _storePath(absolutePath) {
@@ -53,7 +64,7 @@ function _storePath(absolutePath) {
 }
 
 function _resolveVehicle(v) {
-  if (v && v.img_path) v.img_path = _resolveFilePath(v.img_path);
+  if (v && v.img_path) v.img_path = _resolveFilePath(v.img_path, 'vehicle-images');
   return v;
 }
 
@@ -242,11 +253,25 @@ async function readFile(id, tab) {
   const fileName = tab === 'tech_process' ? item.tech_process_file_name : item.norm_ktkt_file_name;
 
   if (!filePath) return fail('Chưa có file');
-  const absPath = _resolveFilePath(filePath);
+  const absPath = _resolveFilePath(filePath, 'maintenance-files');
   if (!fs.existsSync(absPath)) return fail('File không tồn tại trên đĩa');
 
   const buffer = fs.readFileSync(absPath);
   return ok({ base64: buffer.toString('base64'), file_name: fileName });
+}
+
+async function openFile(id, tab) {
+  const item = await engineRepo.findById(id);
+  if (!item) return fail('Không tìm thấy hạng mục');
+
+  const filePath = tab === 'tech_process' ? item.tech_process_file_path : item.norm_ktkt_file_path;
+  if (!filePath) return fail('Chưa có file');
+
+  const absPath = _resolveFilePath(filePath, 'maintenance-files');
+  if (!fs.existsSync(absPath)) return fail('File không tồn tại trong uploads hoặc maintenance-files');
+
+  const openError = await shell.openPath(absPath);
+  return openError ? fail(`Không mở được file: ${openError}`) : ok(null, 'Đã mở file bằng ứng dụng mặc định');
 }
 
 // ── Vehicle Type CRUD ───────────────────────────────────────────
@@ -290,6 +315,6 @@ async function _audit(userId, action, table, targetId) {
 module.exports = {
   listVehicles, getVehicle, createVehicle, updateVehicle, deleteVehicle,
   listMaintenance, createMaintenance, updateMaintenance, deleteMaintenance, reorderMaintenance,
-  uploadFile, deleteFile, readFile,
+  uploadFile, deleteFile, readFile, openFile,
   listVehicleTypes, createVehicleType, updateVehicleType, deleteVehicleType,
 };

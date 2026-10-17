@@ -114,6 +114,12 @@ function register() {
     } catch (err) { return fail(err.message); }
   });
 
+  ipcMain.handle('engineMaintenance:openFile', async (_e, { id, tab } = {}) => {
+    try {
+      return await vehicleService.openFile(id, tab);
+    } catch (err) { return fail(err.message); }
+  });
+
   // ── Vehicle Type ─────────────────────────────────────────────
 
   ipcMain.handle('vehicleType:list', async (_e) => {

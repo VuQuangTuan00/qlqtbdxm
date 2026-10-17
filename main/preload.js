@@ -85,6 +85,7 @@ const ALLOWED_INVOKE_CHANNELS = [
   'engineMaintenance:uploadFile',
   'engineMaintenance:deleteFile',
   'engineMaintenance:readFile',
+  'engineMaintenance:openFile',
 
   // Vehicle Type
   'vehicleType:list',

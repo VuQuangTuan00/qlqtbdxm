@@ -27,10 +27,23 @@ const pdfPreview = (() => {
     return _loading;
   }
 
-  async function open({ title, subtitle, base64, fileName, onDelete }) {
+  async function open({ title, subtitle, base64, fileName, onDelete, onOpenExternal }) {
     try {
       await _loadPdfJs();
     } catch {
+      if (onOpenExternal) {
+        try {
+          const result = await onOpenExternal();
+          if (result.success) {
+            toast.info('Đã mở bằng ứng dụng mặc định', 'Không tải được thư viện preview PDF khi máy ngoại tuyến.');
+          } else {
+            toast.error('Lỗi mở file', result.error);
+          }
+        } catch (err) {
+          toast.error('Lỗi mở file', err.message);
+        }
+        return;
+      }
       toast.error('Lỗi', 'Không thể tải thư viện xem PDF. Kiểm tra kết nối mạng.');
       return;
     }

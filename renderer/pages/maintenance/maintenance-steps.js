@@ -582,6 +582,16 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
   const tabLabel = activeTab === 'tech_process' ? 'Quy trình công nghệ' : 'Định mức KT-KT';
 
   if (hasFile) {
+    const openExternal = () => window.electronAPI.invoke('engineMaintenance:openFile', {
+      id: item.engine_maintenance_id, tab: activeTab,
+    });
+
+    if (/\.(docx?|doc)$/i.test(fileName || '')) {
+      const openRes = await openExternal();
+      if (!openRes.success) toast.error('Lỗi mở file', openRes.error);
+      return;
+    }
+
     const res = await window.electronAPI.invoke('engineMaintenance:readFile', {
       id: item.engine_maintenance_id, tab: activeTab,
     });
@@ -606,6 +616,7 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
       base64:   res.data.base64,
       fileName: res.data.file_name,
       onDelete,
+      onOpenExternal: openExternal,
     });
   } else {
     if (!_isAdmin()) {
