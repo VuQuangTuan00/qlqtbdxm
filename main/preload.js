@@ -71,6 +71,10 @@ const ALLOWED_INVOKE_CHANNELS = [
   'dbconfig:set',
   'dbconfig:test',
 
+  // File archive (admin only)
+  'fileArchive:export',
+  'fileArchive:import',
+
   // Vehicle & Engine Maintenance (kiến trúc mới)
   'vehicle:list',
   'vehicle:get',

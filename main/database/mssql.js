@@ -268,9 +268,23 @@ async function closeMssqlDatabase() {
   }
 }
 
+async function backupMssqlDatabase(destinationPath) {
+  if (!_pool) throw new Error('SQL Server chưa khởi tạo');
+  const config = getDbConfig();
+  if (!config.database) throw new Error('Chưa cấu hình tên database.');
+
+  const databaseName = String(config.database).replace(/]/g, ']]');
+  const request = _pool.request();
+  request.timeout = 0;
+  request.input('backupPath', sql.NVarChar(4000), destinationPath);
+  await request.query(`BACKUP DATABASE [${databaseName}] TO DISK = @backupPath WITH COPY_ONLY, INIT, CHECKSUM`);
+  return { database: config.database, path: destinationPath };
+}
+
 module.exports = {
   initMssqlDatabase,
   getMssqlDb,
   closeMssqlDatabase,
+  backupMssqlDatabase,
   getDbConfig,
 };

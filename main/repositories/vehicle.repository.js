@@ -65,9 +65,11 @@ class VehicleRepository extends BaseRepository {
     }
 
     const where   = conditions.join(' AND ');
-    const orderBy = sort === 'name'
-      ? 'v.vehicle_name ASC'
-      : `(ISNULL(s.tech_file_count, 0) + ISNULL(s.norm_file_count, 0)) DESC, v.vehicle_name ASC`;
+    const orderBy = sort === 'newest'
+      ? 'v.vehicle_id DESC'
+      : sort === 'name'
+        ? 'v.vehicle_name ASC'
+        : `(ISNULL(s.tech_file_count, 0) + ISNULL(s.norm_file_count, 0)) DESC, v.vehicle_name ASC`;
 
     const { rows } = await this.db.query(`
       WITH stats AS (

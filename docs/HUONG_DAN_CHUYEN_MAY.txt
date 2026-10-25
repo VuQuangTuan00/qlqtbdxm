@@ -1,0 +1,41 @@
+HUONG DAN XUAT VA CHUYEN MAY - QLQT BAO DUONG XE MAY
+====================================================
+
+GOI CHUYEN MAY
+--------------
+Trong app, vao Cai dat > File backup > Xuat bo chuyen may.
+Chon noi luu mot file .zip. Goi nay gom:
+- Backup SQL Server .bak da duoc kiem tra.
+- Cac file trong uploads, vehicle-images va maintenance-files.
+- Manifest ghi ten database va thoi diem tao goi.
+
+File db-config.json va mat khau SQL khong duoc dua vao goi ZIP.
+Hay giu file ZIP an toan va chuyen sang may dich bang USB hoac phuong tien
+luu tru duoc phe duyet.
+
+NHAP TREN MAY DICH
+------------------
+1. Cai dat app va mo app mot lan.
+2. Cau hinh ket noi SQL Server cua may dich trong app neu chua co.
+3. Vao Cai dat > File backup > Nhap bo chuyen may va chon file ZIP.
+4. App chep anh/tai lieu vao userData cua tai khoan Windows dang chay app.
+   App trich file .bak vao thu muc Documents va hien duong dan sau khi nhap.
+5. Dong app. Mo SSMS va ket noi den SQL Server dung trong cau hinh app.
+6. Restore file .bak vua duoc trich xuat vao database dung ten ghi trong
+   manifest (co the xem manifest.json ben trong ZIP). Dam bao database dich
+   khong bi ghi de neu chua co backup rieng.
+7. Mo lai app va kiem tra danh sach xe, anh va tai lieu.
+
+LUU Y
+-----
+- Nhap bo chuyen may KHONG tu restore database. Buoc restore trong SSMS la
+  bat buoc de dong bo cac ban ghi voi anh/tai lieu.
+- Neu database dich da co du lieu, hay tao backup .bak rieng truoc khi restore.
+- Khi xuat, SQL Server service can quyen ghi vao thu muc backup SQL Server.
+  Mac dinh app dung C:\Tools\SQL Sever\MSSQL16.MSSQLSERVER\MSSQL\Backup.
+  Neu instance khac, dat bien SQLSERVER_BACKUP_DIR trong .env truoc khi mo app.
+- Khi restore, tai khoan dung SSMS can quyen doc file .bak trong Documents.
+- ZIP phai duoc giu cung database .bak trong cung goi; khong ghep file tu
+  hai thoi diem backup khac nhau.
+- Goi ZIP khong bao gom thong tin ket noi SQL Server. Khong gui file
+  db-config.json cho nguoi khac vi file nay co the chua mat khau.

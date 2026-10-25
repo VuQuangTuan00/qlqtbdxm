@@ -8,6 +8,7 @@ const {
   initMssqlDatabase,
   getMssqlDb,
   closeMssqlDatabase,
+  backupMssqlDatabase,
   getDbConfig,
 } = require('./mssql');
 
@@ -24,4 +25,4 @@ async function closeDatabase() {
   await closeMssqlDatabase();
 }
 
-module.exports = { initDatabase, getDb, closeDatabase, getDbConfig };
+module.exports = { initDatabase, getDb, closeDatabase, backupMssqlDatabase, getDbConfig };

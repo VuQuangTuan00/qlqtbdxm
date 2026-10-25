@@ -19,6 +19,7 @@ async function renderSettings(container) {
       <button class="tab-btn" data-tab="units">Quản lý đơn vị</button>
       ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="users">Quản lý người dùng</button>` : ''}
       ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="dbconfig">Kết nối Database</button>` : ''}
+      ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="file-backup">File backup</button>` : ''}
       <button class="tab-btn" data-tab="about">Về hệ thống</button>
     </div>
 
@@ -26,6 +27,7 @@ async function renderSettings(container) {
     <div id="tab-units"   class="tab-content"></div>
     <div id="tab-users"   class="tab-content"></div>
     <div id="tab-dbconfig" class="tab-content"></div>
+    <div id="tab-file-backup" class="tab-content"></div>
     <div id="tab-about"   class="tab-content"></div>
   `;
 
@@ -39,11 +41,75 @@ async function renderSettings(container) {
       if (tab === 'units') _loadUnitsTab();
       if (tab === 'users') _loadUsersTab();
       if (tab === 'dbconfig') _loadDbConfigTab();
+      if (tab === 'file-backup') _loadFileBackupTab();
     });
   });
 
   _renderProfileTab(session);
   _renderAboutTab();
+}
+
+function _loadFileBackupTab() {
+  const el = document.getElementById('tab-file-backup');
+  if (!el || !store.hasRole('admin')) return;
+
+  el.innerHTML = `
+    <div style="max-width:760px;">
+      <div class="card">
+        <div class="card-header"><h5 class="card-title">Bộ chuyển máy</h5></div>
+        <div class="card-body">
+          <p class="text-sm text-muted" style="margin-bottom:var(--space-4);">
+            Một file ZIP gồm backup SQL Server (.bak), ảnh và tài liệu. Khi nhập, app chép file vào máy này, thay file trùng đường dẫn và trích .bak ra Documents; cần restore .bak bằng SSMS.
+          </p>
+          <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+            <button class="btn btn-primary" id="btn-export-file-backup">Xuất bộ chuyển máy</button>
+            <button class="btn btn-secondary" id="btn-import-file-backup">Nhập bộ chuyển máy</button>
+          </div>
+          <div id="file-backup-status" role="status" aria-live="polite" style="display:none;margin-top:var(--space-4);"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const exportButton = el.querySelector('#btn-export-file-backup');
+  const importButton = el.querySelector('#btn-import-file-backup');
+  const status = el.querySelector('#file-backup-status');
+
+  async function run(button, channel) {
+    exportButton.disabled = true;
+    importButton.disabled = true;
+    const label = button.textContent;
+    button.textContent = 'Đang xử lý...';
+    status.style.display = 'none';
+    try {
+      const result = await window.electronAPI.invoke(channel);
+      if (result.data?.canceled) return;
+      status.className = result.success ? 'alert alert-success' : 'alert alert-danger';
+      status.textContent = result.success
+        ? `${result.message || 'Hoàn tất'}${result.data?.path ? `: ${result.data.path}` : ''}${result.data?.databaseBackupPath ? ` | File .bak: ${result.data.databaseBackupPath}. Hãy restore file này bằng SSMS.` : ''}`
+        : result.error;
+      status.style.display = '';
+    } catch (err) {
+      status.className = 'alert alert-danger';
+      status.textContent = err.message || 'Không thực hiện được thao tác backup.';
+      status.style.display = '';
+    } finally {
+      button.textContent = label;
+      exportButton.disabled = false;
+      importButton.disabled = false;
+    }
+  }
+
+  exportButton.addEventListener('click', () => run(exportButton, 'fileArchive:export'));
+  importButton.addEventListener('click', async () => {
+    const confirmed = await modal.confirm({
+      title: 'Nhập bộ chuyển máy',
+      message: 'Ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP. File database .bak được trích vào Documents; app không tự restore database.',
+      confirmText: 'Chọn file ZIP',
+      type: 'warning',
+    });
+    if (confirmed) run(importButton, 'fileArchive:import');
+  });
 }
 
 function _renderProfileTab(session) {

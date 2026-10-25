@@ -52,6 +52,7 @@ async function renderMaintenanceSteps(container) {
       </select>
 
       <select class="form-control" id="v-sort" style="min-width:160px;">
+        <option value="newest">Mới thêm gần đây</option>
         <option value="files">Dữ liệu đã có file</option>
         <option value="name">Sắp xếp A → Z</option>
       </select>
@@ -95,7 +96,7 @@ async function _loadVehicleGrid() {
 
   const search  = document.getElementById('v-search')?.value || '';
   const typeRaw = document.getElementById('v-type')?.value   || '';
-  const sort    = document.getElementById('v-sort')?.value   || 'files';
+  const sort    = document.getElementById('v-sort')?.value   || 'newest';
 
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;"><div class="spinner"></div></div>`;
 
@@ -836,7 +837,13 @@ function openVehicleForm(v, onSave) {
           if (res.success) {
             toast.success(isEdit ? 'Cập nhật thành công' : 'Tạo loại xe thành công');
             close();
-            if (onSave) onSave(); else _loadVehicleGrid();
+            if (onSave) onSave(); else {
+              if (!isEdit) {
+                const sortSelect = document.getElementById('v-sort');
+                if (sortSelect) sortSelect.value = 'newest';
+              }
+              _loadVehicleGrid();
+            }
           } else {
             toast.error('Lỗi', res.error);
           }
