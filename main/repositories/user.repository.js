@@ -52,7 +52,7 @@ class UserRepository extends BaseRepository {
     let paramIdx = 1;
 
     if (search) {
-      conditions.push(`(u.username ILIKE $${paramIdx} OR u.full_name ILIKE $${paramIdx})`);
+      conditions.push(`(u.username LIKE $${paramIdx} COLLATE NOCASE OR u.full_name LIKE $${paramIdx} COLLATE NOCASE)`);
       params.push(`%${search}%`);
       paramIdx++;
     }

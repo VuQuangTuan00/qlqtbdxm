@@ -16,7 +16,7 @@ class UnitRepository extends BaseRepository {
       SELECT u.*, p.unit_name as parent_name
       FROM units u
       LEFT JOIN units p ON p.id = u.parent_unit_id
-      ORDER BY u.parent_unit_id NULLS FIRST, u.unit_name
+      ORDER BY (u.parent_unit_id IS NOT NULL), u.parent_unit_id, u.unit_name
     `);
 
     return buildTree(all, null);
@@ -48,7 +48,8 @@ class UnitRepository extends BaseRepository {
    */
   async search(search) {
     const { rows } = await this.db.query(`
-      SELECT * FROM units WHERE unit_name ILIKE $1 OR unit_code ILIKE $1
+      SELECT * FROM units
+      WHERE unit_name LIKE $1 COLLATE NOCASE OR unit_code LIKE $1 COLLATE NOCASE
       ORDER BY unit_name LIMIT 50
     `, [`%${search}%`]);
     return rows;

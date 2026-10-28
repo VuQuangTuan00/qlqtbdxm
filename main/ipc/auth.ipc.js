@@ -4,11 +4,26 @@ const { ipcMain } = require('electron');
 const authService = require('../services/auth.service');
 const userRepo = require('../repositories/user.repository');
 const { getDb } = require('../database/index');
-const { hashPassword } = require('../utils/hash');
 const { ok, fail } = require('../utils/response');
 const logger = require('../utils/logger');
 
 function register() {
+  ipcMain.handle('bootstrap:status', async () => {
+    try {
+      return ok({ required: await authService.needsBootstrap() });
+    } catch (err) {
+      return fail(err.message);
+    }
+  });
+
+  ipcMain.handle('bootstrap:createAdmin', async (_event, data = {}) => {
+    try {
+      return await authService.createFirstAdmin(data);
+    } catch (err) {
+      return fail(err.message);
+    }
+  });
+
   ipcMain.handle('auth:login', async (_event, { username, password } = {}) => {
     try {
       logger.ipc('auth:login', { username });

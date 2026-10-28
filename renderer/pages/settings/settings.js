@@ -18,7 +18,6 @@ async function renderSettings(container) {
       <button class="tab-btn active" data-tab="profile">Hồ sơ cá nhân</button>
       <button class="tab-btn" data-tab="units">Quản lý đơn vị</button>
       ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="users">Quản lý người dùng</button>` : ''}
-      ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="dbconfig">Kết nối Database</button>` : ''}
       ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="file-backup">File backup</button>` : ''}
       <button class="tab-btn" data-tab="about">Về hệ thống</button>
     </div>
@@ -26,7 +25,6 @@ async function renderSettings(container) {
     <div id="tab-profile" class="tab-content active"></div>
     <div id="tab-units"   class="tab-content"></div>
     <div id="tab-users"   class="tab-content"></div>
-    <div id="tab-dbconfig" class="tab-content"></div>
     <div id="tab-file-backup" class="tab-content"></div>
     <div id="tab-about"   class="tab-content"></div>
   `;
@@ -40,7 +38,6 @@ async function renderSettings(container) {
       document.getElementById(`tab-${tab}`).classList.add('active');
       if (tab === 'units') _loadUnitsTab();
       if (tab === 'users') _loadUsersTab();
-      if (tab === 'dbconfig') _loadDbConfigTab();
       if (tab === 'file-backup') _loadFileBackupTab();
     });
   });
@@ -56,14 +53,14 @@ function _loadFileBackupTab() {
   el.innerHTML = `
     <div style="max-width:760px;">
       <div class="card">
-        <div class="card-header"><h5 class="card-title">Bộ chuyển máy</h5></div>
+        <div class="card-header"><h5 class="card-title">Sao lưu và khôi phục</h5></div>
         <div class="card-body">
           <p class="text-sm text-muted" style="margin-bottom:var(--space-4);">
-            Một file ZIP gồm backup SQL Server (.bak), ảnh và tài liệu. Khi nhập, app chép file vào máy này, thay file trùng đường dẫn và trích .bak ra Documents; cần restore .bak bằng SSMS.
+            Gói ZIP gồm snapshot SQLite, ảnh, PDF, manifest và checksum SHA-256. Gói được kiểm tra toàn vẹn trước khi công bố hoặc khôi phục.
           </p>
           <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
-            <button class="btn btn-primary" id="btn-export-file-backup">Xuất bộ chuyển máy</button>
-            <button class="btn btn-secondary" id="btn-import-file-backup">Nhập bộ chuyển máy</button>
+            <button class="btn btn-primary" id="btn-export-file-backup">Sao lưu toàn bộ</button>
+            <button class="btn btn-secondary" id="btn-import-file-backup">Khôi phục từ backup</button>
           </div>
           <div id="file-backup-status" role="status" aria-live="polite" style="display:none;margin-top:var(--space-4);"></div>
         </div>
@@ -86,7 +83,7 @@ function _loadFileBackupTab() {
       if (result.data?.canceled) return;
       status.className = result.success ? 'alert alert-success' : 'alert alert-danger';
       status.textContent = result.success
-        ? `${result.message || 'Hoàn tất'}${result.data?.path ? `: ${result.data.path}` : ''}${result.data?.databaseBackupPath ? ` | File .bak: ${result.data.databaseBackupPath}. Hãy restore file này bằng SSMS.` : ''}`
+        ? `${result.message || 'Hoàn tất'}${result.data?.path ? `: ${result.data.path}` : ''}`
         : result.error;
       status.style.display = '';
     } catch (err) {
@@ -103,9 +100,9 @@ function _loadFileBackupTab() {
   exportButton.addEventListener('click', () => run(exportButton, 'fileArchive:export'));
   importButton.addEventListener('click', async () => {
     const confirmed = await modal.confirm({
-      title: 'Nhập bộ chuyển máy',
-      message: 'Ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP. File database .bak được trích vào Documents; app không tự restore database.',
-      confirmText: 'Chọn file ZIP',
+      title: 'Khôi phục dữ liệu',
+      message: 'Ứng dụng sẽ kiểm tra gói backup, tạo safety backup của dữ liệu hiện tại rồi mới yêu cầu xác nhận cuối cùng.',
+      confirmText: 'Chọn file backup',
       type: 'warning',
     });
     if (confirmed) run(importButton, 'fileArchive:import');
@@ -219,8 +216,8 @@ async function _loadUnitsTab() {
               <td>${u.parent_name || '<span class="text-muted">—</span>'}</td>
               <td>${u.created_at ? u.created_at.split('T')[0] : '—'}</td>
               ${store.hasRole('admin') ? `<td class="table-actions">
-                <button class="btn btn-sm btn-secondary" onclick="editUnit(${u.id})">Sửa</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteUnit(${u.id},'${u.unit_name}')">Xóa</button>
+                <button class="btn btn-sm btn-secondary" data-unit-edit="${u.id}">Sửa</button>
+                <button class="btn btn-sm btn-danger" data-unit-delete="${u.id}">Xóa</button>
               </td>` : ''}
             </tr>`).join('')}
             ${res.data.length === 0 ? '<tr><td colspan="5" class="text-center text-muted">Chưa có đơn vị nào</td></tr>' : ''}
@@ -232,6 +229,16 @@ async function _loadUnitsTab() {
 
   if (store.hasRole('admin')) {
     document.getElementById('btn-add-unit').addEventListener('click', () => openUnitForm(null));
+    const unitsById = new Map(res.data.map((unit) => [String(unit.id), unit]));
+    el.querySelectorAll('[data-unit-edit]').forEach((button) => {
+      button.addEventListener('click', () => editUnit(Number(button.dataset.unitEdit)));
+    });
+    el.querySelectorAll('[data-unit-delete]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const unit = unitsById.get(button.dataset.unitDelete);
+        if (unit) deleteUnit(unit.id, unit.unit_name);
+      });
+    });
   }
 }
 
@@ -264,7 +271,7 @@ async function _loadUsersTab() {
               <td><span class="badge ${u.is_active ? 'badge-success' : 'badge-neutral'}">${u.is_active ? 'Hoạt động' : 'Vô hiệu'}</span></td>
               <td class="table-actions">
                 <button class="btn btn-sm btn-${u.is_active ? 'warning' : 'success'}"
-                  onclick="toggleUserActive(${u.id}, ${u.is_active})">${u.is_active ? 'Vô hiệu' : 'Kích hoạt'}</button>
+                  data-user-toggle="${u.id}">${u.is_active ? 'Vô hiệu' : 'Kích hoạt'}</button>
               </td>
             </tr>`).join('')}
             ${users.length === 0 ? '<tr><td colspan="6" class="text-center text-muted">Chưa có người dùng</td></tr>' : ''}
@@ -275,6 +282,13 @@ async function _loadUsersTab() {
   `;
 
   document.getElementById('btn-add-user').addEventListener('click', () => openUserForm(roles));
+  const usersById = new Map(users.map((user) => [String(user.id), user]));
+  el.querySelectorAll('[data-user-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const user = usersById.get(button.dataset.userToggle);
+      if (user) toggleUserActive(user.id, Boolean(user.is_active));
+    });
+  });
 }
 
 function _renderAboutTab() {
@@ -299,7 +313,7 @@ function _renderAboutTab() {
             </div>
             <div class="detail-item">
               <div class="detail-label">Cơ sở dữ liệu</div>
-              <div class="detail-value">SQL Server</div>
+              <div class="detail-value">SQLite (offline)</div>
             </div>
             <div class="detail-item">
               <div class="detail-label">Nền tảng OS</div>
@@ -498,111 +512,6 @@ async function toggleUserActive(id, currentActive) {
     toast.error('Lỗi', res.error);
   }
 }
-
-async function _loadDbConfigTab() {
-  const el = document.getElementById('tab-dbconfig');
-  if (!el) return;
-
-  el.innerHTML = `
-    <div style="max-width:600px;">
-      <div class="card">
-        <div class="card-header"><h5 class="card-title">Kết nối SQL Server</h5></div>
-        <div class="card-body">
-          <div class="form-row">
-            <div class="form-group" style="flex:2;">
-              <label class="form-label required">Địa chỉ máy chủ (Server)</label>
-              <input type="text" class="form-control" id="db-server"
-                     placeholder="192.168.1.100 hoặc SERVER\INSTANCE" />
-            </div>
-            <div class="form-group" style="flex:1;">
-              <label class="form-label required">Cổng (Port)</label>
-              <input type="number" class="form-control" id="db-port" value="1433" />
-            </div>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Tên database</label>
-            <input type="text" class="form-control" id="db-name" placeholder="QTCN" />
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label required">Tên đăng nhập (SQL Auth)</label>
-              <input type="text" class="form-control" id="db-user" placeholder="sa hoặc qlqt_user" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Mật khẩu</label>
-              <input type="password" class="form-control" id="db-password"
-                     placeholder="Để trống = không đổi" />
-            </div>
-          </div>
-          <div id="db-test-result" style="display:none;margin-bottom:var(--space-4);"></div>
-          <div class="form-actions" style="display:flex;gap:var(--space-3);">
-            <button class="btn btn-secondary" id="btn-test-db">Kiểm tra kết nối</button>
-            <button class="btn btn-primary"   id="btn-save-db">Lưu &amp; khởi động lại</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  const cfgRes = await api.invoke('dbconfig:get');
-  if (cfgRes.success) {
-    const c = cfgRes.data;
-    document.getElementById('db-server').value = c.server || '';
-    document.getElementById('db-port').value   = c.port   || 1433;
-    document.getElementById('db-name').value   = c.database || '';
-    document.getElementById('db-user').value   = c.user   || '';
-  }
-
-  function _getFormConfig() {
-    return {
-      server:   document.getElementById('db-server').value.trim(),
-      port:     parseInt(document.getElementById('db-port').value) || 1433,
-      database: document.getElementById('db-name').value.trim(),
-      user:     document.getElementById('db-user').value.trim(),
-      password: document.getElementById('db-password').value,
-    };
-  }
-
-  function _showResult(success, message, latency) {
-    const r = document.getElementById('db-test-result');
-    r.style.display = 'block';
-    r.className     = success ? 'alert alert-success' : 'alert alert-danger';
-    r.textContent   = message + (latency ? ` (${latency}ms)` : '');
-  }
-
-  document.getElementById('btn-test-db').addEventListener('click', async () => {
-    const btn = document.getElementById('btn-test-db');
-    btn.disabled = true;
-    btn.textContent = 'Đang kiểm tra...';
-    const res = await api.invoke('dbconfig:test', _getFormConfig());
-    btn.disabled = false;
-    btn.textContent = 'Kiểm tra kết nối';
-    _showResult(res.success, res.success ? res.data.message : res.error, res.data?.latency);
-  });
-
-  document.getElementById('btn-save-db').addEventListener('click', async () => {
-    const config = _getFormConfig();
-    if (!config.server || !config.database || !config.user) {
-      toast.warning('Thiếu thông tin', 'Vui lòng điền đầy đủ Server, Database và Tên đăng nhập');
-      return;
-    }
-    const confirmed = await modal.confirm({
-      title: 'Lưu cấu hình',
-      message: `Lưu kết nối tới ${config.server}:${config.port}/${config.database} và khởi động lại?`,
-      confirmText: 'Lưu & khởi động lại',
-      type: 'warning',
-    });
-    if (!confirmed) return;
-    if (!config.password) delete config.password;
-    await api.invoke('dbconfig:set', { mode: 'sqlserver', ...config });
-  });
-}
-
-// Globals for inline onclick
-window.editUnit = editUnit;
-window.deleteUnit = deleteUnit;
-window.toggleUserActive = toggleUserActive;
-
 
 router.register('settings', {
   title: 'Cài Đặt Hệ Thống',

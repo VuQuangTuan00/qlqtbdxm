@@ -11,6 +11,8 @@ const ALLOWED_INVOKE_CHANNELS = [
   'auth:logout',
   'auth:getSession',
   'auth:changePassword',
+  'bootstrap:status',
+  'bootstrap:createAdmin',
 
   // Units
   'unit:list',
@@ -66,11 +68,6 @@ const ALLOWED_INVOKE_CHANNELS = [
   // Roles
   'role:list',
 
-  // DB Config (admin only)
-  'dbconfig:get',
-  'dbconfig:set',
-  'dbconfig:test',
-
   // File archive (admin only)
   'fileArchive:export',
   'fileArchive:import',
@@ -104,7 +101,6 @@ const ALLOWED_INVOKE_CHANNELS = [
 const ALLOWED_ON_CHANNELS = [
   'app:notification',
   'app:updateAvailable',
-  'app:db-setup',
   'app:first-run',
 ];
 

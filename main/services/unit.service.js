@@ -22,11 +22,12 @@ async function create(data) {
   const { unit_code, unit_name, parent_unit_id } = data;
   if (!unit_code || !unit_name) return fail('Thiếu mã hoặc tên đơn vị');
 
-  const existing = await unitRepo.findOne({ unit_code });
+  const normalizedCode = unit_code.trim().toUpperCase();
+  const existing = await unitRepo.findOne({ unit_code: normalizedCode });
   if (existing) return fail('Mã đơn vị đã tồn tại');
 
   const unit = await unitRepo.create({
-    unit_code: unit_code.trim().toUpperCase(),
+    unit_code: normalizedCode,
     unit_name: unit_name.trim(),
     parent_unit_id: parent_unit_id || null,
   });

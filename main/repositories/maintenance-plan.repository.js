@@ -27,7 +27,7 @@ class MaintenancePlanRepository extends BaseRepository {
     let paramIdx = 1;
 
     if (keyword) {
-      conditions.push(`(mp.plan_code ILIKE $${paramIdx} OR e.equipment_name ILIKE $${paramIdx})`);
+      conditions.push(`(mp.plan_code LIKE $${paramIdx} COLLATE NOCASE OR e.equipment_name LIKE $${paramIdx} COLLATE NOCASE)`);
       params.push(`%${keyword}%`);
       paramIdx++;
     }

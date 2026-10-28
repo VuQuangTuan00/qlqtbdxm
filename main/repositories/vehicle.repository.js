@@ -47,7 +47,7 @@ class VehicleRepository extends BaseRepository {
     let idx = 1;
 
     if (search) {
-      conditions.push(`v.vehicle_name ILIKE $${idx}`);
+      conditions.push(`v.vehicle_name LIKE $${idx} COLLATE NOCASE`);
       params.push(`%${search}%`);
       idx++;
     }
@@ -69,7 +69,7 @@ class VehicleRepository extends BaseRepository {
       ? 'v.vehicle_id DESC'
       : sort === 'name'
         ? 'v.vehicle_name ASC'
-        : `(ISNULL(s.tech_file_count, 0) + ISNULL(s.norm_file_count, 0)) DESC, v.vehicle_name ASC`;
+        : `(COALESCE(s.tech_file_count, 0) + COALESCE(s.norm_file_count, 0)) DESC, v.vehicle_name ASC`;
 
     const { rows } = await this.db.query(`
       WITH stats AS (
@@ -88,10 +88,10 @@ class VehicleRepository extends BaseRepository {
         v.vehicle_id, v.vehicle_name, v.img_name, v.img_path,
         v.is_active, v.vehicle_type_id, v.updated_at,
         vt.vehicle_type_name,
-        ISNULL(s.equipment_count,   0) AS equipment_count,
-        ISNULL(s.maintenance_count, 0) AS maintenance_count,
-        ISNULL(s.tech_file_count,   0) AS tech_file_count,
-        ISNULL(s.norm_file_count,   0) AS norm_file_count
+        COALESCE(s.equipment_count,   0) AS equipment_count,
+        COALESCE(s.maintenance_count, 0) AS maintenance_count,
+        COALESCE(s.tech_file_count,   0) AS tech_file_count,
+        COALESCE(s.norm_file_count,   0) AS norm_file_count
       FROM vehicle v
       LEFT JOIN vehicle_type vt ON vt.vehicle_type_id = v.vehicle_type_id
       LEFT JOIN stats s         ON s.vehicle_id = v.vehicle_id

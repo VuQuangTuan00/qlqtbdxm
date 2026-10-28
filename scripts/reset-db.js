@@ -1,59 +1,24 @@
 'use strict';
 
-/**
- * Script xóa và tạo lại toàn bộ database
- * Usage: npm run reset-db
- * CẢNH BÁO: Xóa toàn bộ dữ liệu!
- */
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
-const { Pool } = require('pg');
-const readline = require('readline');
-
-const pool = new Pool({
-  host:     process.env.DB_HOST     || '127.0.0.1',
-  port:     parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME     || 'qlqtbdxm',
-  user:     process.env.DB_USER     || 'qlqt_user',
-  password: process.env.DB_PASSWORD || '123456',
-  connectionTimeoutMillis: 5000,
-});
-
-const TABLES = [
-  'audit_logs', 'qr_codes', 'attachments', 'acceptance_records',
-  'maintenance_logs', 'maintenance_plans', 'maintenance_steps',
-  'equipments', 'users', 'roles', 'units', '_migrations',
-];
-
-async function resetDb() {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const confirm = await new Promise((resolve) => {
-    rl.question(
-      '\nCANH BAO: Thao tac nay se XOA TOAN BO du lieu!\nNhap "XAC NHAN" de tiep tuc: ',
-      (answer) => { rl.close(); resolve(answer); }
-    );
-  });
-
-  if (confirm !== 'XAC NHAN') {
-    console.log('Da huy.');
-    process.exit(0);
+function main() {
+  if (!process.argv.includes('--confirm-test-db') || !process.env.QLQT_SQLITE_PATH) {
+    throw new Error('Reset bị từ chối. Chỉ dùng với QLQT_SQLITE_PATH và --confirm-test-db.');
   }
-
-  const client = await pool.connect();
-  try {
-    console.log('\n[Reset] Dang xoa du lieu...');
-    for (const table of TABLES) {
-      await client.query(`DROP TABLE IF EXISTS "${table}" CASCADE`);
-      console.log(`[Reset] Da xoa: ${table}`);
-    }
-    console.log('\n[Reset] Hoan thanh. Chay "npm run seed" de tao lai du lieu mau.\n');
-  } finally {
-    client.release();
-    await pool.end();
+  const target = path.resolve(process.env.QLQT_SQLITE_PATH);
+  const tempRoot = path.resolve(os.tmpdir());
+  const relative = path.relative(tempRoot, target);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error('Reset chỉ được phép với database test nằm trong thư mục TEMP.');
   }
+  for (const suffix of ['', '-wal', '-shm']) {
+    const file = `${target}${suffix}`;
+    if (fs.existsSync(file)) fs.rmSync(file, { force: true });
+  }
+  console.log(`[Reset] Đã xóa database test: ${target}`);
 }
 
-resetDb().catch((err) => {
-  console.error('[Reset] Loi:', err.message);
-  process.exit(1);
-});
+try { main(); } catch (error) { console.error(`[Reset] ${error.message}`); process.exitCode = 1; }

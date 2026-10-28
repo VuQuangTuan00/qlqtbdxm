@@ -79,7 +79,7 @@ const api = (() => {
     reportByPeriod:       (opts)         => invoke('report:maintenanceByPeriod', opts),
     reportOverdue:        ()             => invoke('report:overdueEquipment'),
 
-    // Generic invoke (dùng cho vehicleType, vehicleStep, dbconfig...)
+    // Generic invoke cho các module mở rộng
     invoke:               (channel, args) => invoke(channel, args),
   };
 })();

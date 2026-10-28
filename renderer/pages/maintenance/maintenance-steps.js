@@ -761,8 +761,7 @@ function openVehicleForm(v, onSave) {
           display:flex;align-items:center;justify-content:center;
           background:var(--bg-table-header);overflow:hidden;cursor:pointer;">
           ${v?.img_path
-            ? `<img src="${_imgSrc(v.img_path)}" style="width:100%;height:100%;object-fit:cover;"
-                    onerror="this.parentElement.innerHTML='<span style=font-size:36px;opacity:.4>📷</span>'" />`
+            ? `<img src="${_imgSrc(v.img_path)}" style="width:100%;height:100%;object-fit:cover;" />`
             : `<span style="font-size:36px;opacity:.4;">📷</span>`}
         </div>
         <div style="flex:1;">
@@ -777,6 +776,10 @@ function openVehicleForm(v, onSave) {
 
   const fileInput = content.querySelector('#vf-img-file');
   const preview   = content.querySelector('#img-preview');
+  preview.querySelector('img')?.addEventListener('error', () => {
+    preview.replaceChildren(Object.assign(document.createElement('span'), { textContent: '📷' }));
+    preview.firstElementChild.style.cssText = 'font-size:36px;opacity:.4;';
+  });
 
   function _updatePreview(src) {
     preview.innerHTML = src

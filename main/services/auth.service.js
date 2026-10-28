@@ -101,6 +101,40 @@ function requireAdmin() {
   return _session && _session.roleCode === 'admin';
 }
 
+async function needsBootstrap() {
+  const { rows } = await getDb().query('SELECT COUNT(*) AS total FROM users');
+  return Number(rows[0].total) === 0;
+}
+
+async function createFirstAdmin(data = {}) {
+  const username = String(data.username || '').trim();
+  const fullName = String(data.full_name || '').trim();
+  const password = String(data.password || '');
+  if (!/^[a-zA-Z0-9._-]{3,100}$/.test(username)) {
+    return fail('Tên đăng nhập phải có 3-100 ký tự chữ, số, dấu chấm, gạch ngang hoặc gạch dưới');
+  }
+  if (!fullName || fullName.length > 200) return fail('Họ tên không hợp lệ');
+  if (password.length < 8) return fail('Mật khẩu phải có ít nhất 8 ký tự');
+  if (!(await needsBootstrap())) return fail('Hệ thống đã có tài khoản, không thể khởi tạo lại admin');
+
+  let user;
+  await getDb().transaction(async () => {
+    if (!(await needsBootstrap())) throw new Error('Hệ thống đã có tài khoản, không thể khởi tạo lại admin');
+    const { rows } = await getDb().query("SELECT id FROM roles WHERE role_code = 'admin'");
+    if (!rows[0]) throw new Error('Thiếu vai trò quản trị viên trong database');
+    user = await userRepo.create({
+      username,
+      password_hash: hashPassword(password),
+      full_name: fullName,
+      role_id: rows[0].id,
+      unit_id: null,
+      is_active: true,
+    });
+  });
+  logger.info(`[Bootstrap] Đã tạo quản trị viên đầu tiên id=${user.id}`);
+  return ok({ id: user.id, username: user.username }, 'Tạo tài khoản quản trị thành công');
+}
+
 /**
  * Đổi mật khẩu
  * @param {number} userId
@@ -125,4 +159,4 @@ async function changePassword(userId, oldPassword, newPassword) {
   return ok(null, 'Đổi mật khẩu thành công');
 }
 
-module.exports = { login, logout, getSession, requireAuth, requireAdmin, changePassword };
+module.exports = { login, logout, getSession, requireAuth, requireAdmin, needsBootstrap, createFirstAdmin, changePassword };

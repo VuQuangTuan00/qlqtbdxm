@@ -6,51 +6,28 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --inspect=5858",
-    "build": "npm run clean && electron-builder --win",
-    "seed": "node scripts/seed.js",
+    "test": "electron tests/run-tests.js",
+    "test:syntax": "node scripts/check-syntax.js",
+    "rebuild:native": "electron-rebuild -f -w better-sqlite3",
+    "build": "npm run test && electron-builder --win",
+    "seed": "electron scripts/seed.js",
     "reset-db": "node scripts/reset-db.js",
-    "clean": "rimraf dist build"
+    "migrate:mssql": "electron scripts/migrate-mssql-to-sqlite.js"
   },
   "author": "Bộ Tư lệnh Xe Máy",
   "license": "MIT",
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.10.0",
     "dotenv": "^16.6.1",
-    "electron-log": "^5.1.2",
-    "mssql": "^11.0.1",
-    "tedious": "^19.2.2"
+    "electron-log": "^5.1.2"
   },
   "devDependencies": {
     "@electron/rebuild": "^3.7.2",
     "electron": "^29.1.0",
     "electron-builder": "^24.13.3",
+    "mssql": "^11.0.1",
     "rimraf": "^5.0.5"
-  },
-  "build": {
-    "appId": "vn.military.qlqtbdxm",
-    "productName": "QLQT Bảo Dưỡng XM",
-    "asar": true,
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "main/**/*",
-      "renderer/**/*",
-      "package.json"
-    ],
-    "linux": {
-      "target": "AppImage",
-      "category": "Utility"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "QLQT Bảo Dưỡng XM"
-    }
   }
 }

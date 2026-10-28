@@ -1,11 +1,8 @@
 'use strict';
 
 const log = require('electron-log');
-const path = require('path');
-const { app } = require('electron');
-
 // Cấu hình electron-log
-log.transports.file.level = process.env.LOG_LEVEL || 'info';
+log.transports.file.level = process.env.NODE_ENV === 'test' ? false : (process.env.LOG_LEVEL || 'info');
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
 
 // Đặt tên file log

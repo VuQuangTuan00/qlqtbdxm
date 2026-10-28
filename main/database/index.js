@@ -1,28 +1,29 @@
 'use strict';
 
-/* ============================================================
-   Database — chỉ dùng SQL Server (production)
-   ============================================================ */
-
 const {
-  initMssqlDatabase,
-  getMssqlDb,
-  closeMssqlDatabase,
-  backupMssqlDatabase,
-  getDbConfig,
-} = require('./mssql');
+  initSqliteDatabase,
+  getSqliteDb,
+  closeSqliteDatabase,
+  backupSqliteDatabase,
+  getDatabasePath,
+  inspectSqliteFile,
+  beginDatabaseMaintenance,
+  endDatabaseMaintenance,
+} = require('./sqlite');
 
-async function initDatabase() {
-  console.log('[DB] Kết nối SQL Server...');
-  return await initMssqlDatabase();
+async function initDatabase(options) {
+  return initSqliteDatabase(options);
 }
 
 function getDb() {
-  return getMssqlDb();
+  return getSqliteDb();
 }
 
 async function closeDatabase() {
-  await closeMssqlDatabase();
+  closeSqliteDatabase();
 }
 
-module.exports = { initDatabase, getDb, closeDatabase, backupMssqlDatabase, getDbConfig };
+module.exports = {
+  initDatabase, getDb, closeDatabase, backupSqliteDatabase, getDatabasePath,
+  inspectSqliteFile, beginDatabaseMaintenance, endDatabaseMaintenance,
+};

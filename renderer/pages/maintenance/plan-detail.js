@@ -213,6 +213,7 @@ function _renderSteps(logs, plan) {
         ${_stepActionBtn(log, plan)}
       </div>
     `;
+    item.querySelector('[data-complete-step]')?.addEventListener('click', () => completeStep(log.id, plan.id));
     stepsList.appendChild(item);
   }
 }
@@ -222,7 +223,7 @@ function _stepActionBtn(log, plan) {
   if (!store.hasRole('admin', 'technician', 'commander')) return '';
 
   if (log.status === 'pending' || log.status === 'in_progress') {
-    return `<button class="btn btn-sm btn-success" onclick="completeStep(${log.id}, ${plan.id})">✓ Hoàn thành</button>`;
+    return '<button class="btn btn-sm btn-success" data-complete-step>✓ Hoàn thành</button>';
   }
   return '';
 }

@@ -18,7 +18,7 @@ class EquipmentRepository extends BaseRepository {
     let paramIdx = 1;
 
     if (keyword) {
-      conditions.push(`(e.equipment_code ILIKE $${paramIdx} OR e.equipment_name ILIKE $${paramIdx} OR e.serial_number ILIKE $${paramIdx})`);
+      conditions.push(`(e.equipment_code LIKE $${paramIdx} COLLATE NOCASE OR e.equipment_name LIKE $${paramIdx} COLLATE NOCASE OR e.serial_number LIKE $${paramIdx} COLLATE NOCASE)`);
       params.push(`%${keyword}%`);
       paramIdx++;
     }

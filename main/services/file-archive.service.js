@@ -1,315 +1,291 @@
 'use strict';
 
-const { execFile } = require('child_process');
+const AdmZip = require('adm-zip');
+const crypto = require('crypto');
 const fs = require('fs');
-const path = require('path');
 const os = require('os');
-const { randomUUID } = require('crypto');
-const { promisify } = require('util');
+const path = require('path');
 const { app } = require('electron');
+const {
+  backupSqliteDatabase,
+  closeDatabase,
+  initDatabase,
+  inspectSqliteFile,
+  getDatabasePath,
+  beginDatabaseMaintenance,
+  endDatabaseMaintenance,
+} = require('../database');
 
-const execFileAsync = promisify(execFile);
-const FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
-const EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx'];
+const MANAGED_FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
+const MAX_ENTRIES = 5000;
+const MAX_TOTAL_SIZE = 2 * 1024 * 1024 * 1024;
+const MAX_ENTRY_SIZE = 256 * 1024 * 1024;
+const MAX_COMPRESSION_RATIO = 200;
 
-function quotePowerShell(value) {
-  return `'${String(value).replace(/'/g, "''")}'`;
+function assertInside(root, candidate) {
+  const resolvedRoot = path.resolve(root);
+  const resolvedCandidate = path.resolve(candidate);
+  const relative = path.relative(resolvedRoot, resolvedCandidate);
+  if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`Đường dẫn nằm ngoài vùng dữ liệu cho phép: ${resolvedCandidate}`);
+  }
+  return resolvedCandidate;
 }
 
-async function runPowerShell(script) {
-  if (process.platform !== 'win32') throw new Error('Sao lưu ZIP hiện chỉ hỗ trợ Windows.');
-  const encoded = Buffer.from(script, 'utf16le').toString('base64');
-  try {
-    const { stdout } = await execFileAsync('powershell.exe', [
-      '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded,
-    ], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
-    return stdout.trim();
-  } catch (err) {
-    throw new Error(`Thao tác ZIP thất bại: ${(err.stderr || err.message || '').trim()}`);
+function safeRemove(root, candidate) {
+  const target = assertInside(root, candidate);
+  fs.rmSync(target, { recursive: true, force: true });
+}
+
+async function hashFile(filePath) {
+  const hash = crypto.createHash('sha256');
+  await new Promise((resolve, reject) => {
+    const stream = fs.createReadStream(filePath);
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', resolve);
+  });
+  return hash.digest('hex');
+}
+
+function listFiles(root) {
+  const result = [];
+  if (!fs.existsSync(root)) return result;
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const absolute = path.join(root, entry.name);
+    if (entry.isDirectory()) result.push(...listFiles(absolute));
+    else if (entry.isFile()) result.push(absolute);
+  }
+  return result;
+}
+
+async function buildFileManifest(stagingRoot) {
+  const files = [];
+  for (const absolute of listFiles(stagingRoot)) {
+    if (path.basename(absolute) === 'manifest.json') continue;
+    const relative = path.relative(stagingRoot, absolute).split(path.sep).join('/');
+    const stat = fs.statSync(absolute);
+    files.push({ path: relative, size: stat.size, sha256: await hashFile(absolute) });
+  }
+  return files.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+async function createZip(sourceDir, destination) {
+  const zip = new AdmZip();
+  for (const absolute of listFiles(sourceDir)) {
+    const relativeDir = path.dirname(path.relative(sourceDir, absolute));
+    zip.addLocalFile(absolute, relativeDir === '.' ? '' : relativeDir.split(path.sep).join('/'));
+  }
+  await new Promise((resolve, reject) => {
+    zip.writeZip(destination, (error) => error ? reject(error) : resolve());
+  });
+}
+
+async function inspectArchive(archivePath) {
+  const zip = new AdmZip(archivePath);
+  return zip.getEntries().map((entry) => ({
+    name: entry.entryName,
+    size: entry.header.size,
+    compressedSize: entry.header.compressedSize,
+    isDirectory: entry.isDirectory,
+  }));
+}
+
+function validateEntryName(rawName) {
+  const name = String(rawName).replace(/\\/g, '/');
+  if (!name || name.startsWith('/') || /^[A-Za-z]:/.test(name) || name.includes('\0')) return false;
+  const parts = name.split('/').filter(Boolean);
+  if (parts.some((part) => part === '.' || part === '..' || /[<>:"|?*]/.test(part) || /[. ]$/.test(part))) return false;
+  if (name === 'manifest.json' || name === 'database/app.sqlite') return true;
+  return /^files\/(uploads|vehicle-images|maintenance-files)(\/.*)?$/.test(name);
+}
+
+async function validateArchiveEntries(archivePath) {
+  const entries = await inspectArchive(archivePath);
+  if (!entries.length || entries.length > MAX_ENTRIES) throw new Error('Số lượng file trong ZIP không hợp lệ.');
+  const names = new Set();
+  let total = 0;
+  for (const entry of entries) {
+    const name = String(entry.name).replace(/\\/g, '/');
+    if (!validateEntryName(name)) throw new Error(`Đường dẫn không hợp lệ trong ZIP: ${name}`);
+    const key = name.toLowerCase();
+    if (names.has(key)) throw new Error(`ZIP chứa đường dẫn trùng lặp: ${name}`);
+    names.add(key);
+    const size = Number(entry.size);
+    const compressed = Number(entry.compressedSize);
+    if (!Number.isSafeInteger(size) || size < 0 || size > MAX_ENTRY_SIZE) throw new Error(`File trong ZIP quá lớn: ${name}`);
+    total += size;
+    if (total > MAX_TOTAL_SIZE) throw new Error('Tổng kích thước giải nén vượt giới hạn 2 GB.');
+    if (compressed > 0 && size / compressed > MAX_COMPRESSION_RATIO) throw new Error(`Tỷ lệ nén bất thường: ${name}`);
+  }
+  if (!names.has('manifest.json') || !names.has('database/app.sqlite')) {
+    throw new Error('Gói backup thiếu manifest hoặc database SQLite.');
+  }
+  return entries;
+}
+
+async function extractZip(archivePath, destination) {
+  const zip = new AdmZip(archivePath);
+  for (const entry of zip.getEntries()) {
+    if (entry.isDirectory) continue;
+    const relative = entry.entryName.replace(/\\/g, '/');
+    const target = assertInside(destination, path.join(destination, ...relative.split('/')));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, entry.getData(), { flag: 'wx' });
   }
 }
 
-async function exportFiles(destinationPath) {
-  const root = app.getPath('userData');
-  const destination = path.resolve(destinationPath);
-  if (path.extname(destination).toLowerCase() !== '.zip') {
-    throw new Error('File sao lưu phải có đuôi .zip.');
-  }
-  if (destination.startsWith(`${root}${path.sep}`)) {
-    throw new Error('Không thể lưu ZIP bên trong thư mục dữ liệu ứng dụng.');
-  }
-  if (fs.existsSync(destination)) {
-    throw new Error('File ZIP đã tồn tại. Hãy chọn tên khác để tránh ghi đè.');
-  }
-
-  const script = `
-$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$root = ${quotePowerShell(root)}
-$destination = ${quotePowerShell(destination)}
-$archive = [System.IO.Compression.ZipFile]::Open($destination, [System.IO.Compression.ZipArchiveMode]::Create)
-try {
-  foreach ($folder in @(${FOLDERS.map(quotePowerShell).join(', ')})) {
-    $source = Join-Path $root $folder
-    if (-not (Test-Path -LiteralPath $source -PathType Container)) { continue }
-    $files = @(Get-ChildItem -LiteralPath $source -File -Recurse)
-    if ($files.Count -eq 0) {
-      $archive.CreateEntry("$folder/") | Out-Null
-      continue
-    }
-    foreach ($file in $files) {
-      $relative = $file.FullName.Substring($root.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
-      [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $relative, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
-    }
-  }
-} finally {
-  $archive.Dispose()
-}
-Write-Output 'Da tao ZIP backup.'
-`;
-
-  await runPowerShell(script);
-  return destination;
-}
-
-async function importFiles(archivePath) {
+async function validateBackupPackage(archivePath) {
   const archive = path.resolve(archivePath);
-  if (!fs.existsSync(archive) || !fs.statSync(archive).isFile()) {
-    throw new Error('Không tìm thấy file ZIP đã chọn.');
-  }
-  if (path.extname(archive).toLowerCase() !== '.zip') {
-    throw new Error('Chỉ chấp nhận file .zip.');
-  }
-
-  const root = app.getPath('userData');
-  const script = `
-$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archivePath = ${quotePowerShell(archive)}
-$root = ${quotePowerShell(root)}
-$temp = Join-Path ([System.IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString())
-$folders = @(${FOLDERS.map(quotePowerShell).join(', ')})
-$extensions = @(${EXTENSIONS.map(quotePowerShell).join(', ')})
-$zip = $null
-try {
-  New-Item -ItemType Directory -Path $temp -Force | Out-Null
-  $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
-  $names = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-  foreach ($entry in $zip.Entries) {
-    $entryName = $entry.FullName.Replace([char]92, [char]47)
-    if ($entryName -match '^([^/]+)/$' -and $folders -contains $Matches[1]) { continue }
-    if ($entryName -notmatch '^(uploads|vehicle-images|maintenance-files)/([^/]+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
-    $folder = $Matches[1]
-    $fileName = $Matches[2]
-    if ($fileName.Contains('..') -or $fileName -eq '.' -or $fileName -eq '..') { throw "Ten file khong hop le: $fileName" }
-    if ([System.IO.Path]::GetExtension($fileName).ToLowerInvariant() -notin $extensions) { throw "Dinh dang file khong duoc ho tro: $fileName" }
-    $key = "$folder/$fileName"
-    if (-not $names.Add($key)) { throw "ZIP co file trung lap: $key" }
-    $tempFolder = Join-Path $temp $folder
-    New-Item -ItemType Directory -Path $tempFolder -Force | Out-Null
-    $tempFile = Join-Path $tempFolder $fileName
-    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $tempFile, $false)
-  }
-
-  $files = @(Get-ChildItem -LiteralPath $temp -File -Recurse)
-  foreach ($file in $files) {
-    $relative = $file.FullName.Substring($temp.Length).TrimStart([char]92, [char]47)
-    $target = Join-Path $root $relative
-    if (Test-Path -LiteralPath $target -PathType Leaf) {
-      $existingHash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
-      $incomingHash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
-      if ($existingHash -ne $incomingHash) { throw "File dich trung ten nhung khac noi dung: $relative" }
-    }
-  }
-
-  foreach ($file in $files) {
-    $relative = $file.FullName.Substring($temp.Length).TrimStart([char]92, [char]47)
-    $target = Join-Path $root $relative
-    $targetFolder = Split-Path -Parent $target
-    New-Item -ItemType Directory -Path $targetFolder -Force | Out-Null
-    if (Test-Path -LiteralPath $target -PathType Leaf) {
-      Write-Output "Da co san, bo qua: $relative"
-    } else {
-      Copy-Item -LiteralPath $file.FullName -Destination $target
-      Write-Output "Da nhap: $relative"
-    }
-  }
-} finally {
-  if ($zip) { $zip.Dispose() }
-  if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force }
-}
-Write-Output 'Da nhap ZIP backup.'
-`;
-
-  return runPowerShell(script);
-}
-
-async function exportTransferPackage(destinationPath, databaseBackupPath, databaseName) {
-  const root = app.getPath('userData');
-  const destination = path.resolve(destinationPath);
-  const backupPath = path.resolve(databaseBackupPath);
-  if (path.extname(destination).toLowerCase() !== '.zip') {
-    throw new Error('File bộ chuyển máy phải có đuôi .zip.');
-  }
-  if (!fs.existsSync(backupPath) || !fs.statSync(backupPath).isFile()) {
-    throw new Error('SQL Server không tạo được file .bak.');
-  }
-  if (fs.existsSync(destination)) {
-    throw new Error('File ZIP đã tồn tại. Hãy chọn tên khác để tránh ghi đè.');
-  }
-
-  const safeDatabaseName = String(databaseName || 'database').replace(/[<>:"/\\|?*]/g, '_');
-  const backupFileName = `${safeDatabaseName}.bak`;
-  const manifest = {
-    format: 'qlqtbdxm-transfer-package',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    database: databaseName,
-    databaseBackup: `database/${backupFileName}`,
-    fileFolders: FOLDERS,
-  };
-  const manifestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qlqtbdxm-manifest-'));
-  const manifestPath = path.join(manifestDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
-
-  const script = `
-$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$root = ${quotePowerShell(root)}
-$backupPath = ${quotePowerShell(backupPath)}
-$backupEntry = ${quotePowerShell(`database/${backupFileName}`)}
-$manifestPath = ${quotePowerShell(manifestPath)}
-$destination = ${quotePowerShell(destination)}
-$archive = [System.IO.Compression.ZipFile]::Open($destination, [System.IO.Compression.ZipArchiveMode]::Create)
-try {
-  foreach ($folder in @(${FOLDERS.map(quotePowerShell).join(', ')})) {
-    $source = Join-Path $root $folder
-    if (-not (Test-Path -LiteralPath $source -PathType Container)) { continue }
-    foreach ($file in @(Get-ChildItem -LiteralPath $source -File -Recurse)) {
-      $relative = $file.FullName.Substring($root.Length).TrimStart([char]92, [char]47).Replace([char]92, [char]47)
-      [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $file.FullName, $relative, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
-    }
-  }
-  [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $backupPath, $backupEntry, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
-  [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $manifestPath, 'manifest.json', [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
-} finally {
-  $archive.Dispose()
-}
-Write-Output 'Da tao goi chuyen may.'
-`;
-
+  if (!fs.existsSync(archive) || path.extname(archive).toLowerCase() !== '.zip') throw new Error('File backup ZIP không tồn tại.');
+  await validateArchiveEntries(archive);
+  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'qlqt-restore-'));
   try {
-    await runPowerShell(script);
-    return destination;
-  } catch (err) {
-    try { fs.rmSync(destination, { force: true }); } catch (_) {}
-    throw err;
+    await extractZip(archive, staging);
+    const manifestPath = path.join(staging, 'manifest.json');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    if (manifest.format !== 'qlqtbdxm-sqlite-backup' || manifest.version !== 2 || !Array.isArray(manifest.files)) {
+      throw new Error('Manifest backup không đúng định dạng được hỗ trợ.');
+    }
+    const expected = new Set();
+    for (const item of manifest.files) {
+      if (!item || !validateEntryName(item.path) || typeof item.sha256 !== 'string' || !Number.isSafeInteger(item.size)) {
+        throw new Error('Manifest chứa metadata file không hợp lệ.');
+      }
+      const absolute = assertInside(staging, path.join(staging, ...item.path.split('/')));
+      if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) throw new Error(`Thiếu file backup: ${item.path}`);
+      if (fs.statSync(absolute).size !== item.size || await hashFile(absolute) !== item.sha256) {
+        throw new Error(`Checksum không khớp: ${item.path}`);
+      }
+      expected.add(path.resolve(absolute).toLowerCase());
+    }
+    for (const absolute of listFiles(staging)) {
+      if (path.basename(absolute) === 'manifest.json') continue;
+      if (!expected.has(path.resolve(absolute).toLowerCase())) throw new Error(`ZIP có file không được khai báo: ${path.relative(staging, absolute)}`);
+    }
+    const inspection = inspectSqliteFile(path.join(staging, 'database', 'app.sqlite'));
+    if (inspection.integrity !== 'ok' || inspection.foreignKeys.length) throw new Error('Database trong backup không toàn vẹn.');
+    const backupMigrations = inspection.migrations.map((row) => row.filename);
+    if (JSON.stringify(backupMigrations) !== JSON.stringify(manifest.schemaMigrations || [])) {
+      throw new Error('Schema version trong manifest không khớp database.');
+    }
+    return { staging, manifest, inspection };
+  } catch (error) {
+    fs.rmSync(staging, { recursive: true, force: true });
+    throw error;
+  }
+}
+
+async function exportBackup(destinationPath, options = {}) {
+  const root = path.resolve(options.userDataPath || app.getPath('userData'));
+  const destination = path.resolve(destinationPath);
+  if (path.extname(destination).toLowerCase() !== '.zip') throw new Error('File backup phải có đuôi .zip.');
+  if (fs.existsSync(destination)) throw new Error('File backup đã tồn tại; không tự động ghi đè.');
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'qlqt-backup-'));
+  const partial = `${destination}.partial-${crypto.randomUUID()}.zip`;
+  const managesMaintenance = options.manageMaintenance !== false;
+  try {
+    if (managesMaintenance) beginDatabaseMaintenance();
+    const databaseDir = path.join(staging, 'database');
+    fs.mkdirSync(databaseDir, { recursive: true });
+    await backupSqliteDatabase(path.join(databaseDir, 'app.sqlite'));
+    for (const folder of MANAGED_FOLDERS) {
+      const source = path.join(root, folder);
+      const target = path.join(staging, 'files', folder);
+      if (fs.existsSync(source)) fs.cpSync(source, target, { recursive: true, errorOnExist: true });
+    }
+    const databaseInspection = inspectSqliteFile(path.join(databaseDir, 'app.sqlite'));
+    const manifest = {
+      format: 'qlqtbdxm-sqlite-backup',
+      version: 2,
+      createdAt: new Date().toISOString(),
+      appVersion: options.appVersion || (app && typeof app.getVersion === 'function' ? app.getVersion() : 'test'),
+      schemaMigrations: databaseInspection.migrations.map((row) => row.filename),
+      files: await buildFileManifest(staging),
+    };
+    fs.writeFileSync(path.join(staging, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
+    await createZip(staging, partial);
+    const verified = await validateBackupPackage(partial);
+    fs.rmSync(verified.staging, { recursive: true, force: true });
+    fs.renameSync(partial, destination);
+    return { path: destination, manifest };
+  } catch (error) {
+    try { if (fs.existsSync(partial)) fs.rmSync(partial, { force: true }); } catch (_) {}
+    throw error;
   } finally {
-    fs.rmSync(manifestDir, { recursive: true, force: true });
+    if (managesMaintenance) endDatabaseMaintenance();
+    fs.rmSync(staging, { recursive: true, force: true });
   }
 }
 
-async function importTransferPackage(archivePath, databaseBackupDestination) {
-  const archive = path.resolve(archivePath);
-  if (!fs.existsSync(archive) || !fs.statSync(archive).isFile()) {
-    throw new Error('Không tìm thấy file ZIP đã chọn.');
-  }
-  if (path.extname(archive).toLowerCase() !== '.zip') {
-    throw new Error('Chỉ chấp nhận file .zip.');
-  }
+function moveIfExists(source, destination) {
+  if (!fs.existsSync(source)) return;
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.renameSync(source, destination);
+}
 
-  const root = app.getPath('userData');
-  const backupDestination = databaseBackupDestination ? path.resolve(databaseBackupDestination) : '';
-  if (backupDestination && fs.existsSync(backupDestination)) {
-    throw new Error('File .bak đích đã tồn tại. Hãy chọn tên khác.');
-  }
+async function restoreBackup(archivePath, options = {}) {
+  const root = path.resolve(options.userDataPath || app.getPath('userData'));
+  const validated = await validateBackupPackage(archivePath);
+  const backupDir = path.join(root, 'backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  const safetyPath = path.join(backupDir, `pre-restore-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`);
+  beginDatabaseMaintenance();
+  try {
+    await exportBackup(safetyPath, { userDataPath: root, manageMaintenance: false });
 
-  const script = `
-$ErrorActionPreference = 'Stop'
-Add-Type -AssemblyName System.IO.Compression
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archivePath = ${quotePowerShell(archive)}
-$root = ${quotePowerShell(root)}
-$backupDestination = ${quotePowerShell(backupDestination)}
-$temp = Join-Path ([System.IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString())
-$folders = @(${FOLDERS.map(quotePowerShell).join(', ')})
-$extensions = @(${EXTENSIONS.map(quotePowerShell).join(', ')})
-$zip = $null
-$backupCount = 0
-try {
-  New-Item -ItemType Directory -Path $temp -Force | Out-Null
-  $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
-  $names = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-  foreach ($entry in $zip.Entries) {
-    $entryName = $entry.FullName.Replace([char]92, [char]47)
-    if ($entryName -eq 'manifest.json') {
-      $manifestPath = Join-Path $temp 'manifest.json'
-      [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $manifestPath, $false)
-      continue
+  const rollback = path.join(root, `.restore-rollback-${crypto.randomUUID()}`);
+  const currentDb = path.resolve(getDatabasePath());
+  assertInside(root, currentDb);
+  await closeDatabase();
+  fs.mkdirSync(rollback, { recursive: true });
+  let swapped = false;
+  try {
+    for (const suffix of ['', '-wal', '-shm']) moveIfExists(`${currentDb}${suffix}`, path.join(rollback, `app.sqlite${suffix}`));
+    for (const folder of MANAGED_FOLDERS) moveIfExists(path.join(root, folder), path.join(rollback, folder));
+    fs.mkdirSync(path.dirname(currentDb), { recursive: true });
+    fs.copyFileSync(path.join(validated.staging, 'database', 'app.sqlite'), currentDb, fs.constants.COPYFILE_EXCL);
+    swapped = true;
+    for (const folder of MANAGED_FOLDERS) {
+      const incoming = path.join(validated.staging, 'files', folder);
+      const target = path.join(root, folder);
+      if (fs.existsSync(incoming)) fs.cpSync(incoming, target, { recursive: true, errorOnExist: true });
     }
-    if ($entryName -match '^database/([^/]+\.bak)$') {
-      $backupCount++
-      if ($backupCount -gt 1) { throw 'Goi backup co nhieu hon mot file database .bak.' }
-      $databaseDir = Join-Path $temp 'database'
-      New-Item -ItemType Directory -Path $databaseDir -Force | Out-Null
-      [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $databaseDir $Matches[1]), $false)
-      continue
+    if (typeof options.afterSwap === 'function') await options.afterSwap();
+    await initDatabase({ databasePath: currentDb });
+    const finalInspection = inspectSqliteFile(currentDb);
+    if (finalInspection.integrity !== 'ok' || finalInspection.foreignKeys.length) throw new Error('Database sau restore không toàn vẹn.');
+    safeRemove(root, rollback);
+    return { path: path.resolve(archivePath), safetyBackupPath: safetyPath, restartRequired: true };
+  } catch (error) {
+    try { await closeDatabase(); } catch (_) {}
+    if (swapped) {
+      for (const suffix of ['', '-wal', '-shm']) {
+        const candidate = `${currentDb}${suffix}`;
+        if (fs.existsSync(candidate)) fs.rmSync(candidate, { force: true });
+      }
+      for (const folder of MANAGED_FOLDERS) {
+        const candidate = path.join(root, folder);
+        if (fs.existsSync(candidate)) safeRemove(root, candidate);
+      }
     }
-    if ($entryName -match '^([^/]+)/$' -and $folders -contains $Matches[1]) { continue }
-    if ($entryName -notmatch '^(uploads|vehicle-images|maintenance-files)/([^/]+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
-    $folder = $Matches[1]
-    $fileName = $Matches[2]
-    if ($fileName.Contains('..') -or $fileName -eq '.' -or $fileName -eq '..') { throw "Ten file khong hop le: $fileName" }
-    if ([System.IO.Path]::GetExtension($fileName).ToLowerInvariant() -notin $extensions) { throw "Dinh dang file khong duoc ho tro: $fileName" }
-    $key = "$folder/$fileName"
-    if (-not $names.Add($key)) { throw "ZIP co file trung lap: $key" }
-    $tempFolder = Join-Path $temp $folder
-    New-Item -ItemType Directory -Path $tempFolder -Force | Out-Null
-    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $tempFolder $fileName), $false)
+    for (const suffix of ['', '-wal', '-shm']) moveIfExists(path.join(rollback, `app.sqlite${suffix}`), `${currentDb}${suffix}`);
+    for (const folder of MANAGED_FOLDERS) moveIfExists(path.join(rollback, folder), path.join(root, folder));
+    if (fs.existsSync(rollback)) safeRemove(root, rollback);
+    await initDatabase({ databasePath: currentDb });
+    throw new Error(`Restore thất bại, dữ liệu cũ đã được hoàn tác: ${error.message}`);
   }
-
-  if ($backupCount -gt 0 -and -not $backupDestination) { throw 'Chua chon noi luu file database .bak.' }
-  $manifestPath = Join-Path $temp 'manifest.json'
-  if (Test-Path -LiteralPath $manifestPath) {
-    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    if ($manifest.format -ne 'qlqtbdxm-transfer-package' -or $manifest.version -ne 1) { throw 'Manifest goi chuyen may khong hop le.' }
-    if (($backupCount -eq 1) -ne [bool]$manifest.databaseBackup) { throw 'Manifest va file database .bak khong khop.' }
+  } finally {
+    endDatabaseMaintenance();
+    fs.rmSync(validated.staging, { recursive: true, force: true });
   }
-
-  $files = @(Get-ChildItem -LiteralPath $temp -File -Recurse | Where-Object { $_.Name -ne 'manifest.json' -and $_.Extension -ne '.bak' })
-  foreach ($file in $files) {
-    $relative = $file.FullName.Substring($temp.Length).TrimStart([char]92, [char]47)
-    $target = Join-Path $root $relative
-    $targetDir = Split-Path -Parent $target
-    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-    Copy-Item -LiteralPath $file.FullName -Destination $target -Force
-  }
-
-  if ($backupCount -eq 1) {
-    $backupFile = Get-ChildItem -LiteralPath (Join-Path $temp 'database') -Filter '*.bak' -File | Select-Object -First 1
-    $backupDir = Split-Path -Parent $backupDestination
-    New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
-    Copy-Item -LiteralPath $backupFile.FullName -Destination $backupDestination
-    Write-Output "DATABASE_BACKUP=$backupDestination"
-  } else {
-    Write-Output 'DATABASE_BACKUP=NONE'
-  }
-  Write-Output 'Da nhap file trong goi chuyen may.'
-} finally {
-  if ($zip) { $zip.Dispose() }
-  if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp -Recurse -Force }
-}
-`;
-
-  const output = await runPowerShell(script);
-  const backupLine = output.split(/\r?\n/).find((line) => line.startsWith('DATABASE_BACKUP='));
-  return {
-    backupPath: backupLine && backupLine !== 'DATABASE_BACKUP=NONE' ? backupLine.slice('DATABASE_BACKUP='.length) : null,
-    output,
-  };
 }
 
-module.exports = { exportFiles, importFiles, exportTransferPackage, importTransferPackage };
+module.exports = {
+  exportBackup,
+  restoreBackup,
+  validateBackupPackage,
+  MANAGED_FOLDERS,
+  _private: { validateEntryName, validateArchiveEntries, hashFile, assertInside },
+};

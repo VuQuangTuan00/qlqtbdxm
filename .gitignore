@@ -16,7 +16,6 @@ Thumbs.db
 *.pkg
 coverage/
 .nyc_output/
-scripts/
 # Demo assets (large binaries — generate with: npm run export-demo)
 demo-assets/demo.db
 demo-assets/vehicle-images/*

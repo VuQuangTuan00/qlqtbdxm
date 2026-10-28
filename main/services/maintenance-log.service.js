@@ -27,17 +27,13 @@ async function create(data, userId) {
     return fail('Kế hoạch chưa được phê duyệt');
   }
 
-  // Tự động chuyển plan sang in_progress
-  if (plan.status === 'approved') {
-    await planRepo.updateStatus(plan_id, 'in_progress');
-  }
-
-  const entry = await logRepo.create({
-    plan_id,
-    step_id,
-    performed_by: userId,
-    start_time: new Date().toISOString(),
-    status: 'in_progress',
+  let entry;
+  await getDb().transaction(async () => {
+    if (plan.status === 'approved') await planRepo.updateStatus(plan_id, 'in_progress');
+    entry = await logRepo.create({
+      plan_id, step_id, performed_by: userId,
+      start_time: new Date().toISOString(), status: 'in_progress',
+    });
   });
 
   return ok(await logRepo.findByIdFull(entry.id), 'Bắt đầu thực hiện');
@@ -69,16 +65,16 @@ async function updateStatus(id, status, extra = {}, userId) {
     updateExtra.end_time = new Date().toISOString();
   }
 
-  await logRepo.updateStatus(id, status, updateExtra);
-
-  // Kiểm tra nếu tất cả steps hoàn thành → cập nhật plan
-  if (status === 'completed') {
-    const allDone = await logRepo.allCompleted(log.plan_id);
-    if (allDone) {
-      await planRepo.updateStatus(log.plan_id, 'completed');
-      logger.info(`[Log] Kế hoạch ${log.plan_id} đã hoàn thành tất cả bước`);
+  await getDb().transaction(async () => {
+    await logRepo.updateStatus(id, status, updateExtra);
+    if (status === 'completed') {
+      const allDone = await logRepo.allCompleted(log.plan_id);
+      if (allDone) {
+        await planRepo.updateStatus(log.plan_id, 'completed');
+        logger.info(`[Log] Kế hoạch ${log.plan_id} đã hoàn thành tất cả bước`);
+      }
     }
-  }
+  });
 
   return ok(await logRepo.findByIdFull(id), 'Cập nhật trạng thái thành công');
 }

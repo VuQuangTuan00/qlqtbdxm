@@ -1,13 +1,12 @@
 'use strict';
 
-const { app, ipcMain, shell, dialog } = require('electron');
+const { app, dialog } = require('electron');
 const path = require('path');
-const fs   = require('fs');
 
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const logger = require('./utils/logger');
-const { initDatabase, closeDatabase, getDbConfig, getDb } = require('./database/index');
+const { initDatabase, closeDatabase, getDb } = require('./database/index');
 const { createMainWindow } = require('./window-manager');
 const registerAllIpcHandlers = require('./ipc/index');
 
@@ -21,44 +20,27 @@ let mainWindow = null;
 
 app.whenReady().then(async () => {
   logger.info('[App] Khởi động ứng dụng QLQT Bảo Dưỡng Xe Máy...');
-
-  // db-config handlers không cần DB — đăng ký trước để màn hình setup hoạt động
-  require('./ipc/db-config.ipc').register();
-
-  // Lần đầu chạy: chưa có db-config.json → hiển thị màn hình nhập credentials
-  const cfgPath = path.join(app.getPath('userData'), 'db-config.json');
-  if (!fs.existsSync(cfgPath)) {
-    logger.info('[App] Lần đầu khởi chạy — hiển thị màn hình nhập kết nối SQL Server');
-    mainWindow = createMainWindow();
-    mainWindow.webContents.once('did-finish-load', () => {
-      mainWindow.webContents.send('app:first-run', {});
-    });
-  } else {
-    let dbError = null;
-    try {
-      await initDatabase();
-      logger.info('[App] Database đã sẵn sàng');
-    } catch (err) {
-      logger.error('[App] Lỗi khởi tạo database:', err);
-      dbError = err.message;
-    }
-
-    // Luôn đăng ký handlers dù DB có lỗi hay không,
-    // tránh "No handler registered" khi renderer gọi IPC trong lúc overlay hiển thị
+  try {
+    await initDatabase();
+    logger.info('[App] SQLite đã sẵn sàng');
     registerAllIpcHandlers();
     logger.info('[App] IPC handlers đã đăng ký');
-
+    const { rows } = await getDb().query('SELECT COUNT(*) AS total FROM users');
+    const needsBootstrap = Number(rows[0].total) === 0;
     mainWindow = createMainWindow();
-
-    if (dbError) {
+    if (needsBootstrap) {
       mainWindow.webContents.once('did-finish-load', () => {
-        const cfg = getDbConfig();
-        mainWindow.webContents.send('app:db-setup', {
-          error: dbError,
-          config: { server: cfg.server || cfg.host, port: cfg.port, database: cfg.database, user: cfg.user },
-        });
+        mainWindow.webContents.send('app:first-run', {});
       });
     }
+  } catch (err) {
+    logger.error('[App] Lỗi khởi tạo SQLite:', err);
+    dialog.showErrorBox(
+      'Không thể mở cơ sở dữ liệu',
+      `Ứng dụng không thể khởi tạo SQLite và chưa thay đổi dữ liệu hiện có.\n\n${err.message}`
+    );
+    app.quit();
+    return;
   }
 
   app.on('activate', () => {
