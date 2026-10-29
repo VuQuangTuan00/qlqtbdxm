@@ -7,9 +7,10 @@
     "start": "electron .",
     "dev": "electron . --inspect=5858",
     "test": "electron tests/run-tests.js",
+    "test:csp": "node scripts/run-electron-gui-test.js tests/csp-font-smoke.js",
     "test:syntax": "node scripts/check-syntax.js",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
-    "build": "npm run test && electron-builder --win",
+    "build": "npm run test && npm run test:csp && electron-builder --win",
     "seed": "electron scripts/seed.js",
     "reset-db": "node scripts/reset-db.js",
     "migrate:mssql": "electron scripts/migrate-mssql-to-sqlite.js"

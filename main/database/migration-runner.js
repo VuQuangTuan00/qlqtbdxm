@@ -4,6 +4,15 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
+// 001_initial.sql đã từng được phát hành với nội dung SQL tương đương hoàn toàn
+// (cùng schema và seed), nhưng checksum khác. Chỉ chấp nhận đúng checksum đã biết
+// rồi nâng metadata sang checksum hiện tại; mọi thay đổi khác vẫn bị từ chối.
+const LEGACY_CHECKSUMS = Object.freeze({
+  '001_initial.sql': new Set([
+    '4149b36eb9404d9acef92fdfc4e190a318a3fdd0f4659f6955b17db50a16811a',
+  ]),
+});
+
 function checksum(content) {
   return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
 }
@@ -20,15 +29,27 @@ function runMigrations(db, migrationDir = path.join(__dirname, 'migrations-sqlit
   const files = fs.readdirSync(migrationDir).filter((name) => /^\d+.*\.sql$/i.test(name)).sort();
   const available = new Set(files);
   const applied = db.prepare('SELECT filename, checksum FROM _migrations ORDER BY filename').all();
+  const checksumUpdates = [];
 
   for (const row of applied) {
     if (!available.has(row.filename)) {
       throw new Error(`Database có migration không được ứng dụng hiện tại hỗ trợ: ${row.filename}`);
     }
     const content = fs.readFileSync(path.join(migrationDir, row.filename), 'utf8');
-    if (row.checksum !== checksum(content)) {
+    const currentChecksum = checksum(content);
+    if (row.checksum === currentChecksum) continue;
+    if (LEGACY_CHECKSUMS[row.filename]?.has(row.checksum)) {
+      checksumUpdates.push({ filename: row.filename, checksum: currentChecksum });
+    } else {
       throw new Error(`Migration đã áp dụng bị thay đổi nội dung: ${row.filename}`);
     }
+  }
+
+  if (checksumUpdates.length) {
+    const updateChecksum = db.prepare('UPDATE _migrations SET checksum = ? WHERE filename = ?');
+    db.transaction(() => {
+      for (const row of checksumUpdates) updateChecksum.run(row.checksum, row.filename);
+    })();
   }
 
   const insert = db.prepare('INSERT INTO _migrations (filename, checksum) VALUES (?, ?)');
@@ -43,4 +64,4 @@ function runMigrations(db, migrationDir = path.join(__dirname, 'migrations-sqlit
   return { applied: files.length, latest: files.at(-1) || null };
 }
 
-module.exports = { runMigrations, checksum };
+module.exports = { runMigrations, checksum, LEGACY_CHECKSUMS };

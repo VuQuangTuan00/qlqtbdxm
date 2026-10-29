@@ -16,7 +16,10 @@ const {
   endDatabaseMaintenance,
 } = require('../database');
 
-const MANAGED_FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
+const MANAGED_FOLDERS = ['vehicle-images', 'maintenance-files'];
+const LEGACY_UPLOADS_FOLDER = 'uploads';
+const CURRENT_BACKUP_VERSION = 3;
+const SUPPORTED_BACKUP_VERSIONS = new Set([2, CURRENT_BACKUP_VERSION]);
 const MAX_ENTRIES = 5000;
 const MAX_TOTAL_SIZE = 2 * 1024 * 1024 * 1024;
 const MAX_ENTRY_SIZE = 256 * 1024 * 1024;
@@ -57,6 +60,40 @@ function listFiles(root) {
     else if (entry.isFile()) result.push(absolute);
   }
   return result;
+}
+
+function hasSupportedImageSignature(buffer, extension) {
+  const hex = buffer.subarray(0, 12).toString('hex');
+  if (['.jpg', '.jpeg'].includes(extension)) return hex.startsWith('ffd8ff');
+  if (extension === '.png') return hex.startsWith('89504e470d0a1a0a');
+  if (extension === '.gif') return buffer.subarray(0, 4).toString('ascii') === 'GIF8';
+  if (extension === '.webp') {
+    return buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+      && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+  }
+  return false;
+}
+
+function validateManagedFolder(folderPath, folderName) {
+  for (const filePath of listFiles(folderPath)) {
+    const extension = path.extname(filePath).toLowerCase();
+    const handle = fs.openSync(filePath, 'r');
+    const header = Buffer.alloc(12);
+    let bytesRead;
+    try {
+      bytesRead = fs.readSync(handle, header, 0, header.length, 0);
+    } finally {
+      fs.closeSync(handle);
+    }
+    const content = header.subarray(0, bytesRead);
+    if (folderName === 'vehicle-images' && !hasSupportedImageSignature(content, extension)) {
+      throw new Error(`Thư mục vehicle-images chỉ được chứa ảnh JPG, PNG, GIF hoặc WEBP hợp lệ: ${path.basename(filePath)}`);
+    }
+    if (folderName === 'maintenance-files'
+      && (extension !== '.pdf' || content.subarray(0, 5).toString('ascii') !== '%PDF-')) {
+      throw new Error(`Thư mục maintenance-files chỉ được chứa PDF hợp lệ: ${path.basename(filePath)}`);
+    }
+  }
 }
 
 async function buildFileManifest(stagingRoot) {
@@ -144,8 +181,18 @@ async function validateBackupPackage(archivePath) {
     await extractZip(archive, staging);
     const manifestPath = path.join(staging, 'manifest.json');
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    if (manifest.format !== 'qlqtbdxm-sqlite-backup' || manifest.version !== 2 || !Array.isArray(manifest.files)) {
+    if (manifest.format !== 'qlqtbdxm-sqlite-backup'
+      || !SUPPORTED_BACKUP_VERSIONS.has(manifest.version)
+      || !Array.isArray(manifest.files)) {
       throw new Error('Manifest backup không đúng định dạng được hỗ trợ.');
+    }
+    if (manifest.version === CURRENT_BACKUP_VERSION) {
+      if (JSON.stringify(manifest.fileFolders) !== JSON.stringify(MANAGED_FOLDERS)) {
+        throw new Error('Danh sách thư mục file trong backup không đúng định dạng version 3.');
+      }
+      if (manifest.files.some((item) => String(item?.path || '').replace(/\\/g, '/').startsWith('files/uploads/'))) {
+        throw new Error('Backup version 3 không được chứa thư mục uploads legacy.');
+      }
     }
     const expected = new Set();
     for (const item of manifest.files) {
@@ -168,6 +215,9 @@ async function validateBackupPackage(archivePath) {
     const backupMigrations = inspection.migrations.map((row) => row.filename);
     if (JSON.stringify(backupMigrations) !== JSON.stringify(manifest.schemaMigrations || [])) {
       throw new Error('Schema version trong manifest không khớp database.');
+    }
+    for (const folder of MANAGED_FOLDERS) {
+      validateManagedFolder(path.join(staging, 'files', folder), folder);
     }
     return { staging, manifest, inspection };
   } catch (error) {
@@ -193,15 +243,19 @@ async function exportBackup(destinationPath, options = {}) {
     for (const folder of MANAGED_FOLDERS) {
       const source = path.join(root, folder);
       const target = path.join(staging, 'files', folder);
-      if (fs.existsSync(source)) fs.cpSync(source, target, { recursive: true, errorOnExist: true });
+      if (fs.existsSync(source)) {
+        validateManagedFolder(source, folder);
+        fs.cpSync(source, target, { recursive: true, errorOnExist: true });
+      }
     }
     const databaseInspection = inspectSqliteFile(path.join(databaseDir, 'app.sqlite'));
     const manifest = {
       format: 'qlqtbdxm-sqlite-backup',
-      version: 2,
+      version: CURRENT_BACKUP_VERSION,
       createdAt: new Date().toISOString(),
       appVersion: options.appVersion || (app && typeof app.getVersion === 'function' ? app.getVersion() : 'test'),
       schemaMigrations: databaseInspection.migrations.map((row) => row.filename),
+      fileFolders: MANAGED_FOLDERS,
       files: await buildFileManifest(staging),
     };
     fs.writeFileSync(path.join(staging, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
@@ -228,6 +282,9 @@ function moveIfExists(source, destination) {
 async function restoreBackup(archivePath, options = {}) {
   const root = path.resolve(options.userDataPath || app.getPath('userData'));
   const validated = await validateBackupPackage(archivePath);
+  const restoreFolders = validated.manifest.version === 2
+    ? [...MANAGED_FOLDERS, LEGACY_UPLOADS_FOLDER]
+    : MANAGED_FOLDERS;
   const backupDir = path.join(root, 'backups');
   fs.mkdirSync(backupDir, { recursive: true });
   const safetyPath = path.join(backupDir, `pre-restore-${new Date().toISOString().replace(/[:.]/g, '-')}.zip`);
@@ -243,11 +300,11 @@ async function restoreBackup(archivePath, options = {}) {
   let swapped = false;
   try {
     for (const suffix of ['', '-wal', '-shm']) moveIfExists(`${currentDb}${suffix}`, path.join(rollback, `app.sqlite${suffix}`));
-    for (const folder of MANAGED_FOLDERS) moveIfExists(path.join(root, folder), path.join(rollback, folder));
+    for (const folder of restoreFolders) moveIfExists(path.join(root, folder), path.join(rollback, folder));
     fs.mkdirSync(path.dirname(currentDb), { recursive: true });
     fs.copyFileSync(path.join(validated.staging, 'database', 'app.sqlite'), currentDb, fs.constants.COPYFILE_EXCL);
     swapped = true;
-    for (const folder of MANAGED_FOLDERS) {
+    for (const folder of restoreFolders) {
       const incoming = path.join(validated.staging, 'files', folder);
       const target = path.join(root, folder);
       if (fs.existsSync(incoming)) fs.cpSync(incoming, target, { recursive: true, errorOnExist: true });
@@ -265,13 +322,13 @@ async function restoreBackup(archivePath, options = {}) {
         const candidate = `${currentDb}${suffix}`;
         if (fs.existsSync(candidate)) fs.rmSync(candidate, { force: true });
       }
-      for (const folder of MANAGED_FOLDERS) {
+      for (const folder of restoreFolders) {
         const candidate = path.join(root, folder);
         if (fs.existsSync(candidate)) safeRemove(root, candidate);
       }
     }
     for (const suffix of ['', '-wal', '-shm']) moveIfExists(path.join(rollback, `app.sqlite${suffix}`), `${currentDb}${suffix}`);
-    for (const folder of MANAGED_FOLDERS) moveIfExists(path.join(rollback, folder), path.join(root, folder));
+    for (const folder of restoreFolders) moveIfExists(path.join(rollback, folder), path.join(root, folder));
     if (fs.existsSync(rollback)) safeRemove(root, rollback);
     await initDatabase({ databasePath: currentDb });
     throw new Error(`Restore thất bại, dữ liệu cũ đã được hoàn tác: ${error.message}`);
@@ -287,5 +344,8 @@ module.exports = {
   restoreBackup,
   validateBackupPackage,
   MANAGED_FOLDERS,
-  _private: { validateEntryName, validateArchiveEntries, hashFile, assertInside },
+  _private: {
+    validateEntryName, validateArchiveEntries, validateManagedFolder, hashFile, assertInside,
+    CURRENT_BACKUP_VERSION,
+  },
 };

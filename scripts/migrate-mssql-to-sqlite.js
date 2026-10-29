@@ -107,7 +107,15 @@ function migrateFilePaths(table, row, sourceRoot, stagingRoot, fileReport) {
     if (copy.norm_ktkt_file_path) copy.norm_ktkt_file_path = copySourceFile(copy.norm_ktkt_file_path, sourceRoot, stagingRoot, 'maintenance-files', fileReport);
   }
   if (table === 'attachments' && copy.file_path) {
-    copy.file_path = copySourceFile(copy.file_path, sourceRoot, stagingRoot, 'uploads', fileReport);
+    const extension = path.extname(copy.file_path).toLowerCase();
+    const imageExtensions = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+    const destinationFolder = extension === '.pdf'
+      ? 'maintenance-files'
+      : (imageExtensions.has(extension) ? 'vehicle-images' : null);
+    if (!destinationFolder) {
+      throw new Error(`Attachment không được hỗ trợ; chỉ chấp nhận PDF hoặc ảnh: ${copy.file_path}`);
+    }
+    copy.file_path = copySourceFile(copy.file_path, sourceRoot, stagingRoot, destinationFolder, fileReport);
   }
   return copy;
 }

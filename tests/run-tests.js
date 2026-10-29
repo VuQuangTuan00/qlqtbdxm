@@ -6,6 +6,7 @@ const assert = require('assert/strict');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const AdmZip = require('adm-zip');
 const Database = require('better-sqlite3');
 
 const databaseModule = require('../main/database');
@@ -21,6 +22,7 @@ const authService = require('../main/services/auth.service');
 const userRepo = require('../main/repositories/user.repository');
 const archiveService = require('../main/services/file-archive.service');
 const { hashPassword } = require('../main/utils/hash');
+const { checksum } = require('../main/database/migration-runner');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -350,6 +352,35 @@ test('migration runner rollback migration lỗi và từ chối schema mới hơ
   }
 });
 
+test('nâng checksum legacy tương đương và vẫn từ chối checksum không xác định', async () => {
+  const root = temporaryRoot('legacy-checksum');
+  const dbPath = path.join(root, 'legacy.sqlite');
+  const migrationPath = path.join(__dirname, '..', 'main', 'database', 'migrations-sqlite', '001_initial.sql');
+  try {
+    await initDatabase({ databasePath: dbPath });
+    await getDb().query(
+      'UPDATE _migrations SET checksum = $1 WHERE filename = $2',
+      ['4149b36eb9404d9acef92fdfc4e190a318a3fdd0f4659f6955b17db50a16811a', '001_initial.sql']
+    );
+    await closeDatabase();
+
+    await initDatabase({ databasePath: dbPath });
+    const upgraded = (await getDb().query(
+      'SELECT checksum FROM _migrations WHERE filename = $1', ['001_initial.sql']
+    )).rows[0].checksum;
+    assert.equal(upgraded, checksum(fs.readFileSync(migrationPath, 'utf8')));
+    await getDb().query(
+      'UPDATE _migrations SET checksum = $1 WHERE filename = $2',
+      ['checksum-khong-xac-dinh', '001_initial.sql']
+    );
+    await closeDatabase();
+    await assert.rejects(initDatabase({ databasePath: dbPath }), /bị thay đổi nội dung/);
+  } finally {
+    await closeDatabase();
+    removeTemporaryRoot(root);
+  }
+});
+
 test('backup/restore end-to-end và rollback khi swap lỗi', async () => {
   const root = temporaryRoot('backup');
   const external = temporaryRoot('backup-output');
@@ -360,15 +391,45 @@ test('backup/restore end-to-end và rollback khi swap lỗi', async () => {
     await db.query('INSERT INTO units (unit_code, unit_name) VALUES ($1,$2)', ['BASE', 'Dữ liệu gốc']);
     fs.mkdirSync(path.join(root, 'maintenance-files'), { recursive: true });
     fs.writeFileSync(path.join(root, 'maintenance-files', 'goc.pdf'), Buffer.from('%PDF-1.4\nfixture'));
+    fs.mkdirSync(path.join(root, 'vehicle-images'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'vehicle-images', 'xe.png'), Buffer.from('89504e470d0a1a0a00000000', 'hex'));
+    fs.mkdirSync(path.join(root, 'uploads'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'uploads', 'legacy.pdf'), Buffer.from('%PDF-1.4\nlegacy'));
     const backupPath = path.join(external, 'backup.zip');
     await archiveService.exportBackup(backupPath, { userDataPath: root, appVersion: 'test' });
     assert.ok(fs.statSync(backupPath).size > 0);
+    const zip = new AdmZip(backupPath);
+    const entryNames = zip.getEntries().map((entry) => entry.entryName);
+    const manifest = JSON.parse(zip.readAsText('manifest.json'));
+    assert.equal(manifest.version, 3);
+    assert.deepEqual(manifest.fileFolders, ['vehicle-images', 'maintenance-files']);
+    assert.ok(entryNames.includes('files/vehicle-images/xe.png'));
+    assert.ok(entryNames.includes('files/maintenance-files/goc.pdf'));
+    assert.equal(entryNames.some((name) => name.startsWith('files/uploads/')), false);
+    const legacyContent = Buffer.from('%PDF-1.4\nlegacy-v2');
+    const legacyBackupPath = path.join(external, 'backup-v2.zip');
+    const legacyZip = new AdmZip(backupPath);
+    legacyZip.addFile('files/uploads/legacy-v2.pdf', legacyContent);
+    manifest.version = 2;
+    delete manifest.fileFolders;
+    manifest.files.push({
+      path: 'files/uploads/legacy-v2.pdf',
+      size: legacyContent.length,
+      sha256: require('crypto').createHash('sha256').update(legacyContent).digest('hex'),
+    });
+    legacyZip.updateFile('manifest.json', Buffer.from(JSON.stringify(manifest, null, 2)));
+    legacyZip.writeZip(legacyBackupPath);
+    const validatedLegacy = await archiveService.validateBackupPackage(legacyBackupPath);
+    assert.equal(validatedLegacy.manifest.version, 2);
+    removeTemporaryRoot(validatedLegacy.staging);
     await db.query('INSERT INTO units (unit_code, unit_name) VALUES ($1,$2)', ['MUTATED', 'Sau backup']);
     fs.writeFileSync(path.join(root, 'maintenance-files', 'them.pdf'), Buffer.from('%PDF-1.4\nchanged'));
     await archiveService.restoreBackup(backupPath, { userDataPath: root });
     assert.equal((await getDb().query("SELECT COUNT(*) AS n FROM units WHERE unit_code='MUTATED'")).rows[0].n, 0);
     assert.equal(fs.existsSync(path.join(root, 'maintenance-files', 'them.pdf')), false);
     assert.equal(fs.readFileSync(path.join(root, 'maintenance-files', 'goc.pdf'), 'utf8'), '%PDF-1.4\nfixture');
+    assert.equal(fs.existsSync(path.join(root, 'vehicle-images', 'xe.png')), true);
+    assert.equal(fs.existsSync(path.join(root, 'uploads', 'legacy.pdf')), true);
 
     await getDb().query('INSERT INTO units (unit_code, unit_name) VALUES ($1,$2)', ['KEEP', 'Phải được rollback giữ lại']);
     await assert.rejects(
@@ -393,6 +454,14 @@ test('từ chối backup hỏng và đường dẫn ZIP nguy hiểm', async () =
     assert.equal(archiveService._private.validateEntryName('../escape.txt'), false);
     assert.equal(archiveService._private.validateEntryName('C:/escape.txt'), false);
     assert.equal(archiveService._private.validateEntryName('database/app.sqlite'), true);
+    const wrongImages = path.join(root, 'vehicle-images');
+    fs.mkdirSync(wrongImages);
+    fs.writeFileSync(path.join(wrongImages, 'not-an-image.pdf'), '%PDF-1.4');
+    assert.throws(() => archiveService._private.validateManagedFolder(wrongImages, 'vehicle-images'));
+    const wrongPdfs = path.join(root, 'maintenance-files');
+    fs.mkdirSync(wrongPdfs);
+    fs.writeFileSync(path.join(wrongPdfs, 'not-a-pdf.pdf'), 'plain text');
+    assert.throws(() => archiveService._private.validateManagedFolder(wrongPdfs, 'maintenance-files'));
   } finally {
     removeTemporaryRoot(root);
   }

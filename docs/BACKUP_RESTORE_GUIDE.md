@@ -4,15 +4,16 @@
 
 Đăng nhập admin → Cài đặt hệ thống → File backup → Sao lưu toàn bộ → chọn vị trí ZIP.
 
-Gói version 2 chứa:
+Gói version 3 chứa:
 
 ```text
 manifest.json
 database/app.sqlite
 files/vehicle-images/*
 files/maintenance-files/*
-files/uploads/*
 ```
+
+Ảnh và PDF được lưu tách biệt; thư mục `uploads` legacy không còn được đưa vào backup mới. Ứng dụng vẫn đọc và khôi phục được gói version 2 để bảo đảm tương thích dữ liệu cũ.
 
 App dùng SQLite Online Backup API, chuyển snapshot sang journal DELETE để gói chỉ cần một file DB, tính SHA-256/size, tạo ZIP tạm, giải nén và kiểm tra lại trước khi rename thành file đích. File đích có sẵn sẽ không bị ghi đè.
 

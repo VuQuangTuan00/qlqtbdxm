@@ -10,7 +10,7 @@
 
 `_migrations` lưu filename, SHA-256 và thời điểm áp dụng. Runner:
 
-1. Từ chối migration đã áp dụng nhưng bị đổi checksum.
+1. Từ chối migration đã áp dụng nhưng bị đổi checksum. Ngoại lệ duy nhất là checksum legacy cố định đã được đối chiếu cùng schema/seed; runner nâng metadata sang checksum hiện tại trong transaction.
 2. Từ chối database chứa migration không có trong app (schema mới hơn/không tương thích).
 3. Chạy từng migration trong transaction.
 4. Không chạy lại migration đã áp dụng.

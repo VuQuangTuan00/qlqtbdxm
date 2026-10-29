@@ -47,7 +47,6 @@ SQLite bật `foreign_keys=ON`, WAL và `busy_timeout=5000`. Ngày giờ đượ
 ├── data/app.sqlite
 ├── vehicle-images/
 ├── maintenance-files/
-├── uploads/
 ├── backups/              # safety backup trước restore
 └── logs/
 ```

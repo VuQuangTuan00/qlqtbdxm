@@ -1,41 +1,32 @@
-HUONG DAN XUAT VA CHUYEN MAY - QLQT BAO DUONG XE MAY
-====================================================
+HƯỚNG DẪN XUẤT VÀ CHUYỂN MÁY - QLQT BẢO DƯỠNG XE MÁY
+=====================================================
 
-GOI CHUYEN MAY
---------------
-Trong app, vao Cai dat > File backup > Xuat bo chuyen may.
-Chon noi luu mot file .zip. Goi nay gom:
-- Backup SQL Server .bak da duoc kiem tra.
-- Cac file trong uploads, vehicle-images va maintenance-files.
-- Manifest ghi ten database va thoi diem tao goi.
+XUẤT GÓI CHUYỂN MÁY
+--------------------
+Trong ứng dụng, vào Cài đặt hệ thống > File backup > Sao lưu toàn bộ.
+Chọn nơi lưu một file .zip. Gói backup version 3 gồm:
+- database/app.sqlite: bản chụp cơ sở dữ liệu SQLite.
+- files/vehicle-images: chỉ chứa ảnh JPG, PNG, GIF hoặc WEBP.
+- files/maintenance-files: chỉ chứa tài liệu PDF.
+- manifest.json: phiên bản gói, danh sách file, kích thước và SHA-256.
 
-File db-config.json va mat khau SQL khong duoc dua vao goi ZIP.
-Hay giu file ZIP an toan va chuyen sang may dich bang USB hoac phuong tien
-luu tru duoc phe duyet.
+Thư mục uploads cũ không được đưa vào backup version 3. Ứng dụng vẫn hỗ trợ
+khôi phục các gói version 2 đã tạo trước đây.
 
-NHAP TREN MAY DICH
-------------------
-1. Cai dat app va mo app mot lan.
-2. Cau hinh ket noi SQL Server cua may dich trong app neu chua co.
-3. Vao Cai dat > File backup > Nhap bo chuyen may va chon file ZIP.
-4. App chep anh/tai lieu vao userData cua tai khoan Windows dang chay app.
-   App trich file .bak vao thu muc Documents va hien duong dan sau khi nhap.
-5. Dong app. Mo SSMS va ket noi den SQL Server dung trong cau hinh app.
-6. Restore file .bak vua duoc trich xuat vao database dung ten ghi trong
-   manifest (co the xem manifest.json ben trong ZIP). Dam bao database dich
-   khong bi ghi de neu chua co backup rieng.
-7. Mo lai app va kiem tra danh sach xe, anh va tai lieu.
+KHÔI PHỤC TRÊN MÁY ĐÍCH
+-----------------------
+1. Cài đặt ứng dụng và mở ứng dụng một lần.
+2. Đăng nhập bằng tài khoản quản trị.
+3. Vào Cài đặt hệ thống > File backup > Khôi phục từ backup.
+4. Chọn file ZIP. Ứng dụng sẽ kiểm tra manifest, checksum, database và loại file.
+5. Xác nhận khôi phục. Ứng dụng tự tạo một safety backup trước khi thay dữ liệu.
+6. Sau khi ứng dụng khởi động lại, kiểm tra danh sách xe, ảnh và tài liệu PDF.
 
-LUU Y
+LƯU Ý
 -----
-- Nhap bo chuyen may KHONG tu restore database. Buoc restore trong SSMS la
-  bat buoc de dong bo cac ban ghi voi anh/tai lieu.
-- Neu database dich da co du lieu, hay tao backup .bak rieng truoc khi restore.
-- Khi xuat, SQL Server service can quyen ghi vao thu muc backup SQL Server.
-  Mac dinh app dung C:\Tools\SQL Sever\MSSQL16.MSSQLSERVER\MSSQL\Backup.
-  Neu instance khac, dat bien SQLSERVER_BACKUP_DIR trong .env truoc khi mo app.
-- Khi restore, tai khoan dung SSMS can quyen doc file .bak trong Documents.
-- ZIP phai duoc giu cung database .bak trong cung goi; khong ghep file tu
-  hai thoi diem backup khac nhau.
-- Goi ZIP khong bao gom thong tin ket noi SQL Server. Khong gui file
-  db-config.json cho nguoi khac vi file nay co the chua mat khau.
+- Không cần cài SQL Server hoặc dùng SSMS.
+- Không sửa tay manifest hoặc ghép file từ hai gói backup khác nhau.
+- Không đổi đuôi file để đưa loại file khác vào thư mục ảnh hoặc PDF.
+- Giữ file ZIP ở nơi an toàn và chuyển bằng USB hoặc phương tiện lưu trữ
+  được phê duyệt.
+- Nếu khôi phục thất bại, ứng dụng sẽ hoàn tác dữ liệu trước đó.
