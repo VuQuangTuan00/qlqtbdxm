@@ -13,7 +13,7 @@ window.electronAPI.on('app:first-run', () => {
   overlay.innerHTML = `
     <div style="max-width:520px;width:100%;">
       <div style="text-align:center;margin-bottom:28px;">
-        <img src="assets/images/logo.png" alt="Logo" style="height:56px;margin-bottom:14px;object-fit:contain;" />
+        <img src="assets/images/logo_app.png" alt="Logo" style="height:56px;margin-bottom:14px;object-fit:contain;" />
         <h2 style="margin:0 0 8px;font-size:22px;">Khởi tạo QLQT Bảo Dưỡng Xe Máy</h2>
         <p style="margin:0;color:#666;font-size:14px;">SQLite đã được tạo trên máy này. Hãy tạo tài khoản quản trị đầu tiên.</p>
       </div>

@@ -280,7 +280,7 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
         <h2 class="page-title">${v.vehicle_name}</h2>
         ${!v.is_active ? '<div style="margin-top:4px;"><span class="badge badge-danger">Ngừng sử dụng</span></div>' : ''}
       </div>
-      <div class="page-header-actions">
+      <div class="page-header-actions" style="margin-bottom:10px;">
         ${_isAdmin() ? `
           <button class="btn btn-secondary btn-sm" id="btn-edit-vehicle">✏️ Sửa thông tin xe</button>
           <button class="btn btn-sm ${editMode ? 'btn-warning' : 'btn-outline'}" id="btn-toggle-edit">

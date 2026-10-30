@@ -14,8 +14,8 @@ function createMainWindow() {
     height: 800,
     minWidth: 1024,
     minHeight: 600,
-    title: 'Hệ Thống Quản Lý Bảo Dưỡng Xe Máy Quân Đội',
-    icon: path.join(__dirname, '../renderer/assets/icon.png'),
+    title: 'QUY TRÌNH CÔNG NGHỆ',
+    icon: path.join(__dirname, '../renderer/assets/images/logo_app.png'),
     backgroundColor: '#f0f2f5',
     show: false,
     webPreferences: {

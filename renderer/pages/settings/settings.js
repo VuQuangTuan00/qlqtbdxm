@@ -56,7 +56,8 @@ function _loadFileBackupTab() {
         <div class="card-header"><h5 class="card-title">Sao lưu và khôi phục</h5></div>
         <div class="card-body">
           <p class="text-sm text-muted" style="margin-bottom:var(--space-4);">
-            Gói ZIP gồm snapshot SQLite, ảnh, PDF, manifest và checksum SHA-256. Gói được kiểm tra toàn vẹn trước khi công bố hoặc khôi phục.
+            Khôi phục dữ liệu từ file backup sẽ tạo một bản sao lưu an toàn của dữ liệu hiện tại trước khi thực hiện khôi phục. 
+          <br>  Vui lòng đảm bảo rằng bạn đã sao lưu dữ liệu quan trọng trước khi thực hiện thao tác này.
           </p>
           <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
             <button class="btn btn-primary" id="btn-export-file-backup">Sao lưu toàn bộ</button>

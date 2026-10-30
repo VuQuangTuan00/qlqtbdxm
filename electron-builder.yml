@@ -1,5 +1,5 @@
 appId: vn.military.qlqtbdxm
-productName: QLQT Bảo Dưỡng Xe Máy
+productName: QUY TRÌNH CÔNG NGHỆ
 copyright: Bộ Tư lệnh Xe Máy Quân đội
 
 directories:
@@ -29,11 +29,13 @@ linux:
 win:
   target:
     - nsis
-  icon: renderer/assets/images/logo.ico
+  icon: renderer/assets/images/logo_app.png
 
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
   installerLanguages:
     - vi-VN
   language: 1066
