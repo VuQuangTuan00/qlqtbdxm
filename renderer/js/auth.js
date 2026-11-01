@@ -19,7 +19,7 @@ const auth = (() => {
     appShell.style.display = 'flex';
     _updateUserUI(session);
     sidebar.init();
-    router.navigate('equipment-list');
+    router.navigate('maintenance-steps');
   }
 
   function showLogin() {
