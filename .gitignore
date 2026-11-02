@@ -17,6 +17,9 @@ Thumbs.db
 coverage/
 .nyc_output/
 scripts/
+# Git backup
+.git-backup/
+**/.git-backup/
 # Demo assets (large binaries — generate with: npm run export-demo)
 demo-assets/demo.db
 demo-assets/vehicle-images/*

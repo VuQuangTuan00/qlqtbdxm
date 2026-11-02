@@ -465,6 +465,9 @@ body::before {
   height: 100vh;
   overflow: hidden;
   z-index: var(--z-sidebar, 100);
+  background-image: url('../images/banner_sidebar.png');
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 .sidebar-brand {
@@ -594,6 +597,9 @@ body::before {
   padding: 0 20px;
   flex-shrink: 0;
   z-index: var(--z-header, 90);
+  background-image: url('../images/banner_topbar.png');
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 .topbar-title {
   font-family: 'Oswald', sans-serif;
