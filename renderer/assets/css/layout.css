@@ -614,6 +614,7 @@ body::before {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  /* background-image: linear-gradient(rgb(125,206,254,1),rgb(214,238,253,1),rgb(28,155,236,1)); */
 }
 
 /* Toast container */
