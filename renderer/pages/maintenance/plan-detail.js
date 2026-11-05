@@ -48,7 +48,7 @@ async function renderPlanDetail(container, params) {
 
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">${plan.plan_code}</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 9h8M8 13h8M8 17h5"/></svg><span>${plan.plan_code}</span></h2>
         <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
           <span class="badge ${ps.badge}">${ps.label}</span>
           <span class="text-muted text-sm">${MAINT_TYPE_MAP[plan.maintenance_type] || plan.maintenance_type}</span>
@@ -58,7 +58,7 @@ async function renderPlanDetail(container, params) {
     </div>
 
     <!-- Info grid -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-bottom:var(--space-5);">
+    <div class="detail-panels-grid">
       <div class="card">
         <div class="card-header"><h5 class="card-title">Thông tin kế hoạch</h5></div>
         <div class="card-body">
@@ -100,7 +100,7 @@ async function renderPlanDetail(container, params) {
               <span class="fw-semibold">${completedSteps}/${totalSteps} bước</span>
             </div>
             <div style="background:var(--bg-table-header);border-radius:8px;height:12px;overflow:hidden;">
-              <div style="background:var(--color-military-medium);height:100%;width:${progress}%;
+              <div style="background:var(--color-primary);height:100%;width:${progress}%;
                           border-radius:8px;transition:width 0.5s;"></div>
             </div>
             <div class="text-sm text-muted" style="margin-top:4px;text-align:right;">${progress}%</div>
@@ -145,7 +145,7 @@ function _renderPlanActions(plan) {
   if (plan.status === 'pending' && store.hasRole('admin', 'commander')) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-success';
-    btn.textContent = '✓ Phê duyệt';
+    btn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>Phê duyệt';
     btn.addEventListener('click', async () => {
       const ok = await modal.confirm({ title: 'Phê duyệt', message: 'Phê duyệt kế hoạch này?', confirmText: 'Phê duyệt' });
       if (!ok) return;
@@ -159,7 +159,7 @@ function _renderPlanActions(plan) {
   if (plan.status === 'completed' && !plan.acceptance && store.hasRole('admin', 'commander', 'inspector')) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-primary';
-    btn.textContent = '📋 Nghiệm thu';
+    btn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 9h8M8 13h8"/></svg>Nghiệm thu';
     btn.addEventListener('click', () => openAcceptanceForm(plan));
     actionsEl.appendChild(btn);
   }
@@ -167,7 +167,7 @@ function _renderPlanActions(plan) {
   if (!['completed', 'cancelled'].includes(plan.status)) {
     const btn = document.createElement('button');
     btn.className = 'btn btn-secondary';
-    btn.textContent = '✕ Hủy kế hoạch';
+    btn.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></svg>Hủy kế hoạch';
     btn.addEventListener('click', async () => {
       const ok = await modal.confirm({
         title: 'Hủy kế hoạch', message: 'Hủy kế hoạch bảo dưỡng này?',

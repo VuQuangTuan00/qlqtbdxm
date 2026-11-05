@@ -7,11 +7,11 @@ async function renderReports(container) {
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">Báo Cáo Tổng Hợp</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18"/></svg><span>Báo Cáo Tổng Hợp</span></h2>
         <p class="page-subtitle">Thống kê và phân tích trạng thái bảo dưỡng trang bị</p>
       </div>
       <div class="page-header-actions">
-        <button class="btn btn-secondary" id="btn-refresh-report">↻ Làm mới</button>
+        <button class="btn btn-secondary" id="btn-refresh-report"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.8-1L20 12M4 12l2.1 5a7 7 0 0 0 11.8-1"/></svg>Làm mới</button>
       </div>
     </div>
 
@@ -62,7 +62,7 @@ async function _loadOverview() {
   const d = res.data;
 
   el.innerHTML = `
-    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:var(--space-6);">
+    <div class="stats-grid report-stats-grid">
       <div class="stat-card">
         <div class="stat-card-label">Tổng trang bị</div>
         <div class="stat-card-value">${d.totalEquipments}</div>
@@ -84,7 +84,7 @@ async function _loadOverview() {
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);">
+    <div class="report-overview-grid">
       <div class="card">
         <div class="card-header"><h5 class="card-title">Kế hoạch bảo dưỡng</h5></div>
         <div class="card-body">
@@ -298,7 +298,7 @@ async function _loadOverdueReport() {
             }).join('')}
             ${items.length === 0 ? `<tr><td colspan="7">
               <div class="table-empty">
-                <div class="table-empty-icon">✅</div>
+                <div class="table-empty-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg></div>
                 <div class="table-empty-text">Không có kế hoạch quá hạn</div>
               </div>
             </td></tr>` : ''}

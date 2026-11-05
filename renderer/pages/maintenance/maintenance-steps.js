@@ -36,38 +36,44 @@ async function renderMaintenanceSteps(container) {
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">Danh Sách Trang Bị</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/></svg><span>Danh Sách Trang Bị</span></h2>
         <p class="page-subtitle">Quản lý loại xe và hạng mục bảo dưỡng động cơ</p>
       </div>
     </div>
 
-    <div class="filter-bar" style="margin-bottom:var(--space-5);">
-      <input type="text" class="form-control search-input" id="v-search"
-        placeholder="🔍 Tìm theo tên xe..." style="min-width:220px;" />
+    <div class="filter-bar vehicle-filter-bar">
+      <div class="search-control">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+        <input type="text" class="form-control search-input" id="v-search"
+          placeholder="Tìm theo tên xe..." />
+      </div>
 
-      <select class="form-control" id="v-type" style="min-width:160px;">
+      <select class="form-control vehicle-filter-select" id="v-type">
         <option value="">Tất cả loại hình</option>
         <option value="none">— Chưa phân loại</option>
         ${typeOptions}
       </select>
 
-      <select class="form-control" id="v-sort" style="min-width:160px;">
+      <select class="form-control vehicle-filter-select" id="v-sort">
         <option value="newest">Mới thêm gần đây</option>
         <option value="files">Dữ liệu đã có file</option>
         <option value="name">Sắp xếp A → Z</option>
       </select>
 
       ${_isAdmin() ? `
-        <button class="btn btn-outline btn-sm" id="btn-manage-types">🏷️ Loại hình</button>
-        <button class="btn btn-primary" id="btn-add-vehicle">+ Thêm xe</button>
+        <button class="btn btn-outline btn-sm" id="btn-manage-types">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h7l9 9-6 6-9-9V5Z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg>
+          Loại hình
+        </button>
+        <button class="btn btn-primary" id="btn-add-vehicle">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          Thêm xe
+        </button>
       ` : ''}
     </div>
 
-    <div id="vehicle-grid" style="
-      display:grid;
-      grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-      gap:var(--space-5);">
-      <div style="grid-column:1/-1;text-align:center;padding:48px;">
+    <div id="vehicle-grid" class="vehicle-grid">
+      <div class="vehicle-grid-state">
         <div class="spinner"></div>
       </div>
     </div>
@@ -98,7 +104,7 @@ async function _loadVehicleGrid() {
   const typeRaw = document.getElementById('v-type')?.value   || '';
   const sort    = document.getElementById('v-sort')?.value   || 'newest';
 
-  grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:48px;"><div class="spinner"></div></div>`;
+  grid.innerHTML = `<div class="vehicle-grid-state"><div class="spinner"></div></div>`;
 
   const opts = { search, isActive: true, sort };
   if (typeRaw === 'none')  opts.typeId = 'none';
@@ -106,15 +112,15 @@ async function _loadVehicleGrid() {
 
   const res = await window.electronAPI.invoke('vehicle:list', opts);
   if (!res.success) {
-    grid.innerHTML = `<div style="grid-column:1/-1;" class="alert alert-danger">${res.error}</div>`;
+    grid.innerHTML = `<div class="vehicle-grid-state alert alert-danger">${res.error}</div>`;
     return;
   }
 
   const list = res.data;
   if (!list.length) {
     grid.innerHTML = `
-      <div style="grid-column:1/-1;" class="table-empty">
-        <div class="table-empty-icon">🚗</div>
+      <div class="vehicle-grid-state table-empty">
+        <div class="table-empty-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15h16l-1.4-5.1A2 2 0 0 0 16.7 8H7.3a2 2 0 0 0-1.9 1.4L4 15Z"/><path d="M3 15v3h2m14 0h2v-3"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg></div>
         <div class="table-empty-text">Chưa có xe nào</div>
       </div>`;
     return;
@@ -125,19 +131,15 @@ async function _loadVehicleGrid() {
   _wireImgFallbacks(grid);
 
   grid.querySelectorAll('.vehicle-card').forEach((card) => {
-    card.addEventListener('mouseover', () => {
-      card.style.transform    = 'translateY(-3px)';
-      card.style.boxShadow    = 'var(--shadow-md)';
-      card.style.borderColor  = 'var(--color-gold-border)';
-    });
-    card.addEventListener('mouseout', () => {
-      card.style.transform    = '';
-      card.style.boxShadow    = 'var(--shadow-sm)';
-      card.style.borderColor  = 'var(--border-color)';
-    });
     card.addEventListener('click', (e) => {
       if (e.target.closest('.vc-actions')) return;
       router.navigate('vehicle-detail', { id: parseInt(card.dataset.id) });
+    });
+    card.addEventListener('keydown', (e) => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.vc-actions, button, a, input, select, textarea')) {
+        e.preventDefault();
+        router.navigate('vehicle-detail', { id: parseInt(card.dataset.id) });
+      }
     });
   });
 
@@ -171,50 +173,54 @@ function _renderVehicleCard(v) {
   const src = _imgSrc(v.img_path);
   const img = src
     ? `<img src="${src}" alt="${v.vehicle_name}" data-has-fallback
-           style="width:100%;height:260px;object-fit:contain;border-radius:var(--border-radius-sm);" />
-       <div style="display:none;width:100%;height:160px;align-items:center;justify-content:center;
-           background:linear-gradient(135deg,var(--color-bg-elevated),var(--color-bg-highlight));
-           border-radius:var(--border-radius-sm);font-size:64px;">🚗</div>`
-    : `<div style="width:100%;height:160px;display:flex;align-items:center;justify-content:center;
-           background:linear-gradient(135deg,var(--color-bg-elevated),var(--color-bg-highlight));
-           border-radius:var(--border-radius-sm);font-size:64px;">🚗</div>`;
+           class="vehicle-card-image" />
+       <div class="vehicle-card-fallback">
+         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 15h18l-1.5-5.1A2 2 0 0 0 17.6 8H7a2 2 0 0 0-1.9 1.4L3 15Z"/><path d="M4 15v3h2m12 0h2v-3"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+       </div>`
+    : `<div class="vehicle-card-fallback is-visible">
+         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 15h18l-1.5-5.1A2 2 0 0 0 17.6 8H7a2 2 0 0 0-1.9 1.4L3 15Z"/><path d="M4 15v3h2m12 0h2v-3"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+       </div>`;
 
   const adminBtns = _isAdmin() ? `
-    <div class="vc-actions" style="display:flex;gap:6px;margin-top:var(--space-3);">
-      <button class="btn btn-sm btn-secondary btn-vc-edit" data-id="${v.vehicle_id}" style="flex:1;">✏️ Sửa</button>
-      <button class="btn btn-sm btn-danger btn-vc-delete" data-id="${v.vehicle_id}" data-name="${v.vehicle_name}" style="flex:1;">🗑️ Xóa</button>
+    <div class="vc-actions vehicle-card-actions">
+      <button class="btn btn-sm btn-secondary btn-vc-edit line-btn" data-id="${v.vehicle_id}">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.1 2.8 2.8"/></svg>
+      </button>
+      <button class="btn btn-sm btn-danger btn-vc-delete" data-id="${v.vehicle_id}" data-name="${v.vehicle_name}">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>
+      </button>
     </div>` : '';
 
   return `
-    <div class="vehicle-card" data-id="${v.vehicle_id}" style="
-      background:var(--bg-card);border:1px solid var(--border-color);
-      border-radius:var(--border-radius-lg);padding:var(--space-4);cursor:pointer;
-      transition:all var(--transition-base);box-shadow:var(--shadow-sm);position:relative;
-      ${!v.is_active ? 'opacity:0.65;' : ''}">
+    <div class="vehicle-card" role="button" tabindex="0" data-inactive="${!v.is_active}"
+         data-id="${v.vehicle_id}" aria-label="Xem chi tiết ${v.vehicle_name}">
+      ${!v.is_active ? `<div class="vehicle-card-status"><span class="badge badge-danger">Ngừng SD</span></div>` : ''}
 
-      ${!v.is_active ? `<div style="position:absolute;top:8px;right:8px;"><span class="badge badge-danger">Ngừng SD</span></div>` : ''}
-      <div style="margin-bottom:var(--space-3);">${img}</div>
-
-      <div style="margin-bottom:var(--space-3);">
-        <div class="fw-semibold" style="font-size:var(--font-size-md);color:var(--text-heading);line-height:1.3;">${v.vehicle_name}</div>
-      </div>
-
-      <div style="display:flex;gap:var(--space-3);padding:var(--space-2) 0;
-                  border-top:1px solid var(--border-color);border-bottom:1px solid var(--border-color);
-                  margin-bottom:var(--space-2);">
-        <div style="flex:1;text-align:center;">
-          <div class="fw-bold" style="font-size:20px;color:var(--color-gold);">${v.equipment_count || 0}</div>
-          <div class="text-xs text-muted">Trang bị</div>
+      <div class="vehicle-card-media">
+        ${img}
         </div>
-        <div style="flex:1;text-align:center;">
-          <div class="fw-bold" style="font-size:20px;color:var(--color-info-text);">${v.maintenance_count || 0}</div>
-          <div class="text-xs text-muted">Hạng mục</div>
+        <div class="vehicle-card-title-strip" title="${v.vehicle_name}">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 15h18l-1.5-5.1A2 2 0 0 0 17.6 8H7a2 2 0 0 0-1.9 1.4L3 15Z"/><path d="M4 15v3h2m12 0h2v-3"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+          <span>${v.vehicle_name}</span>
+        </div>
+      <div class="vehicle-card-stats">
+        <div class="vehicle-card-stat">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/></svg>
+          <div>
+            <div class="vehicle-card-stat-value">${v.equipment_count || 0}</div>
+            <div class="text-xs text-muted">Trang bị</div>
+          </div>
+        </div>
+        <div class="vehicle-card-stat">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5 5L4 17l3 3 5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"/></svg>
+          <div>
+            <div class="vehicle-card-stat-value">${v.maintenance_count || 0}</div>
+            <div class="text-xs text-muted">Hạng mục</div>
+          </div>
         </div>
       </div>
 
-      <div style="text-align:center;font-size:var(--font-size-xs);color:var(--text-secondary);">
-        Nhấn để xem chi tiết →
-      </div>
+      <div class="vehicle-card-detail-link">Nhấn để xem chi tiết <span aria-hidden="true">→</span></div>
       ${adminBtns}
     </div>`;
 }
@@ -257,41 +263,43 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
   const src = _imgSrc(v.img_path);
   const img = src
     ? `<img src="${src}" alt="${v.vehicle_name}" data-has-fallback
-           style="width:100%;height:200px;object-fit:contain;border-radius:var(--border-radius);" />
-       <div style="display:none;width:100%;height:200px;align-items:center;justify-content:center;
-           background:linear-gradient(135deg,var(--color-bg-elevated),var(--color-bg-highlight));
-           border-radius:var(--border-radius);font-size:80px;">🚗</div>`
-    : `<div style="width:100%;height:200px;display:flex;align-items:center;justify-content:center;
-           background:linear-gradient(135deg,var(--color-bg-elevated),var(--color-bg-highlight));
-           border-radius:var(--border-radius);font-size:80px;">🚗</div>`;
+           class="vehicle-detail-image" />
+       <div class="vehicle-detail-image-fallback">
+         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 15h18l-1.5-5.1A2 2 0 0 0 17.6 8H7a2 2 0 0 0-1.9 1.4L3 15Z"/><path d="M4 15v3h2m12 0h2v-3"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+       </div>`
+    : `<div class="vehicle-detail-image-fallback is-visible">
+         <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 15h18l-1.5-5.1A2 2 0 0 0 17.6 8H7a2 2 0 0 0-1.9 1.4L3 15Z"/><path d="M4 15v3h2m12 0h2v-3"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
+       </div>`;
 
   const techCount = items.filter((i) => i.tech_process_file_path).length;
   const normCount = items.filter((i) => i.norm_ktkt_file_path).length;
 
   container.innerHTML = `
     <div class="breadcrumb" style="margin-bottom:var(--space-4);">
-      <span class="breadcrumb-item" id="bc-back" style="cursor:pointer;color:var(--color-gold);">← Danh Sách Trang Bị</span>
+      <span class="breadcrumb-item" id="bc-back" style="cursor:pointer;color:var(--color-primary);">← Danh Sách Trang Bị</span>
       <span class="breadcrumb-sep" style="margin:0 var(--space-2);color:var(--text-muted);">›</span>
       <span class="breadcrumb-item" style="color:var(--text-secondary);">${v.vehicle_name}</span>
     </div>
 
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">${v.vehicle_name}</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15h16l-1.4-5.1A2 2 0 0 0 16.7 8H7.3a2 2 0 0 0-1.9 1.4L4 15Z"/><path d="M3 15v3h2m14 0h2v-3"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg><span>${v.vehicle_name}</span></h2>
         ${!v.is_active ? '<div style="margin-top:4px;"><span class="badge badge-danger">Ngừng sử dụng</span></div>' : ''}
       </div>
       <div class="page-header-actions">
         ${_isAdmin() ? `
-          <button class="btn btn-secondary btn-sm" id="btn-edit-vehicle">✏️ Sửa thông tin xe</button>
+          <button class="btn btn-secondary btn-sm" id="btn-edit-vehicle"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.1 2.8 2.8"/></svg>Sửa thông tin xe</button>
           <button class="btn btn-sm ${editMode ? 'btn-warning' : 'btn-outline'}" id="btn-toggle-edit">
-            ${editMode ? '✓ Xong chỉnh sửa' : '✏️ Chế độ chỉnh sửa'}
+            ${editMode
+              ? '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>Xong chỉnh sửa'
+              : '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.1 2.8 2.8"/></svg>Chế độ chỉnh sửa'}
           </button>
-          <button class="btn btn-primary btn-sm" id="btn-add-item">+ Thêm hạng mục</button>
+          <button class="btn btn-primary btn-sm" id="btn-add-item"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Thêm hạng mục</button>
         ` : ''}
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:280px 1fr;gap:var(--space-5);align-items:start;">
+    <div class="vehicle-detail-layout">
 
       <!-- Cột trái -->
       <div style="display:flex;flex-direction:column;gap:var(--space-4);">
@@ -301,11 +309,11 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-top:var(--space-4);">
               <div style="text-align:center;padding:var(--space-2);background:var(--bg-table-header);border-radius:var(--border-radius-sm);">
                 <div class="fw-bold" style="font-size:18px;color:var(--color-success-text);">${techCount}/${items.length}</div>
-                <div class="text-xs text-muted">🔧 Có file QT</div>
+                <div class="text-xs text-muted detail-stat-label"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5 5L4 17l3 3 5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"/></svg>Có file QT</div>
               </div>
               <div style="text-align:center;padding:var(--space-2);background:var(--bg-table-header);border-radius:var(--border-radius-sm);">
                 <div class="fw-bold" style="font-size:18px;color:var(--color-info-text);">${normCount}/${items.length}</div>
-                <div class="text-xs text-muted">📏 Có file ĐM</div>
+                <div class="text-xs text-muted detail-stat-label"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6v4m4-4v3m4-3v4"/></svg>Có file ĐM</div>
               </div>
             </div>
           </div>
@@ -361,12 +369,12 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
         <div class="card-header" style="padding:0 var(--space-5);border-bottom:none;">
           <div class="tabs" style="margin-bottom:0;border-bottom:1px solid var(--border-color);">
             <button class="tab-btn ${activeTab === 'tech_process' ? 'active' : ''}" id="tab-tech">
-              🔧 Quy trình công nghệ
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5 5L4 17l3 3 5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"/></svg>Quy trình công nghệ
               <span class="badge ${activeTab === 'tech_process' ? 'badge-success' : 'badge-neutral'}"
                     style="font-size:9px;padding:1px 5px;margin-left:4px;">${techCount}</span>
             </button>
             <button class="tab-btn ${activeTab === 'norm_ktkt' ? 'active' : ''}" id="tab-norm">
-              📏 Định mức KT-KT
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6v4m4-4v3m4-3v4"/></svg>Định mức KT-KT
               <span class="badge ${activeTab === 'norm_ktkt' ? 'badge-info' : 'badge-neutral'}"
                     style="font-size:9px;padding:1px 5px;margin-left:4px;">${normCount}</span>
             </button>
@@ -425,7 +433,7 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
   if (!items.length) {
     el.innerHTML = `
       <div class="table-empty" style="padding:var(--space-8);">
-        <div class="table-empty-icon">📋</div>
+        <div class="table-empty-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 9h8M8 13h8M8 17h5"/></svg></div>
         <div class="table-empty-text">Chưa có hạng mục nào</div>
         <div class="table-empty-sub">${_isAdmin() ? 'Nhấn "+ Thêm hạng mục" để bắt đầu' : 'Liên hệ admin để thêm'}</div>
       </div>`;
@@ -436,7 +444,7 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
 
   el.querySelectorAll('.maint-bar').forEach((bar) => {
     bar.addEventListener('mouseover', () => {
-      bar.style.borderColor = 'var(--color-gold-border)';
+      bar.style.borderColor = 'var(--color-primary-border)';
       bar.style.background  = 'var(--color-bg-raised)';
     });
     bar.addEventListener('mouseout', () => {
@@ -517,30 +525,22 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
     ? !!item.tech_process_file_path
     : !!item.norm_ktkt_file_path;
 
-  const fileName = activeTab === 'tech_process'
-    ? item.tech_process_file_name
-    : item.norm_ktkt_file_name;
-
   const fileBadge = hasFile
-    ? `<span class="badge badge-success" style="font-size:10px;">📄 Có file</span>`
-    : `<span class="badge badge-warning" style="font-size:10px;">⚠️ Chưa có file</span>`;
-
-  // const fileInfo = hasFile
-  //   ? `<div class="text-xs text-muted" style="margin-top:2px;">📎 ${fileName}</div>`
-  //   : '';
+    ? `<span class="badge badge-success badge-with-icon" style="font-size:10px;"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 13h6M9 17h6"/></svg>Có file</span>`
+    : `<span class="badge badge-warning badge-with-icon" style="font-size:10px;"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>Chưa có file</span>`;
 
   const editBtns = (editMode && _isAdmin()) ? `
     <div class="bar-actions" style="display:flex;flex-direction:column;gap:3px;margin-left:var(--space-2);">
       <button class="btn btn-sm btn-secondary btn-item-up" data-idx="${idx}"
-        style="padding:2px 6px;font-size:11px;" ${idx === 0 ? 'disabled' : ''}>▲</button>
+        style="padding:2px 6px;font-size:11px;" aria-label="Di chuyển lên" title="Di chuyển lên" ${idx === 0 ? 'disabled' : ''}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 14 6-6 6 6"/></svg></button>
       <button class="btn btn-sm btn-secondary btn-item-down" data-idx="${idx}"
-        style="padding:2px 6px;font-size:11px;" ${idx >= total - 1 ? 'disabled' : ''}>▼</button>
+        style="padding:2px 6px;font-size:11px;" aria-label="Di chuyển xuống" title="Di chuyển xuống" ${idx >= total - 1 ? 'disabled' : ''}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 10 6 6 6-6"/></svg></button>
     </div>
     <div class="bar-actions" style="display:flex;flex-direction:column;gap:3px;margin-left:2px;">
       <button class="btn btn-sm btn-secondary btn-item-edit" data-id="${item.engine_maintenance_id}"
-        style="padding:2px 8px;font-size:11px;">✏️</button>
+        style="padding:2px 8px;font-size:11px;" aria-label="Sửa hạng mục" title="Sửa"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.1 2.8 2.8"/></svg></button>
       <button class="btn btn-sm btn-danger btn-item-delete" data-id="${item.engine_maintenance_id}"
-        style="padding:2px 8px;font-size:11px;">🗑️</button>
+        style="padding:2px 8px;font-size:11px;" aria-label="Xóa hạng mục" title="Xóa"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>
     </div>` : '';
 
   return `
@@ -555,10 +555,10 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
       margin-bottom:var(--space-2);">
 
       <div style="width:28px;height:28px;border-radius:50%;flex-shrink:0;
-                  background:var(--color-gold-glow);border:1px solid var(--color-gold-border);
+                  background:var(--color-primary-ring);border:1px solid var(--color-primary-border);
                   display:flex;align-items:center;justify-content:center;
                   font-size:var(--font-size-xs);font-weight:var(--font-weight-bold);
-                  color:var(--color-gold);">${item.display_order}</div>
+                  color:var(--color-primary);">${item.display_order}</div>
 
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;">
@@ -603,12 +603,23 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
         title: 'Xóa file PDF', type: 'danger', confirmText: 'Xóa',
         message: `Xóa file "${fileName}" khỏi hạng mục này?`,
       });
-      if (!confirmed) return;
-      const delRes = await window.electronAPI.invoke('engineMaintenance:deleteFile', {
-        id: item.engine_maintenance_id, tab: activeTab,
-      });
-      if (delRes.success) { toast.success('Đã xóa file'); onRefresh(); }
-      else toast.error('Lỗi', delRes.error);
+      if (!confirmed) return false;
+
+      try {
+        const delRes = await window.electronAPI.invoke('engineMaintenance:deleteFile', {
+          id: item.engine_maintenance_id, tab: activeTab,
+        });
+        if (delRes.success) {
+          toast.success('Đã xóa file');
+          onRefresh();
+          return true;
+        }
+        toast.error('Lỗi', delRes.error);
+        return false;
+      } catch (error) {
+        toast.error('Lỗi', error.message || 'Không thể xóa file');
+        return false;
+      }
     } : null;
 
     window.pdfPreview.open({
@@ -632,7 +643,7 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
    FORM: Upload PDF
    ════════════════════════════════════════════════════════════ */
 function openUploadForm(item, activeTab, onRefresh) {
-  const tabLabel = activeTab === 'tech_process' ? '🔧 Quy trình công nghệ' : '📏 Định mức KT-KT';
+  const tabLabel = activeTab === 'tech_process' ? 'Quy trình công nghệ' : 'Định mức KT-KT';
 
   const content = document.createElement('div');
   content.innerHTML = `
@@ -645,7 +656,7 @@ function openUploadForm(item, activeTab, onRefresh) {
       border:2px dashed var(--border-color-dark);border-radius:var(--border-radius);
       padding:var(--space-8);text-align:center;cursor:pointer;
       transition:all var(--transition-base);background:var(--bg-table-header);">
-      <div style="font-size:40px;margin-bottom:var(--space-3);">📄</div>
+      <div class="upload-file-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M12 17V10m0 0-3 3m3-3 3 3"/></svg></div>
       <div class="text-sm fw-medium" style="color:var(--text-secondary);">Kéo-thả file PDF vào đây</div>
       <div class="text-xs text-muted" style="margin-top:var(--space-1);">hoặc nhấn để chọn file (tối đa 25MB)</div>
       <input type="file" id="pdf-file-input" accept="application/pdf" style="display:none;" />
@@ -689,7 +700,7 @@ function openUploadForm(item, activeTab, onRefresh) {
 
   dropZone.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => _setFile(e.target.files[0]));
-  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--color-gold)'; });
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--color-primary)'; });
   dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border-color-dark)'; });
   dropZone.addEventListener('drop', (e) => { e.preventDefault(); _setFile(e.dataTransfer.files[0]); });
 
@@ -700,25 +711,33 @@ function openUploadForm(item, activeTab, onRefresh) {
     buttons: [
       { label: 'Hủy', class: 'btn-secondary', action: (c) => c() },
       {
-        label: '⬆ Upload', class: 'btn-primary',
+        label: 'Upload', class: 'btn-primary',
+        loadingText: 'Đang tải lên…',
         action: async (close) => {
           if (!selectedFile) {
             errEl.textContent = 'Vui lòng chọn file PDF';
             errEl.style.display = '';
             return;
           }
-          const arrayBuffer = await selectedFile.arrayBuffer();
-          const res = await window.electronAPI.invoke('engineMaintenance:uploadFile', {
-            id:       item.engine_maintenance_id,
-            tab:      activeTab,
-            fileData: { file_name: selectedFile.name, file_buffer: Array.from(new Uint8Array(arrayBuffer)) },
-          });
-          if (res.success) {
-            toast.success('Upload thành công');
-            close();
-            onRefresh();
-          } else {
-            errEl.textContent = res.error;
+
+          errEl.style.display = 'none';
+          try {
+            const arrayBuffer = await selectedFile.arrayBuffer();
+            const res = await window.electronAPI.invoke('engineMaintenance:uploadFile', {
+              id:       item.engine_maintenance_id,
+              tab:      activeTab,
+              fileData: { file_name: selectedFile.name, file_buffer: Array.from(new Uint8Array(arrayBuffer)) },
+            });
+            if (res.success) {
+              toast.success('Upload thành công');
+              close();
+              onRefresh();
+              return;
+            }
+            errEl.textContent = res.error || 'Upload không thành công';
+            errEl.style.display = '';
+          } catch (error) {
+            errEl.textContent = error.message || 'Không thể upload file';
             errEl.style.display = '';
           }
         },
@@ -761,13 +780,12 @@ function openVehicleForm(v, onSave) {
           display:flex;align-items:center;justify-content:center;
           background:var(--bg-table-header);overflow:hidden;cursor:pointer;">
           ${v?.img_path
-            ? `<img src="${_imgSrc(v.img_path)}" style="width:100%;height:100%;object-fit:cover;"
-                    onerror="this.parentElement.innerHTML='<span style=font-size:36px;opacity:.4>📷</span>'" />`
-            : `<span style="font-size:36px;opacity:.4;">📷</span>`}
+            ? `<img src="${_imgSrc(v.img_path)}" data-image-preview style="width:100%;height:100%;object-fit:cover;" />`
+            : `<span class="image-placeholder"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-2 5 4"/></svg></span>`}
         </div>
         <div style="flex:1;">
           <input type="file" id="vf-img-file" accept="image/*" style="display:none;" />
-          <button class="btn btn-secondary btn-sm" id="btn-pick-img" style="margin-bottom:6px;">📁 Chọn ảnh</button>
+          <button class="btn btn-secondary btn-sm" id="btn-pick-img" style="margin-bottom:6px;"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></svg>Chọn ảnh</button>
           ${v?.img_path ? `<button class="btn btn-sm btn-danger" id="btn-clear-img" style="margin-left:6px;">✕ Xóa ảnh</button>` : ''}
           <p class="text-xs text-muted" style="margin-top:4px;" id="img-hint">Chọn ảnh từ máy (JPG/PNG)</p>
         </div>
@@ -781,8 +799,10 @@ function openVehicleForm(v, onSave) {
   function _updatePreview(src) {
     preview.innerHTML = src
       ? `<img src="${src}" style="width:100%;height:100%;object-fit:cover;" />`
-      : `<span style="font-size:36px;opacity:.4;">📷</span>`;
+      : `<span class="image-placeholder"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-2 5 4"/></svg></span>`;
   }
+
+  content.querySelector('[data-image-preview]')?.addEventListener('error', () => _updatePreview(null), { once: true });
 
   content.querySelector('#btn-pick-img').addEventListener('click', () => fileInput.click());
   preview.addEventListener('click', () => fileInput.click());
@@ -929,10 +949,10 @@ async function openVehicleTypeManager() {
               <div style="display:flex;gap:4px;">
                 <button class="btn btn-sm btn-secondary btn-tm-edit"
                   data-id="${t.vehicle_type_id}" data-name="${t.vehicle_type_name}"
-                  style="padding:2px 8px;font-size:11px;">✏️ Sửa</button>
+                  style="padding:2px 8px;font-size:11px;"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.1 2.8 2.8"/></svg>Sửa</button>
                 <button class="btn btn-sm btn-danger btn-tm-delete"
                   data-id="${t.vehicle_type_id}" data-name="${t.vehicle_type_name}"
-                  style="padding:2px 8px;font-size:11px;">🗑️ Xóa</button>
+                  style="padding:2px 8px;font-size:11px;"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>Xóa</button>
               </div>
             </div>`).join('')}
       </div>

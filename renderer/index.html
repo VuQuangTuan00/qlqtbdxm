@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/layout.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/app-theme.css" />
 </head>
 <body>
 
@@ -79,45 +80,49 @@
   <nav id="sidebar">
     <div class="sidebar-brand">
       <div class="sidebar-brand-icon">
-        <img src="assets/images/logo_app.png" alt="Logo" style="width:50%; height:100%; object-fit:contain;" />
+        <img class="sidebar-brand-logo" src="assets/images/logo_app.png" alt="Logo Quy trình Công nghệ" />
       </div>
       <div class="sidebar-brand-text">
         <div class="sidebar-brand-title">Quy Trình Công Nghệ</div>
-        <div class="sidebar-brand-subtitle">CỤC HẬU CẦN - KỸ THUẬT<Tarea></Tarea></div>
+        <div class="sidebar-brand-subtitle">CỤC HẬU CẦN – KỸ THUẬT</div>
       </div>
     </div>
 
     <div class="sidebar-nav">
       <div class="nav-section">
         <div class="nav-section-label">Quản lý</div>
-        <a class="nav-item" data-route="equipment-list" href="#">
-          <span class="nav-item-icon">🚗</span>
+        <!-- <a class="nav-item" data-route="equipment-list" href="#">
+          <span class="nav-item-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15h16l-1.4-5.1A2 2 0 0 0 16.7 8H7.3a2 2 0 0 0-1.9 1.4L4 15Z"/><path d="M3 15v3h2m14 0h2v-3M7 18h10"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg></span>
           <span class="nav-item-label">HỒ SƠ TRANG BỊ</span>
         </a>
         <a class="nav-item" data-route="plan-list" href="#">
-          <span class="nav-item-icon">📋</span>
+          <span class="nav-item-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 9h8M8 13h8M8 17h5"/></svg></span>
           <span class="nav-item-label">KẾ HOẠCH BẢO DƯỠNG</span>
-        </a>
+        </a> -->
         
         <a class="nav-item" data-route="maintenance-steps" href="#">
-          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/></svg></span>
           <span class="nav-item-label">DANH SÁCH TRANG BỊ</span>
         </a>
       </div>
 
-      <div class="nav-section">
+      <!-- <div class="nav-section">
         <div class="nav-section-label">Báo cáo</div>
         <a class="nav-item" data-route="reports" href="#">
-          <span class="nav-item-icon">📊</span>
+          <span class="nav-item-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18"/></svg></span>
           <span class="nav-item-label">BÁO CÁO TỔNG HỢP</span>
         </a>
-      </div>
+      </div> -->
 
       <div class="nav-section">
         <div class="nav-section-label">Hệ thống</div>
         <a class="nav-item" data-route="settings" href="#">
-          <span class="nav-item-icon">⚙️</span>
+          <span class="nav-item-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg></span>
           <span class="nav-item-label">CÀI ĐẶT HỆ THỐNG</span>
+        </a>
+        <a class="nav-item" data-route="settings" href="#">
+          <span class="nav-item-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></svg></span>
+          <span class="nav-item-label">ĐĂNG XUẤT</span>
         </a>
       </div>
     </div>
@@ -136,15 +141,25 @@
   <!-- Main content -->
   <div id="main-content">
     <div id="topbar">
-      <div class="topbar-title" id="topbar-title">Trang chủ</div>
-      <div class="topbar-actions">
-        <button class="btn btn-secondary btn-sm" id="btn-logout">Đăng xuất</button>
+      <!-- <div class="topbar-brand">
+        <img class="topbar-brand-logo" src="assets/images/logo_app.png" alt="" aria-hidden="true" />
+        <div class="topbar-brand-copy">
+          <div class="topbar-brand-title topbar-title">QUY TRÌNH CÔNG NGHỆ</div>
+          <div class="topbar-brand-subtitle sidebar-brand-subtitle">CỤC HẬU CẦN – KỸ THUẬT</div>
+        </div>
       </div>
+      <div class="topbar-title app-visually-hidden" id="topbar-title">Trang chủ</div>
+      <div class="topbar-actions">
+        <button class="btn btn-secondary btn-sm" id="btn-logout">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10"/></svg>
+          <span>Đăng xuất</span>
+        </button>
+      </div> -->
     </div>
     <div id="page-view">
       <!-- Dynamic content loaded here -->
       <div class="table-empty">
-        <div class="table-empty-icon">🏠</div>
+        <div class="table-empty-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></svg></div>
         <div class="table-empty-text">Chào mừng đến hệ thống QLQT Bảo Dưỡng Xe Máy</div>
         <div class="table-empty-sub">Chọn mục trong menu bên trái để bắt đầu</div>
       </div>

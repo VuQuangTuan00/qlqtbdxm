@@ -54,20 +54,20 @@ async function renderEquipmentDetail(container, params) {
 
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">${eq.equipment_name}</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15h16l-1.4-5.1A2 2 0 0 0 16.7 8H7.3a2 2 0 0 0-1.9 1.4L4 15Z"/><path d="M3 15v3h2m14 0h2v-3"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg><span>${eq.equipment_name}</span></h2>
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
           ${statusBadge}
           <span class="text-muted text-sm">${eq.equipment_code}</span>
         </div>
       </div>
       <div class="page-header-actions">
-        <button class="btn btn-primary" id="btn-create-plan">+ Tạo kế hoạch BD</button>
+        <button class="btn btn-primary" id="btn-create-plan"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Tạo kế hoạch BD</button>
         <button class="btn btn-secondary" id="btn-edit-equipment">Chỉnh sửa</button>
       </div>
     </div>
 
     <!-- Detail cards -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);margin-bottom:var(--space-6);">
+    <div class="detail-panels-grid">
       <div class="card">
         <div class="card-header"><h5 class="card-title">Thông tin cơ bản</h5></div>
         <div class="card-body">
@@ -103,7 +103,7 @@ async function renderEquipmentDetail(container, params) {
       <div class="card">
         <div class="card-header"><h5 class="card-title">Mã QR</h5></div>
         <div class="card-body" style="text-align:center;">
-          <div style="font-family:monospace;font-size:18px;font-weight:bold;color:var(--color-military-medium);
+          <div style="font-family:monospace;font-size:18px;font-weight:bold;color:var(--color-primary);
                background:var(--bg-table-header);padding:16px;border-radius:8px;margin-bottom:12px;">
             ${eq.qr_value || 'Chưa có mã QR'}
           </div>
@@ -147,7 +147,7 @@ async function renderEquipmentDetail(container, params) {
 function _renderRecentPlans(plans) {
   if (!plans.length) {
     return `<div class="table-empty">
-      <div class="table-empty-icon">📋</div>
+      <div class="table-empty-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 9h8M8 13h8M8 17h5"/></svg></div>
       <div class="table-empty-text">Chưa có kế hoạch bảo dưỡng</div>
     </div>`;
   }

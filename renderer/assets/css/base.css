@@ -104,13 +104,18 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
   color: #1a1a1a;
   border-color: rgba(0,0,0,0.12);
 }
-
-.btn-danger {
-  background-color: var(--color-danger);
-  color: #fff;
-  border-color: var(--color-danger);
+.line-btn{
+  /* border-right: 1px solid var(--color-primary-border); */
+   border: 0px;
+   border-radius: 0px;
 }
-.btn-danger:hover:not(:disabled) { background-color: #b91c1c; }
+.btn-danger {
+  background-color: #fffefe;
+  color: var(--color-danger);
+  /* background-color: var(--color-danger); */
+  /* border-color: var(--color-danger); */
+}
+.btn-danger:hover:not(:disabled) { background-color: #f73b3b; color:#fff }
 
 .btn-success {
   background-color: var(--color-success);
@@ -135,7 +140,7 @@ a:hover { color: var(--color-gold-light); text-decoration: underline; }
   color: #3a6347;
 }
 
-.btn-sm  { padding: 4px 10px; font-size: var(--font-size-xs); }
+.btn-sm  { padding: 10px 10px; font-size: var(--font-size-xs); }
 .btn-lg  { padding: 10px 22px; font-size: var(--font-size-md); }
 .btn-icon {
   padding: var(--space-2);

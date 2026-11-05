@@ -9,17 +9,16 @@ async function renderSettings(container) {
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">Cài Đặt Hệ Thống</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3V2.8h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg><span>Cài Đặt Hệ Thống</span></h2>
         <p class="page-subtitle">Quản lý người dùng, đơn vị và cấu hình hệ thống</p>
       </div>
     </div>
 
-    <div class="tabs">
+    <div class="tabs settings-tabs-scroll">
       <button class="tab-btn active" data-tab="profile">Hồ sơ cá nhân</button>
-      <button class="tab-btn" data-tab="units">Quản lý đơn vị</button>
       ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="users">Quản lý người dùng</button>` : ''}
       ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="dbconfig">Kết nối Database</button>` : ''}
-      ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="file-backup">File backup</button>` : ''}
+      ${store.hasRole('admin') ? `<button class="tab-btn" data-tab="file-backup">Sao lưu</button>` : ''}
       <button class="tab-btn" data-tab="about">Về hệ thống</button>
     </div>
 
@@ -56,14 +55,14 @@ function _loadFileBackupTab() {
   el.innerHTML = `
     <div style="max-width:760px;">
       <div class="card">
-        <div class="card-header"><h5 class="card-title">Bộ chuyển máy</h5></div>
+        <div class="card-header"><h5 class="card-title">Sao lưu</h5></div>
         <div class="card-body">
           <p class="text-sm text-muted" style="margin-bottom:var(--space-4);">
-            Một file ZIP gồm backup SQL Server (.bak), ảnh và tài liệu. Khi nhập, app chép file vào máy này, thay file trùng đường dẫn và trích .bak ra Documents; cần restore .bak bằng SSMS.
+            Sao lưu dữ liệu sẽ tạo một file ZIP chứa toàn bộ ảnh, tài liệu và file database .bak. Nhập file ZIP sẽ thay thế toàn bộ ảnh, tài liệu và database bằng nội dung trong file ZIP.
           </p>
           <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
-            <button class="btn btn-primary" id="btn-export-file-backup">Xuất bộ chuyển máy</button>
-            <button class="btn btn-secondary" id="btn-import-file-backup">Nhập bộ chuyển máy</button>
+            <button class="btn btn-primary" id="btn-export-file-backup">Sao lưu</button>
+            <button class="btn btn-secondary" id="btn-import-file-backup">Nhập File ZIP</button>
           </div>
           <div id="file-backup-status" role="status" aria-live="polite" style="display:none;margin-top:var(--space-4);"></div>
         </div>
@@ -91,7 +90,7 @@ function _loadFileBackupTab() {
       status.style.display = '';
     } catch (err) {
       status.className = 'alert alert-danger';
-      status.textContent = err.message || 'Không thực hiện được thao tác backup.';
+      status.textContent = err.message || 'Không thực hiện được thao tác sao lưu';
       status.style.display = '';
     } finally {
       button.textContent = label;
@@ -103,8 +102,8 @@ function _loadFileBackupTab() {
   exportButton.addEventListener('click', () => run(exportButton, 'fileArchive:export'));
   importButton.addEventListener('click', async () => {
     const confirmed = await modal.confirm({
-      title: 'Nhập bộ chuyển máy',
-      message: 'Ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP. File database .bak được trích vào Documents; app không tự restore database.',
+      title: 'Sao lưu dữ liệu',
+      message: 'Ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP',
       confirmText: 'Chọn file ZIP',
       type: 'warning',
     });
@@ -121,9 +120,9 @@ function _renderProfileTab(session) {
         <div class="card-header"><h5 class="card-title">Thông tin cá nhân</h5></div>
         <div class="card-body">
           <div style="display:flex;align-items:center;gap:var(--space-5);margin-bottom:var(--space-5);">
-            <div style="width:72px;height:72px;border-radius:50%;background:var(--color-gold-glow);
-                 border:2px solid var(--color-gold-border);
-                 display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:var(--color-gold);">
+            <div style="width:72px;height:72px;border-radius:50%;background:var(--color-primary-ring);
+                 border:2px solid var(--color-primary-border);
+                 display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:bold;color:var(--color-primary);">
               ${session?.fullName?.charAt(0)?.toUpperCase() || '?'}
             </div>
             <div>
@@ -284,8 +283,8 @@ function _renderAboutTab() {
     <div style="max-width:500px;">
       <div class="card">
         <div class="card-body" style="text-align:center;padding:var(--space-8);">
-          <div style="font-size:64px;margin-bottom:var(--space-4);">🪖</div>
-          <h3 style="margin-bottom:var(--space-2);">QLQT Bảo Dưỡng Xe Máy</h3>
+          <img class="about-app-logo" src="assets/images/logo_app.png" alt="Logo Quy trình Công nghệ" />
+          <h3 style="margin-bottom:var(--space-2);">Quy trình công nghệ</h3>
           <p class="text-muted">Hệ Thống Quản Lý Bảo Dưỡng Xe Máy Quân Đội</p>
           <div class="divider"></div>
           <div class="detail-grid">

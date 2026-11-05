@@ -20,11 +20,11 @@ function renderEquipmentList(container) {
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">Hồ Sơ Trang Bị</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15h16l-1.4-5.1A2 2 0 0 0 16.7 8H7.3a2 2 0 0 0-1.9 1.4L4 15Z"/><path d="M3 15v3h2m14 0h2v-3"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg><span>Hồ Sơ Trang Bị</span></h2>
         <p class="page-subtitle">Quản lý danh sách trang bị / xe máy quân đội</p>
       </div>
       <div class="page-header-actions">
-        <button class="btn btn-primary" id="btn-add-equipment">+ Thêm trang bị</button>
+        <button class="btn btn-primary" id="btn-add-equipment"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Thêm trang bị</button>
       </div>
     </div>
 
@@ -33,7 +33,10 @@ function renderEquipmentList(container) {
 
     <!-- Filter bar -->
     <div class="filter-bar">
-      <input type="text" class="form-control search-input" id="eq-search" placeholder="🔍 Tìm theo mã, tên, số serial..." />
+      <div class="search-control">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+        <input type="text" class="form-control search-input" id="eq-search" placeholder="Tìm theo mã, tên, số serial..." />
+      </div>
       <select class="form-control" id="eq-filter-status">
         <option value="">-- Trạng thái --</option>
         <option value="active">Đang hoạt động</option>
@@ -63,7 +66,7 @@ function renderEquipmentList(container) {
     container: tableContainer,
     columns: [
       { key: 'equipment_code', label: 'Mã trang bị', sortable: true, width: '130px',
-        render: (v) => `<span class="fw-semibold" style="color:var(--color-military-medium)">${v}</span>` },
+        render: (v) => `<span class="fw-semibold" style="color:var(--color-primary)">${v}</span>` },
       { key: 'equipment_name', label: 'Tên trang bị', sortable: true,
         render: (v, row) => `
           <div class="cell-primary">${v}</div>

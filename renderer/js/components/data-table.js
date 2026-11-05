@@ -32,7 +32,7 @@ class DataTable {
   _build() {
     this.container.innerHTML = `
       <div class="table-wrapper">
-        <table>
+        <table aria-label="Bảng dữ liệu">
           <thead><tr id="dt-head"></tr></thead>
           <tbody id="dt-body"></tbody>
         </table>
@@ -54,8 +54,18 @@ class DataTable {
       th.textContent = col.label;
       if (col.sortable) {
         th.className = 'sortable';
+        th.tabIndex = 0;
+        th.setAttribute('aria-sort', this.sortKey === col.key
+          ? (this.sortDir === 'asc' ? 'ascending' : 'descending')
+          : 'none');
         if (this.sortKey === col.key) th.className += ` sort-${this.sortDir}`;
         th.addEventListener('click', () => this._toggleSort(col.key));
+        th.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this._toggleSort(col.key);
+          }
+        });
       }
       if (col.width) th.style.width = col.width;
       tr.appendChild(th);
@@ -79,7 +89,7 @@ class DataTable {
         <tr>
           <td colspan="${cols}">
             <div class="table-empty">
-              <div class="table-empty-icon">📭</div>
+              <div class="table-empty-icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16v12H4V7Z"/><path d="m4 8 8 6 8-6M8 4h8"/></svg></div>
               <div class="table-empty-text">Không có dữ liệu</div>
             </div>
           </td>
@@ -117,6 +127,16 @@ class DataTable {
       }
 
       tr.addEventListener('click', () => this.onRowClick && this.onRowClick(row));
+      if (this.onRowClick) {
+        tr.tabIndex = 0;
+        tr.setAttribute('role', 'button');
+        tr.addEventListener('keydown', (e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('button, a, input, select, textarea')) {
+            e.preventDefault();
+            this.onRowClick(row);
+          }
+        });
+      }
       tbody.appendChild(tr);
     }
   }

@@ -27,11 +27,11 @@ async function renderPlanList(container, params = {}) {
   container.innerHTML = `
     <div class="page-header">
       <div class="page-header-left">
-        <h2 class="page-title">Kế Hoạch Bảo Dưỡng</h2>
+        <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 9h8M8 13h8M8 17h5"/></svg><span>Kế Hoạch Bảo Dưỡng</span></h2>
         <p class="page-subtitle">Lập và theo dõi kế hoạch bảo dưỡng trang bị</p>
       </div>
       <div class="page-header-actions">
-        <button class="btn btn-primary" id="btn-add-plan">+ Tạo kế hoạch</button>
+        <button class="btn btn-primary" id="btn-add-plan"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Tạo kế hoạch</button>
       </div>
     </div>
 
@@ -40,8 +40,11 @@ async function renderPlanList(container, params = {}) {
 
     <!-- Filter bar -->
     <div class="filter-bar">
-      <input type="text" class="form-control search-input" id="plan-search"
-        placeholder="🔍 Tìm theo mã kế hoạch, tên trang bị..." />
+      <div class="search-control">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16 16 5 5"/></svg>
+        <input type="text" class="form-control search-input" id="plan-search"
+          placeholder="Tìm theo mã kế hoạch, tên trang bị..." />
+      </div>
       <select class="form-control" id="plan-filter-status">
         <option value="">-- Trạng thái --</option>
         ${Object.entries(PLAN_STATUS).map(([v, s]) => `<option value="${v}">${s.label}</option>`).join('')}
@@ -66,7 +69,7 @@ async function renderPlanList(container, params = {}) {
     container: tableContainer,
     columns: [
       { key: 'plan_code', label: 'Mã kế hoạch', width: '140px', sortable: true,
-        render: (v) => `<span class="fw-semibold" style="color:var(--color-military-medium)">${v}</span>` },
+        render: (v) => `<span class="fw-semibold" style="color:var(--color-primary)">${v}</span>` },
       { key: 'equipment_name', label: 'Trang bị',
         render: (v, row) => `
           <div class="cell-primary">${v}</div>
