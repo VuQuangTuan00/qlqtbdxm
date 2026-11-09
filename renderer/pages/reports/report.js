@@ -10,7 +10,7 @@ async function renderReports(container) {
         <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M3 20h18"/></svg><span>Báo Cáo Tổng Hợp</span></h2>
         <p class="page-subtitle">Thống kê và phân tích trạng thái bảo dưỡng trang bị</p>
       </div>
-      <div class="page-header-actions">
+      <div class="page-header-actions" style="margin:var(--space-2) 0;>
         <button class="btn btn-secondary" id="btn-refresh-report"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.1 8a7 7 0 0 1 11.8-1L20 12M4 12l2.1 5a7 7 0 0 0 11.8-1"/></svg>Làm mới</button>
       </div>
     </div>

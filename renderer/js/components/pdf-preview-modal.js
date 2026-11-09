@@ -79,8 +79,8 @@ const pdfPreview = (() => {
     overlay.innerHTML = `
       <div id="pdf-toolbar" class="pdf-toolbar">
         <div class="pdf-file-info">
-          <div class="pdf-file-name" style="font-size:13px;font-weight:600;">${fileName || title}</div>
-          ${subtitle ? `<div class="pdf-file-subtitle" style="font-size:11px;">${subtitle}</div>` : ''}
+          <div class="pdf-file-name" style="font-size:13px;font-weight:600;">${title}</div>
+         
         </div>
 
         <div class="pdf-toolbar-group">

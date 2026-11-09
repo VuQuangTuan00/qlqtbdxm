@@ -30,7 +30,7 @@ async function renderPlanList(container, params = {}) {
         <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5V3h6v1.5M8 9h8M8 13h8M8 17h5"/></svg><span>Kế Hoạch Bảo Dưỡng</span></h2>
         <p class="page-subtitle">Lập và theo dõi kế hoạch bảo dưỡng trang bị</p>
       </div>
-      <div class="page-header-actions">
+      <div class="page-header-actions" style="margin:var(--space-2) 0;>
         <button class="btn btn-primary" id="btn-add-plan"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Tạo kế hoạch</button>
       </div>
     </div>

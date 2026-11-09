@@ -54,7 +54,7 @@ async function renderPlanDetail(container, params) {
           <span class="text-muted text-sm">${MAINT_TYPE_MAP[plan.maintenance_type] || plan.maintenance_type}</span>
         </div>
       </div>
-      <div class="page-header-actions" id="plan-actions"></div>
+      <div class="page-header-actions"style="margin:var(--space-2) 0; id="plan-actions"></div>
     </div>
 
     <!-- Info grid -->

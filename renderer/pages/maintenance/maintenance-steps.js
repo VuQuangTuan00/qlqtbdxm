@@ -37,7 +37,6 @@ async function renderMaintenanceSteps(container) {
     <div class="page-header">
       <div class="page-header-left">
         <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 8 8-4 8 4-8 4-8-4Z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/></svg><span>Danh Sách Trang Bị</span></h2>
-        <p class="page-subtitle">Quản lý loại xe và hạng mục bảo dưỡng động cơ</p>
       </div>
     </div>
 
@@ -286,7 +285,7 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
         <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15h16l-1.4-5.1A2 2 0 0 0 16.7 8H7.3a2 2 0 0 0-1.9 1.4L4 15Z"/><path d="M3 15v3h2m14 0h2v-3"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg><span>${v.vehicle_name}</span></h2>
         ${!v.is_active ? '<div style="margin-top:4px;"><span class="badge badge-danger">Ngừng sử dụng</span></div>' : ''}
       </div>
-      <div class="page-header-actions">
+      <div class="page-header-actions" style="margin:var(--space-2) 0;">
         ${_isAdmin() ? `
           <button class="btn btn-secondary btn-sm" id="btn-edit-vehicle"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.1 2.8 2.8"/></svg>Sửa thông tin xe</button>
           <button class="btn btn-sm ${editMode ? 'btn-warning' : 'btn-outline'}" id="btn-toggle-edit">

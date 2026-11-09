@@ -247,8 +247,8 @@
   padding: 0 26px;
   overflow: hidden;
   color: #FFFFFF;
-  background-color: #075A9D;
-  background-image: url('../images/banner_topbar1.jpg');
+  background-color: transparent;
+  background-image: url('../images/bg_hckt.png');
   background-repeat: no-repeat;
   background-position: right center;
   border-bottom: 0;
@@ -256,10 +256,10 @@
 }
 
 #app #topbar::before {
-  content: '';
+  content: none;
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(5, 74, 130, 0.72) 0%, rgba(6, 91, 157, 0.38) 46%, rgba(7, 90, 154, 0.04) 100%);
+  background: none;
   pointer-events: none;
 }
 
@@ -270,7 +270,7 @@
   right: 0;
   bottom: 0;
   height: 4px;
-  background: linear-gradient(90deg, #28D8D6 0%, #52E8DC 38%, rgba(82, 232, 220, 0.15) 100%);
+  /* background: linear-gradient(90deg, #28D8D6 0%, #52E8DC 38%, rgba(82, 232, 220, 0.15) 100%); */
 }
 
 #app .topbar-brand {
@@ -325,9 +325,7 @@
 
 #app #page-view {
   padding: 24px;
-  background:
-    linear-gradient(rgba(240, 248, 254, 0.9), rgba(247, 251, 255, 0.96)),
-    url('../images/banner_pageview.png') center / cover fixed;
+  background-color: #fff;
   color: var(--text-primary);
   user-select: text;
 }
@@ -613,7 +611,8 @@
   position: relative;
   overflow: hidden;
   flex: 0 0 auto;
-  background: linear-gradient(145deg, #EAF4FC, #D9ECFA);
+  /* background: linear-gradient(145deg, #EAF4FC, #D9ECFA); */
+  border-color: #FFFFFF;
   border-radius: 4px;
 }
 
@@ -896,6 +895,19 @@
 
 #app .tabs {
   border-bottom-color: var(--color-primary-border);
+}
+
+#app .vehicle-detail-layout .card-header > .tabs {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 1 1 auto;
+  gap: 0;
+}
+
+#app .vehicle-detail-layout .card-header > .tabs > .tab-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 #app .tab-btn:hover {

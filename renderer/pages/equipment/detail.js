@@ -60,7 +60,7 @@ async function renderEquipmentDetail(container, params) {
           <span class="text-muted text-sm">${eq.equipment_code}</span>
         </div>
       </div>
-      <div class="page-header-actions">
+      <div class="page-header-actions style="margin:var(--space-2) 0;">
         <button class="btn btn-primary" id="btn-create-plan"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Tạo kế hoạch BD</button>
         <button class="btn btn-secondary" id="btn-edit-equipment">Chỉnh sửa</button>
       </div>

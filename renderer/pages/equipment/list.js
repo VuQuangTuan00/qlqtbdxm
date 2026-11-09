@@ -23,7 +23,7 @@ function renderEquipmentList(container) {
         <h2 class="page-title"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 15h16l-1.4-5.1A2 2 0 0 0 16.7 8H7.3a2 2 0 0 0-1.9 1.4L4 15Z"/><path d="M3 15v3h2m14 0h2v-3"/><circle cx="7" cy="18" r="1.5"/><circle cx="17" cy="18" r="1.5"/></svg><span>Hồ Sơ Trang Bị</span></h2>
         <p class="page-subtitle">Quản lý danh sách trang bị / xe máy quân đội</p>
       </div>
-      <div class="page-header-actions">
+      <div class="page-header-actions style="margin:var(--space-2) 0;">
         <button class="btn btn-primary" id="btn-add-equipment"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Thêm trang bị</button>
       </div>
     </div>

@@ -253,13 +253,13 @@ async function _loadUsersTab() {
     <div class="table-container">
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Vai trò</th><th>Đơn vị</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+          <thead><tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
           <tbody>
             ${users.map((u) => `<tr>
               <td class="fw-medium">${u.username}</td>
               <td>${u.full_name}</td>
               <td><span class="badge badge-info">${u.role_name || ''}</span></td>
-              <td>${u.unit_name || '<span class="text-muted">—</span>'}</td>
+              
               <td><span class="badge ${u.is_active ? 'badge-success' : 'badge-neutral'}">${u.is_active ? 'Hoạt động' : 'Vô hiệu'}</span></td>
               <td class="table-actions">
                 <button class="btn btn-sm btn-${u.is_active ? 'warning' : 'success'}"
@@ -428,12 +428,7 @@ function openUserForm(roles) {
           ${roles.map((r) => `<option value="${r.id}">${r.role_name}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group">
-        <label class="form-label">Đơn vị</label>
-        <select class="form-control" id="uf-unit">
-          <option value="">-- Không xác định --</option>
-        </select>
-      </div>
+  
     </div>
   `;
 

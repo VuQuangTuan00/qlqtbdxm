@@ -229,6 +229,7 @@ select.form-control option {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--text-heading);
+  margin-bottom: 10px;
 }
 .card-body  { padding: var(--space-6); }
 .card-footer {
