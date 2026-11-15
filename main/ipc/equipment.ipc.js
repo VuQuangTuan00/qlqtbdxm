@@ -9,6 +9,8 @@ const logger = require('../utils/logger');
 function register() {
   ipcMain.handle('equipment:list', async (_event, opts = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       logger.ipc('equipment:list', opts);
       return await equipmentService.list(opts);
     } catch (err) {
@@ -18,6 +20,8 @@ function register() {
 
   ipcMain.handle('equipment:get', async (_event, { id } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       return await equipmentService.get(id);
     } catch (err) {
       return fail(err.message);
@@ -26,6 +30,8 @@ function register() {
 
   ipcMain.handle('equipment:search', async (_event, opts = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       return await equipmentService.search(opts);
     } catch (err) {
       return fail(err.message);
@@ -64,6 +70,8 @@ function register() {
 
   ipcMain.handle('equipment:getByQr', async (_event, { qrValue } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       return await equipmentService.getByQr(qrValue);
     } catch (err) {
       return fail(err.message);

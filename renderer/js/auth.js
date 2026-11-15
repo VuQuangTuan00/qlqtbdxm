@@ -9,7 +9,7 @@ const auth = (() => {
   const loginForm    = document.getElementById('login-form');
   const loginError   = document.getElementById('login-error');
   const loginBtn     = document.getElementById('login-btn');
-  const btnLogout    = document.getElementById('btn-logout');
+  const btnLogout    = document.getElementById('logout');
   const sidebarAvatar   = document.getElementById('sidebar-avatar');
   const sidebarUsername = document.getElementById('sidebar-username');
   const sidebarRole     = document.getElementById('sidebar-role');
@@ -19,7 +19,7 @@ const auth = (() => {
     appShell.style.display = 'flex';
     _updateUserUI(session);
     sidebar.init();
-    router.navigate('equipment-list');
+    router.navigate('maintenance-steps');
   }
 
   function showLogin() {

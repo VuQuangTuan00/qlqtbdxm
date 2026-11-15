@@ -24,7 +24,7 @@ const router = (() => {
    * @param {string} name
    * @param {Object} [params]
    */
-  function navigate(name, params = {}) {
+  async function navigate(name, params = {}) {
     const route = _routes[name];
     if (!route) {
       console.warn(`[Router] Route không tìm thấy: ${name}`);
@@ -45,13 +45,17 @@ const router = (() => {
     if (pageView) {
       pageView.innerHTML = '';
       try {
-        route.render(pageView, params);
+        await route.render(pageView, params);
       } catch (err) {
         console.error(`[Router] Lỗi render ${name}:`, err);
-        pageView.innerHTML = `
-          <div class="alert alert-danger">
-            <strong>Lỗi tải trang:</strong> ${err.message}
-          </div>`;
+        pageView.innerHTML = '';
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger';
+
+        const label = document.createElement('strong');
+        label.textContent = 'Lỗi tải trang: ';
+        alert.append(label, document.createTextNode(err?.message || String(err)));
+        pageView.appendChild(alert);
       }
     }
   }
@@ -65,7 +69,8 @@ const router = (() => {
    * Refresh route hiện tại
    */
   function refresh(params = {}) {
-    if (_currentRoute) navigate(_currentRoute, params);
+    if (_currentRoute) return navigate(_currentRoute, params);
+    return Promise.resolve();
   }
 
   return { register, navigate, current, refresh };

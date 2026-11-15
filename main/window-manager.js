@@ -2,7 +2,16 @@
 
 const { BrowserWindow, shell } = require('electron');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const logger = require('./utils/logger');
+
+function isSafeExternalUrl(url) {
+  try {
+    return ['http:', 'https:'].includes(new URL(url).protocol);
+  } catch (_) {
+    return false;
+  }
+}
 
 /**
  * Tạo cửa sổ chính của ứng dụng
@@ -15,14 +24,14 @@ function createMainWindow() {
     minWidth: 1024,
     minHeight: 600,
     title: 'Hệ Thống Quản Lý Bảo Dưỡng Xe Máy Quân Đội',
-    icon: path.join(__dirname, '../renderer/assets/icon.png'),
+    icon: path.join(__dirname, '../renderer/assets/images/logo_app.png'),
     backgroundColor: '#f0f2f5',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
       devTools: process.env.NODE_ENV !== 'production',
       spellcheck: false,
     },
@@ -30,16 +39,17 @@ function createMainWindow() {
 
   // Ngăn điều hướng ra ngoài
   win.webContents.on('will-navigate', (event, url) => {
-    const appUrl = `file://${path.join(__dirname, '../renderer/index.html')}`;
-    if (!url.startsWith(appUrl) && !url.startsWith('file://')) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
+    const appUrl = pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
+    const targetDocument = url.split(/[?#]/, 1)[0];
+    if (targetDocument === appUrl) return;
+
+    event.preventDefault();
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
   });
 
   // Ngăn mở cửa sổ mới
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (isSafeExternalUrl(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
 
@@ -80,11 +90,21 @@ function createChildWindow(parent, options = {}) {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: false,
+      sandbox: true,
     },
   };
 
-  const win = new BrowserWindow({ ...defaults, ...options });
+  const win = new BrowserWindow({
+    ...defaults,
+    ...options,
+    webPreferences: {
+      ...defaults.webPreferences,
+      ...(options.webPreferences || {}),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
   win.once('ready-to-show', () => win.show());
   return win;
 }

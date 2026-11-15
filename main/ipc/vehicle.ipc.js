@@ -9,12 +9,18 @@ function register() {
   // ── Vehicle ──────────────────────────────────────────────────
 
   ipcMain.handle('vehicle:list', async (_e, opts = {}) => {
-    try { return await vehicleService.listVehicles(opts); }
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await vehicleService.listVehicles(opts);
+    }
     catch (err) { return fail(err.message); }
   });
 
   ipcMain.handle('vehicle:get', async (_e, { id } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       if (!id) return fail('Thiếu id');
       return await vehicleService.getVehicle(id);
     } catch (err) { return fail(err.message); }
@@ -50,7 +56,11 @@ function register() {
   // ── Engine Maintenance ───────────────────────────────────────
 
   ipcMain.handle('engineMaintenance:list', async (_e, { vehicleId } = {}) => {
-    try { return await vehicleService.listMaintenance(vehicleId); }
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await vehicleService.listMaintenance(vehicleId);
+    }
     catch (err) { return fail(err.message); }
   });
 
@@ -110,14 +120,28 @@ function register() {
 
   ipcMain.handle('engineMaintenance:readFile', async (_e, { id, tab } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       return await vehicleService.readFile(id, tab);
+    } catch (err) { return fail(err.message); }
+  });
+
+  ipcMain.handle('engineMaintenance:openFile', async (_e, { id, tab } = {}) => {
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await vehicleService.openFile(id, tab);
     } catch (err) { return fail(err.message); }
   });
 
   // ── Vehicle Type ─────────────────────────────────────────────
 
   ipcMain.handle('vehicleType:list', async (_e) => {
-    try { return await vehicleService.listVehicleTypes(); }
+    try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      return await vehicleService.listVehicleTypes();
+    }
     catch (err) { return fail(err.message); }
   });
 

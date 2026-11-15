@@ -29,25 +29,34 @@ async function create(data, userId) {
   const existing = await equipmentRepo.findOne({ equipment_code });
   if (existing) return fail('Mã trang bị đã tồn tại');
 
-  const equipment = await equipmentRepo.create({
-    equipment_code: equipment_code.trim().toUpperCase(),
-    equipment_name: equipment_name.trim(),
-    model: model || null,
-    serial_number: serial_number || null,
-    year_of_manufacture: year_of_manufacture || null,
-    unit_id: unit_id || null,
-    status: 'active',
+  const equipment = await equipmentRepo.transaction(async (client) => {
+    const { rows } = await client.query(
+      `INSERT INTO equipments
+       (equipment_code, equipment_name, model, serial_number, year_of_manufacture, unit_id, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [
+        equipment_code.trim().toUpperCase(),
+        equipment_name.trim(),
+        model || null,
+        serial_number || null,
+        year_of_manufacture || null,
+        unit_id || null,
+        'active',
+      ]
+    );
+    const created = rows[0];
+    const qrValue = `QLQT-${created.id}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+
+    await client.query(
+      'INSERT INTO qr_codes (equipment_id, qr_value) VALUES ($1, $2)',
+      [created.id, qrValue]
+    );
+    await client.query(
+      'INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, $2, $3, $4)',
+      [userId, 'create', 'equipments', created.id]
+    );
+    return created;
   });
-
-  // Tạo QR code tự động
-  const qrValue = `QLQT-${equipment.id}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-  await getDb().query(
-    'INSERT INTO qr_codes (equipment_id, qr_value) VALUES ($1, $2)',
-    [equipment.id, qrValue]
-  );
-
-  // Audit log
-  await _auditLog(userId, 'create', 'equipments', equipment.id);
   logger.info(`[Equipment] Tạo trang bị: ${equipment_code}`);
   return ok(await equipmentRepo.findByIdFull(equipment.id), 'Tạo trang bị thành công');
 }
@@ -68,8 +77,14 @@ async function update(id, data, userId) {
 
 async function remove(id, userId) {
   if (!(await equipmentRepo.exists(id))) return fail('Không tìm thấy trang bị');
-  await equipmentRepo.delete(id);
-  await _auditLog(userId, 'delete', 'equipments', id);
+  await equipmentRepo.transaction(async (client) => {
+    await client.query('DELETE FROM qr_codes WHERE equipment_id = $1', [id]);
+    await client.query('DELETE FROM equipments WHERE id = $1', [id]);
+    await client.query(
+      'INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, $2, $3, $4)',
+      [userId, 'delete', 'equipments', id]
+    );
+  });
   return ok(null, 'Xóa trang bị thành công');
 }
 
