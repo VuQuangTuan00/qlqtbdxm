@@ -9,6 +9,8 @@ const logger = require('../utils/logger');
 function register() {
   ipcMain.handle('plan:list', async (_event, opts = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       logger.ipc('plan:list', opts);
       return await planService.list(opts);
     } catch (err) {
@@ -18,6 +20,8 @@ function register() {
 
   ipcMain.handle('plan:get', async (_event, { id } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       return await planService.get(id);
     } catch (err) {
       return fail(err.message);
@@ -26,6 +30,8 @@ function register() {
 
   ipcMain.handle('plan:getSteps', async (_event, { maintenanceType } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       return await planService.getSteps(maintenanceType);
     } catch (err) {
       return fail(err.message);

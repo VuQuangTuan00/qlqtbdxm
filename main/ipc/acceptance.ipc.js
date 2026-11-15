@@ -8,6 +8,8 @@ const { fail } = require('../utils/response');
 function register() {
   ipcMain.handle('acceptance:get', async (_event, { planId } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       if (!planId) return fail('Thiếu planId');
       return await acceptanceService.get(planId);
     } catch (err) {
@@ -32,6 +34,9 @@ function register() {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
+      if (!['admin', 'commander', 'inspector'].includes(session.roleCode)) {
+        return fail('Không có quyền cập nhật nghiệm thu');
+      }
       return await acceptanceService.update(id, data, session.userId);
     } catch (err) {
       return fail(err.message);

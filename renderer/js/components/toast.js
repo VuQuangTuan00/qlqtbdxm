@@ -34,11 +34,16 @@ const toast = (() => {
     el.innerHTML = `
       <div class="toast-icon">${ICONS[type] || ICONS.info}</div>
       <div class="toast-body">
-        <div class="toast-title">${title || TITLES[type]}</div>
-        ${message ? `<div class="toast-message">${message}</div>` : ''}
+        <div class="toast-title"></div>
+        <div class="toast-message"></div>
       </div>
       <button class="toast-close" aria-label="Đóng">&times;</button>
     `;
+
+    el.querySelector('.toast-title').textContent = title || TITLES[type];
+    const messageEl = el.querySelector('.toast-message');
+    if (message) messageEl.textContent = message;
+    else messageEl.remove();
 
     el.querySelector('.toast-close').addEventListener('click', () => dismiss(el));
     container.appendChild(el);

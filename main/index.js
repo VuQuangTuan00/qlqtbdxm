@@ -22,12 +22,15 @@ let mainWindow = null;
 app.whenReady().then(async () => {
   logger.info('[App] Khởi động ứng dụng QLQT Bảo Dưỡng Xe Máy...');
 
-  // db-config handlers không cần DB — đăng ký trước để màn hình setup hoạt động
-  require('./ipc/db-config.ipc').register();
-
   // Lần đầu chạy: chưa có db-config.json → hiển thị màn hình nhập credentials
   const cfgPath = path.join(app.getPath('userData'), 'db-config.json');
-  if (!fs.existsSync(cfgPath)) {
+  const hasDbConfig = fs.existsSync(cfgPath);
+  const dbConfigIpc = require('./ipc/db-config.ipc');
+
+  // Handler phải tồn tại trước khi renderer setup chạy; ngoài setup/recovery chỉ admin được gọi.
+  dbConfigIpc.register({ setupMode: !hasDbConfig });
+
+  if (!hasDbConfig) {
     logger.info('[App] Lần đầu khởi chạy — hiển thị màn hình nhập kết nối SQL Server');
     mainWindow = createMainWindow();
     mainWindow.webContents.once('did-finish-load', () => {
@@ -41,6 +44,7 @@ app.whenReady().then(async () => {
     } catch (err) {
       logger.error('[App] Lỗi khởi tạo database:', err);
       dbError = err.message;
+      dbConfigIpc.setSetupMode(true);
     }
 
     // Luôn đăng ký handlers dù DB có lỗi hay không,

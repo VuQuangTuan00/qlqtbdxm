@@ -27,7 +27,7 @@ const modal = (() => {
     overlay.innerHTML = `
       <div class="modal ${sizeClass}" role="dialog" aria-modal="true" aria-labelledby="${titleId}">
         <div class="modal-header">
-          <h5 class="modal-title" id="${titleId}">${title}</h5>
+          <h5 class="modal-title" id="${titleId}"></h5>
           <button class="modal-close" aria-label="Đóng">&times;</button>
         </div>
         <div class="modal-body"></div>
@@ -40,6 +40,7 @@ const modal = (() => {
     const footerEl  = overlay.querySelector('.modal-footer');
     const closeBtn  = overlay.querySelector('.modal-close');
     let closed = false;
+    overlay.querySelector('.modal-title').textContent = title || '';
 
     // Set content
     if (typeof content === 'string') {
@@ -145,18 +146,31 @@ const modal = (() => {
   function confirm({ title = 'Xác nhận', message, sub, confirmText = 'Xác nhận', cancelText = 'Hủy', type = 'warning' }) {
     return new Promise((resolve) => {
       let resolved = false;
+      const confirmContent = document.createElement('div');
+      confirmContent.className = 'confirm-content';
+
+      const icon = document.createElement('div');
+      icon.className = `confirm-icon ${type}`;
+      icon.innerHTML = type === 'danger'
+        ? '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>'
+        : '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>';
+
+      const messageEl = document.createElement('div');
+      messageEl.className = 'confirm-message';
+      messageEl.textContent = message || '';
+      confirmContent.append(icon, messageEl);
+
+      if (sub) {
+        const subEl = document.createElement('div');
+        subEl.className = 'confirm-sub';
+        subEl.textContent = sub;
+        confirmContent.appendChild(subEl);
+      }
+
       const { close } = open({
         title,
         size: 'sm',
-        content: `
-          <div class="confirm-content">
-            <div class="confirm-icon ${type}">${type === 'danger'
-              ? '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>'
-              : '<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg>'}</div>
-            <div class="confirm-message">${message}</div>
-            ${sub ? `<div class="confirm-sub">${sub}</div>` : ''}
-          </div>
-        `,
+        content: confirmContent,
         buttons: [
           {
             label: cancelText,
@@ -183,15 +197,24 @@ const modal = (() => {
     return new Promise((resolve) => {
       let resolved = false;
       const inputId = 'modal-prompt-input';
+      const promptContent = document.createElement('div');
+      promptContent.className = 'form-group';
+      const promptLabel = document.createElement('label');
+      promptLabel.className = `form-label ${required ? 'required' : ''}`;
+      promptLabel.htmlFor = inputId;
+      promptLabel.textContent = label || '';
+      const promptInput = document.createElement('input');
+      promptInput.type = 'text';
+      promptInput.id = inputId;
+      promptInput.className = 'form-control';
+      promptInput.placeholder = placeholder;
+      promptInput.value = value;
+      promptContent.append(promptLabel, promptInput);
+
       const { close } = open({
         title,
         size: 'sm',
-        content: `
-          <div class="form-group">
-            <label class="form-label ${required ? 'required' : ''}" for="${inputId}">${label}</label>
-            <input type="text" id="${inputId}" class="form-control" placeholder="${placeholder}" value="${value}" />
-          </div>
-        `,
+        content: promptContent,
         buttons: [
           {
             label: 'Hủy',
@@ -228,10 +251,13 @@ const modal = (() => {
    */
   function alert({ title, message, type = 'info', okText = 'Đóng' }) {
     return new Promise((resolve) => {
+      const alertContent = document.createElement('div');
+      alertContent.className = `alert alert-${type}`;
+      alertContent.textContent = message || '';
       open({
         title,
         size: 'sm',
-        content: `<div class="alert alert-${type}">${message}</div>`,
+        content: alertContent,
         buttons: [
           {
             label: okText,

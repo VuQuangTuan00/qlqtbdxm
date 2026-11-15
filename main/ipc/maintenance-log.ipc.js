@@ -8,6 +8,8 @@ const { fail } = require('../utils/response');
 function register() {
   ipcMain.handle('log:list', async (_event, { planId } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       if (!planId) return fail('Thiếu planId');
       return await logService.list(planId);
     } catch (err) {
@@ -17,6 +19,8 @@ function register() {
 
   ipcMain.handle('log:get', async (_event, { id } = {}) => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
       return await logService.get(id);
     } catch (err) {
       return fail(err.message);
@@ -27,6 +31,9 @@ function register() {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
+      if (!['admin', 'technician', 'commander'].includes(session.roleCode)) {
+        return fail('Không có quyền thực hiện bảo dưỡng');
+      }
       return await logService.create(data, session.userId);
     } catch (err) {
       return fail(err.message);
@@ -37,6 +44,9 @@ function register() {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
+      if (!['admin', 'technician', 'commander'].includes(session.roleCode)) {
+        return fail('Không có quyền cập nhật bảo dưỡng');
+      }
       return await logService.update(id, data, session.userId);
     } catch (err) {
       return fail(err.message);
@@ -47,6 +57,9 @@ function register() {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
+      if (!['admin', 'technician', 'commander'].includes(session.roleCode)) {
+        return fail('Không có quyền cập nhật trạng thái bảo dưỡng');
+      }
       return await logService.updateStatus(id, status, extra || {}, session.userId);
     } catch (err) {
       return fail(err.message);

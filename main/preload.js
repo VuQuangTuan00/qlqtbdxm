@@ -2,6 +2,9 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
+// Giữ đúng wrapper đã đăng ký để off() có thể gỡ listener tương ứng.
+const listenerWrappers = new WeakMap();
+
 /**
  * Danh sách các kênh IPC được phép invoke (renderer → main)
  */
@@ -131,8 +134,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {Function} callback
    */
   on: (channel, callback) => {
-    if (!ALLOWED_ON_CHANNELS.includes(channel)) return;
-    ipcRenderer.on(channel, (_event, ...args) => callback(...args));
+    if (!ALLOWED_ON_CHANNELS.includes(channel) || typeof callback !== 'function') return;
+    const wrapper = (_event, ...args) => callback(...args);
+    let channelWrappers = listenerWrappers.get(callback);
+    if (!channelWrappers) {
+      channelWrappers = new Map();
+      listenerWrappers.set(callback, channelWrappers);
+    }
+    let wrappers = channelWrappers.get(channel);
+    if (!wrappers) {
+      wrappers = new Set();
+      channelWrappers.set(channel, wrappers);
+    }
+    wrappers.add(wrapper);
+    ipcRenderer.on(channel, wrapper);
   },
 
   /**
@@ -141,7 +156,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {Function} callback
    */
   off: (channel, callback) => {
-    ipcRenderer.removeListener(channel, callback);
+    if (!ALLOWED_ON_CHANNELS.includes(channel) || typeof callback !== 'function') return;
+    const channelWrappers = listenerWrappers.get(callback);
+    const wrappers = channelWrappers?.get(channel);
+    if (!wrappers) return;
+    for (const wrapper of wrappers) ipcRenderer.removeListener(channel, wrapper);
+    channelWrappers.delete(channel);
+    if (channelWrappers.size === 0) listenerWrappers.delete(callback);
   },
 
   /**

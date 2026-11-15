@@ -31,8 +31,36 @@ function getDbConfig() {
 
 // ── SQL Transformation (PG → MSSQL) ──────────────────────────────
 
+function _protectSqlSegments(sqlStr) {
+  const segments = [];
+  const protectedSql = sqlStr.replace(
+    /\/\*[\s\S]*?\*\/|--[^\r\n]*|'(?:''|[^'])*'|"(?:""|[^"])*"|\[(?:\]\]|[^\]])*\]/g,
+    (segment) => {
+      const token = `\u0000SQL_SEGMENT_${segments.length}\u0000`;
+      segments.push(segment);
+      return token;
+    }
+  );
+  return { protectedSql, segments };
+}
+
+function _restoreSqlSegments(sqlStr, segments) {
+  return sqlStr.replace(/\u0000SQL_SEGMENT_(\d+)\u0000/g, (_token, index) => segments[Number(index)]);
+}
+
+function _findTopLevelSelect(sqlStr) {
+  let depth = 0;
+  for (let i = 0; i < sqlStr.length; i++) {
+    if (sqlStr[i] === '(') depth++;
+    else if (sqlStr[i] === ')') depth = Math.max(0, depth - 1);
+    else if (depth === 0 && /^SELECT\b/i.test(sqlStr.slice(i))) return i;
+  }
+  return -1;
+}
+
 function _transformSql(sqlStr) {
-  let s = sqlStr;
+  const { protectedSql, segments } = _protectSqlSegments(sqlStr);
+  let s = protectedSql;
 
   // 1. Positional params $1 → @p1
   s = s.replace(/\$(\d+)/g, '@p$1');
@@ -42,6 +70,8 @@ function _transformSql(sqlStr) {
 
   // 2b. CURRENT_DATE → CAST(GETDATE() AS DATE)
   s = s.replace(/\bCURRENT_DATE\b/gi, 'CAST(GETDATE() AS DATE)');
+  s = s.replace(/\bTRUE\b/gi, '1');
+  s = s.replace(/\bFALSE\b/gi, '0');
 
   // 3. INSERT INTO t (cols) VALUES (...) RETURNING *
   //    → INSERT INTO t (cols) OUTPUT INSERTED.* VALUES (...)
@@ -69,12 +99,14 @@ function _transformSql(sqlStr) {
     if (m) {
       const n = m[1];
       s = s.substring(0, s.length - m[0].length).trimEnd();
-      // Inject TOP n right after the first SELECT keyword
-      s = s.replace(/\bSELECT\b/i, `SELECT TOP ${n}`);
+      const selectIndex = _findTopLevelSelect(s);
+      if (selectIndex >= 0) {
+        s = `${s.slice(0, selectIndex)}SELECT TOP ${n}${s.slice(selectIndex + 'SELECT'.length)}`;
+      }
     }
   }
 
-  return s;
+  return _restoreSqlSegments(s, segments);
 }
 
 // ── Request builder ───────────────────────────────────────────────
@@ -287,4 +319,5 @@ module.exports = {
   closeMssqlDatabase,
   backupMssqlDatabase,
   getDbConfig,
+  transformSql: _transformSql,
 };

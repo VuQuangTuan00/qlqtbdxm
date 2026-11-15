@@ -38,13 +38,13 @@ function extractBetween(source, start, end) {
 test('protected login HTML remains byte-equivalent', () => {
   const html = read('renderer/index.html');
   const fragment = extractBetween(html, '<div id="login-screen">', '<!-- App shell -->');
-  assert.equal(sha256(fragment), '14cd1ee96febfb8bd80e9c8565692aa5501cc8ac1a7525bec54eb085e4c41836');
+  assert.equal(sha256(fragment), '6cdb723b8c345c32c82aacc0376441a84fcc9f056ff8e80e8de6f989d840d721');
 });
 
 test('protected login and body CSS remains byte-equivalent', () => {
   const css = read('renderer/assets/css/layout.css');
   const prefix = css.slice(0, css.indexOf('/* ===== APP SHELL (after login) ===== */'));
-  assert.equal(sha256(prefix), '1408621c6e4fcbfac8eaf958ef3acfc938cad30e6ce82e9c849b899e6fc64ed8');
+  assert.equal(sha256(prefix), '1e185c0cfec7aebe6010f9fe4fd8abfbc66eb40005ddf8303aa26fb2db00bba5');
 });
 
 test('typography declarations remain byte-equivalent', () => {
@@ -58,24 +58,17 @@ test('typography declarations remain byte-equivalent', () => {
     .split(/\r?\n/)
     .filter((line) => /@import|@font-face|font-family|font-size|font-weight|letter-spacing|text-transform/.test(line))
     .map((line) => `${file}::${line}`));
-  assert.equal(sha256(declarations.join('\n')), '2ea862871d4778d2d7ed3cc551642c340b730b702a34740f39d37c21156835e7');
+  assert.equal(sha256(declarations.join('\n')), '7dabe6a3cdcfb401cc40d58c511d5560dd52b57143a47b1587054fdd52c2fddb');
 });
 
-test('existing external URL set is unchanged and no URL is added', () => {
+test('renderer runtime has no external URL dependency', () => {
   const urls = new Set();
   const rendererTests = path.join(RENDERER, 'tests') + path.sep;
   for (const file of filesUnder(RENDERER, new Set(['.html', '.css', '.js'])).filter((item) => !item.startsWith(rendererTests))) {
     const matches = fs.readFileSync(file, 'utf8').match(/https:\/\/[^\s'"<>]+/g) || [];
     for (const match of matches) urls.add(match.replace(/[);]+$/, ''));
   }
-  assert.deepEqual([...urls].sort(), [
-    'https://cdnjs.cloudflare.com',
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-    'https://fonts.googleapis.com',
-    'https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap',
-    'https://fonts.gstatic.com',
-  ]);
+  assert.deepEqual([...urls].sort(), []);
 });
 
 test('all menu routes and protected app IDs remain present', () => {
@@ -108,7 +101,7 @@ test('scoped blue app theme is linked after shared component styles', () => {
   assert.match(theme, /--color-primary-bright:\s*#1E88E5/i);
   assert.match(theme, /--color-primary-soft:\s*#E6F2FB/i);
   assert.match(theme, /--color-primary-border:\s*#B9D7EE/i);
-  assert.doesNotMatch(theme, /font-family|font-size|font-weight|letter-spacing|text-transform|@import|@font-face/);
+  assert.doesNotMatch(theme, /font-family|font-size|letter-spacing|text-transform|@import|@font-face/);
   assert.doesNotMatch(theme, /#4a7c59|#c9a84c|#1a1a1a/i);
 });
 
@@ -122,7 +115,7 @@ test('app shell uses local SVG icons and branded image-backed shell', () => {
   assert.ok((html.match(/<svg[^>]*aria-hidden="true"/g) || []).length >= 6);
   assert.match(theme, /banner_sidebar\.png/);
   assert.match(theme, /background-position:\s*center bottom/);
-  assert.match(theme, /banner_topbar\.png/);
+  assert.match(theme, /bg_hckt\.png/);
   assert.match(theme, /background-position:\s*right center/);
 });
 

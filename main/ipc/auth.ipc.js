@@ -50,6 +50,7 @@ function register() {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
+      if (!authService.requireAdmin()) return fail('Không có quyền thực hiện');
       return ok(await userRepo.listUsers(opts));
     } catch (err) {
       return fail(err.message);
@@ -64,12 +65,15 @@ function register() {
 
       const { username, password, full_name, role_id, unit_id } = data;
       if (!username || !password || !full_name || !role_id) return fail('Thiếu thông tin bắt buộc');
+      const normalizedUsername = username.trim();
+      if (!normalizedUsername || !full_name.trim()) return fail('Thiếu thông tin bắt buộc');
+      if (password.length < 6) return fail('Mật khẩu phải ít nhất 6 ký tự');
 
-      const existing = await userRepo.findByUsername(username);
+      const existing = await userRepo.findByUsername(normalizedUsername);
       if (existing) return fail('Tên đăng nhập đã tồn tại');
 
       const user = await userRepo.create({
-        username: username.trim(),
+        username: normalizedUsername,
         password_hash: hashPassword(password),
         full_name: full_name.trim(),
         role_id,
@@ -109,6 +113,9 @@ function register() {
 
       const user = await userRepo.findById(id);
       if (!user) return fail('Không tìm thấy người dùng');
+      if (user.is_active && String(id) === String(session.userId)) {
+        return fail('Không thể vô hiệu hóa tài khoản đang đăng nhập');
+      }
       await userRepo.setActive(id, !user.is_active);
       return ok(null, user.is_active ? 'Đã vô hiệu hóa' : 'Đã kích hoạt');
     } catch (err) {
@@ -118,6 +125,9 @@ function register() {
 
   ipcMain.handle('role:list', async () => {
     try {
+      const session = authService.requireAuth();
+      if (!session) return fail('Chưa đăng nhập');
+      if (!authService.requireAdmin()) return fail('Không có quyền thực hiện');
       const { rows } = await getDb().query('SELECT * FROM roles ORDER BY id');
       return ok(rows);
     } catch (err) {

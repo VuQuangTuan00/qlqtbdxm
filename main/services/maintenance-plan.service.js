@@ -35,27 +35,28 @@ async function create(data, userId) {
   const count = (await planRepo.count()) + 1;
   const plan_code = `KH-${dateStr}-${String(count).padStart(4, '0')}`;
 
-  const plan = await planRepo.create({
-    plan_code,
-    equipment_id,
-    maintenance_type,
-    planned_date,
-    created_by: userId,
-    approved_by: null,
-    status: 'pending',
-  });
-
-  // Tạo log entries tự động từ các bước quy trình
   const steps = await stepRepo.findByType(maintenance_type);
-  const db = getDb();
-  for (const step of steps) {
-    await db.query(
-      `INSERT INTO maintenance_logs (plan_id, step_id, performed_by, status) VALUES ($1, $2, $3, 'pending')`,
-      [plan.id, step.id, userId]
+  const plan = await planRepo.transaction(async (client) => {
+    const { rows } = await client.query(
+      `INSERT INTO maintenance_plans
+       (plan_code, equipment_id, maintenance_type, planned_date, created_by, approved_by, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [plan_code, equipment_id, maintenance_type, planned_date, userId, null, 'pending']
     );
-  }
+    const created = rows[0];
 
-  await _auditLog(userId, 'create', 'maintenance_plans', plan.id);
+    for (const step of steps) {
+      await client.query(
+        `INSERT INTO maintenance_logs (plan_id, step_id, performed_by, status) VALUES ($1, $2, $3, 'pending')`,
+        [created.id, step.id, userId]
+      );
+    }
+    await client.query(
+      'INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, $2, $3, $4)',
+      [userId, 'create', 'maintenance_plans', created.id]
+    );
+    return created;
+  });
   logger.info(`[Plan] Tạo kế hoạch: ${plan_code}`);
   return ok(await planRepo.findByIdFull(plan.id), 'Tạo kế hoạch thành công');
 }
@@ -109,9 +110,14 @@ async function remove(id, userId) {
   }
 
   // Xóa logs liên quan
-  await getDb().query('DELETE FROM maintenance_logs WHERE plan_id = $1', [id]);
-  await planRepo.delete(id);
-  await _auditLog(userId, 'delete', 'maintenance_plans', id);
+  await planRepo.transaction(async (client) => {
+    await client.query('DELETE FROM maintenance_logs WHERE plan_id = $1', [id]);
+    await client.query('DELETE FROM maintenance_plans WHERE id = $1', [id]);
+    await client.query(
+      'INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, $2, $3, $4)',
+      [userId, 'delete', 'maintenance_plans', id]
+    );
+  });
   return ok(null, 'Xóa kế hoạch thành công');
 }
 

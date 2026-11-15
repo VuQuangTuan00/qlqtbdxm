@@ -31,12 +31,22 @@ async function run() {
     };
   })()`);
 
-  window.webContents.sendInputEvent({
-    type: 'mouseMove',
-    x: initial.buttonCenter.x,
-    y: initial.buttonCenter.y,
+  // A hidden BrowserWindow does not consistently update the CSS :hover state
+  // from a synthetic mouseMove on Windows. Force only the pseudo-state through
+  // Chromium's debugging protocol so this remains a deterministic style test.
+  const debuggerClient = window.webContents.debugger;
+  debuggerClient.attach('1.3');
+  await debuggerClient.sendCommand('DOM.enable');
+  await debuggerClient.sendCommand('CSS.enable');
+  const { root } = await debuggerClient.sendCommand('DOM.getDocument');
+  const { nodeId } = await debuggerClient.sendCommand('DOM.querySelector', {
+    nodeId: root.nodeId,
+    selector: '#login-button',
   });
-
+  await debuggerClient.sendCommand('CSS.forcePseudoState', {
+    nodeId,
+    forcedPseudoClasses: ['hover'],
+  });
   await new Promise((resolve) => setTimeout(resolve, 400));
 
   const hoveredButton = await window.webContents.executeJavaScript(`(() => {
@@ -47,6 +57,7 @@ async function run() {
       boxShadow: style.boxShadow,
     };
   })()`);
+  debuggerClient.detach();
 
   assert.equal(initial.bodyBackgroundColor, 'rgb(247, 251, 252)');
   assert.equal(

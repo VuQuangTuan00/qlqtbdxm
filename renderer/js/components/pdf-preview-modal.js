@@ -1,11 +1,11 @@
 /* ============================================================
-   PDF Preview — full-screen overlay, pdf.js via CDN
+   PDF Preview — full-screen overlay, local pdf.js
    ============================================================ */
 'use strict';
 
 const pdfPreview = (() => {
-  const PDF_JS_URL     = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-  const PDF_WORKER_URL = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const PDF_JS_URL     = 'assets/vendor/pdfjs/pdf.min.js';
+  const PDF_WORKER_URL = 'assets/vendor/pdfjs/pdf.worker.min.js';
 
   let _loaded  = false;
   let _loading = null;
@@ -35,7 +35,7 @@ const pdfPreview = (() => {
         try {
           const result = await onOpenExternal();
           if (result.success) {
-            toast.info('Đã mở bằng ứng dụng mặc định', 'Không tải được thư viện preview PDF khi máy ngoại tuyến.');
+            toast.info('Đã mở bằng ứng dụng mặc định', 'Không tải được thư viện xem PDF cục bộ.');
           } else {
             toast.error('Lỗi mở file', result.error);
           }

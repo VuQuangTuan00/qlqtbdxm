@@ -48,8 +48,8 @@ async function renderMaintenanceSteps(container) {
       </div>
 
       <select class="form-control vehicle-filter-select" id="v-type">
-        <option value="">Tất cả loại hình</option>
-        <option value="none">— Chưa phân loại</option>
+        <option value="">Phân loại</option>
+       
         ${typeOptions}
       </select>
 
@@ -62,7 +62,7 @@ async function renderMaintenanceSteps(container) {
       ${_isAdmin() ? `
         <button class="btn btn-outline btn-sm" id="btn-manage-types">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5h7l9 9-6 6-9-9V5Z"/><circle cx="8.5" cy="8.5" r="1.2"/></svg>
-          Loại hình
+          Phân loại
         </button>
         <button class="btn btn-primary" id="btn-add-vehicle">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
@@ -320,7 +320,7 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
 
         <div class="card">
           <div class="card-header" style="padding:var(--space-3) var(--space-4);">
-            <h5 class="card-title" style="font-size:var(--font-size-sm);">Loại hình</h5>
+            <h5 class="card-title" style="font-size:var(--font-size-sm);">Phân loại</h5>
           </div>
           <div class="card-body" style="padding:var(--space-3);">
             <div style="margin-bottom:var(--space-3);">
@@ -416,7 +416,7 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
       const res = await window.electronAPI.invoke('vehicle:update', {
         id: v.vehicle_id, data: { vehicle_type_id },
       });
-      if (res.success) { toast.success('Đã cập nhật loại hình'); onRefresh(); }
+      if (res.success) { toast.success('Đã cập nhật phân loại'); onRefresh(); }
       else toast.error('Lỗi', res.error);
     });
   }
@@ -925,7 +925,7 @@ function openMaintenanceForm(item, vehicleId, onSave) {
 }
 
 /* ════════════════════════════════════════════════════════════
-   MODAL: Quản lý danh sách loại hình (mở từ filter-bar ngoài grid)
+   MODAL: Quản lý danh sách phân loại (mở từ filter-bar ngoài grid)
    ════════════════════════════════════════════════════════════ */
 async function openVehicleTypeManager() {
   const wrap = document.createElement('div');
@@ -940,7 +940,7 @@ async function openVehicleTypeManager() {
     wrap.innerHTML = `
       <div style="max-height:300px;overflow-y:auto;margin-bottom:var(--space-4);">
         ${types.length === 0
-          ? `<p class="text-sm text-muted" style="padding:var(--space-3) 0;">Chưa có loại hình nào</p>`
+          ? `<p class="text-sm text-muted" style="padding:var(--space-3) 0;">Chưa có phân loại nào</p>`
           : types.map((t) => `
             <div style="display:flex;justify-content:space-between;align-items:center;
                         padding:8px 0;border-bottom:1px solid var(--border-color);">
@@ -956,7 +956,7 @@ async function openVehicleTypeManager() {
             </div>`).join('')}
       </div>
       <div style="border-top:1px solid var(--border-color);padding-top:var(--space-3);">
-        <div class="text-xs text-muted" style="margin-bottom:var(--space-2);">Thêm loại hình mới:</div>
+        <div class="text-xs text-muted" style="margin-bottom:var(--space-2);">Thêm phân loại mới:</div>
         <div style="display:flex;gap:var(--space-2);">
           <input type="text" class="form-control" id="tm-new-name"
             placeholder="VD: Xe tải hạng nặng" style="flex:1;" />
@@ -977,13 +977,13 @@ async function openVehicleTypeManager() {
     wrap.querySelectorAll('.btn-tm-delete').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const confirmed = await modal.confirm({
-          title: 'Xóa loại hình', type: 'danger', confirmText: 'Xóa',
-          message: `Xóa loại hình "${btn.dataset.name}"?`,
-          sub: 'Các xe đang dùng loại hình này sẽ được đặt về "Chưa phân loại".',
+          title: 'Xóa phân loại', type: 'danger', confirmText: 'Xóa',
+          message: `Xóa phân loại "${btn.dataset.name}"?`,
+          sub: 'Các xe đang dùng phân loại này sẽ được đặt về "Chưa phân loại".',
         });
         if (!confirmed) return;
         const res = await window.electronAPI.invoke('vehicleType:delete', { id: parseInt(btn.dataset.id) });
-        if (res.success) { toast.success('Đã xóa loại hình'); _refresh(); }
+        if (res.success) { toast.success('Đã xóa phân loại'); _refresh(); }
         else toast.error('Lỗi', res.error);
       });
     });
@@ -991,7 +991,7 @@ async function openVehicleTypeManager() {
     wrap.querySelector('#tm-btn-add').addEventListener('click', async () => {
       const input = wrap.querySelector('#tm-new-name');
       const name  = input.value.trim();
-      if (!name) { toast.warning('Thiếu thông tin', 'Nhập tên loại hình'); return; }
+      if (!name) { toast.warning('Thiếu thông tin', 'Nhập tên phân loại'); return; }
       const res = await window.electronAPI.invoke('vehicleType:create', { vehicle_type_name: name });
       if (res.success) { toast.success('Thêm thành công'); input.value = ''; _refresh(); }
       else toast.error('Lỗi', res.error);
@@ -1001,7 +1001,7 @@ async function openVehicleTypeManager() {
   await _refresh();
 
   modal.open({
-    title: 'Quản lý loại hình trang bị',
+    title: 'Quản lý phân loại trang bị',
     content: wrap,
     size: 'md',
     buttons: [{ label: 'Đóng', class: 'btn-secondary', action: (c) => c() }],
@@ -1009,13 +1009,13 @@ async function openVehicleTypeManager() {
 }
 
 /* ════════════════════════════════════════════════════════════
-   FORM: Thêm/Sửa loại hình trang bị
+   FORM: Thêm/Sửa phân loại trang bị
    ════════════════════════════════════════════════════════════ */
 function openVehicleTypeForm(item, onSave) {
   const content = document.createElement('div');
   content.innerHTML = `
     <div class="form-group">
-      <label class="form-label required">Tên loại hình</label>
+      <label class="form-label required">Tên phân loại</label>
       <input type="text" class="form-control" id="vtf-name"
         value="${item?.vehicle_type_name || ''}" placeholder="VD: Xe tải hạng nặng" />
     </div>
@@ -1032,7 +1032,7 @@ function openVehicleTypeForm(item, onSave) {
         class: 'btn-primary',
         action: async (close) => {
           const name = content.querySelector('#vtf-name').value.trim();
-          if (!name) { toast.warning('Thiếu thông tin', 'Vui lòng nhập tên loại hình'); return; }
+          if (!name) { toast.warning('Thiếu thông tin', 'Vui lòng nhập tên phân loại'); return; }
           const res = await window.electronAPI.invoke('vehicleType:update', {
             id: item.vehicle_type_id, data: { vehicle_type_name: name },
           });

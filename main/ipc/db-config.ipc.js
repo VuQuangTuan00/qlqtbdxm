@@ -5,13 +5,29 @@ const sql  = require('mssql');
 const path = require('path');
 const fs   = require('fs');
 const { getDbConfig } = require('../database');
+const authService = require('../services/auth.service');
 const response = require('../utils/response');
 const logger   = require('../utils/logger');
 
-function register() {
+let _setupMode = false;
+
+function setSetupMode(enabled) {
+  _setupMode = enabled === true;
+}
+
+function _authorize() {
+  if (_setupMode || authService.requireAdmin()) return null;
+  return response.fail('Không có quyền cấu hình database');
+}
+
+function register({ setupMode = false } = {}) {
+  setSetupMode(setupMode);
+
   // Lấy config hiện tại (ẩn password)
   ipcMain.handle('dbconfig:get', async () => {
     try {
+      const denied = _authorize();
+      if (denied) return denied;
       const config = getDbConfig();
       return response.ok({
         server:   config.server || config.host || '',
@@ -29,6 +45,8 @@ function register() {
   // Lưu config mới và restart app
   ipcMain.handle('dbconfig:set', async (_event, config) => {
     try {
+      const denied = _authorize();
+      if (denied) return denied;
       const configPath = path.join(app.getPath('userData'), 'db-config.json');
       // Giữ lại password cũ nếu request không gửi password mới
       if (!config.password && fs.existsSync(configPath)) {
@@ -53,6 +71,8 @@ function register() {
 
   // Kiểm tra kết nối SQL Server với config được truyền vào
   ipcMain.handle('dbconfig:test', async (_event, config) => {
+    const denied = _authorize();
+    if (denied) return denied;
     const start = Date.now();
     let pool;
     try {
@@ -93,4 +113,4 @@ function register() {
   });
 }
 
-module.exports = { register };
+module.exports = { register, setSetupMode };
