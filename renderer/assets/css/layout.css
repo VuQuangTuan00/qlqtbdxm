@@ -54,15 +54,11 @@
 /* ===== BODY ===== */
 body {
   font-family: 'Barlow', sans-serif;
-  background-color: #0f1a0f;
+  background-color: #f7fbfc;
   background-image:
-    repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 10px,
-      rgba(46,94,62,0.03) 10px,
-      rgba(46,94,62,0.03) 20px
-    );
+    linear-gradient(rgba(54,96,108,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(54,96,108,0.07) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -78,8 +74,7 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse at 30% 50%, rgba(46,94,62,0.25) 0%, transparent 55%),
-    radial-gradient(ellipse at 70% 50%, rgba(15,26,15,0.8) 0%, transparent 55%);
+    radial-gradient(ellipse at 50% 52%, rgba(119,196,190,0.18) 0%, rgba(213,238,236,0.1) 28%, transparent 62%);
   pointer-events: none;
   z-index: 0;
 }
@@ -140,7 +135,7 @@ body::before {
   width: 820px;
   max-width: 96vw;
   min-height: 520px;
-  background-color: #1b3a2a;
+  background-color: #1a3a42;
   border: 1px solid rgba(201,168,76,0.3);
   border-radius: 4px;
   box-shadow:
@@ -181,7 +176,7 @@ body::before {
   align-items: center;
   justify-content: center;
   padding: 40px 36px;
-  background-color: #1b3a2a;
+  background-color: #1a3a42;
   position: relative;
   z-index: 2;
 }
@@ -218,7 +213,7 @@ body::before {
   font-family: 'Oswald', sans-serif;
   font-size: 10px;
   letter-spacing: 3px;
-  color: #7a9a7a;
+  color: #ebebeb;
   text-transform: uppercase;
   margin: 14px 0 16px;
   text-align: center;
@@ -258,13 +253,13 @@ body::before {
 }
 
 .login-panel-left .form-control {
-  background-color: #162416;
-  border: 1px solid #2e5e3e;
+   background-color: rgb(255, 255, 255);
+  border: 1px solid rgba(0,0,0,0.06);
   border-radius: 3px;
   padding: 11px 14px 11px 36px;
   font-size: 13px;
   font-family: 'Barlow', sans-serif;
-  color: #f0ead8;
+  color: #000000;
   width: 100%;
   outline: none;
   letter-spacing: 0.5px;
@@ -277,9 +272,9 @@ body::before {
 }
 
 .login-panel-left .form-control:focus {
-  border-color: #c9a84c;
+  /* border-color: #c9a84c; */
   box-shadow: 0 0 0 2px rgba(201,168,76,0.15);
-  background-color: #1a2e1a;
+  /* background-color: #fff; */
 }
 
 /* Links row */
@@ -294,7 +289,7 @@ body::before {
 }
 
 .login-links a {
-  color: #7a9a7a;
+  color: #d0ebd0;
   font-size: 11px;
   font-family: 'Oswald', sans-serif;
   letter-spacing: 1.5px;
@@ -322,7 +317,7 @@ body::before {
 
 /* Submit button */
 .login-submit-btn {
-  background: linear-gradient(135deg, #2e5e3e, #3d7a50);
+  background: linear-gradient(135deg, #23444d, #13697f);
   color: #f0ead8;
   font-family: 'Oswald', sans-serif;
   font-size: 13px;
@@ -351,7 +346,7 @@ body::before {
 .login-submit-btn:hover::before { left: 100%; }
 
 .login-submit-btn:hover {
-  background: linear-gradient(135deg, #3d7a50, #c9a84c);
+  background: linear-gradient(135deg, rgb(237 239 238), rgb(177 177 177));
   color: #0f1a0f;
   box-shadow: 0 4px 15px rgba(201,168,76,0.3);
 }
@@ -363,7 +358,7 @@ body::before {
   right: 0;
   width: 50%;
   height: 100%;
-  background: linear-gradient(160deg, #0f1a0f 0%, #1b3a2a 50%, #0f1a0f 100%);
+  background: linear-gradient(160deg, #0b1a1d 0%, #1c515c 50%, #021c21 100%);
   border-left: 3px solid #c9a84c;
   border-radius: 120px 0 0 80px;
   display: flex;
@@ -403,7 +398,7 @@ body::before {
 
 .login-welcome-sub {
   font-size: 12px;
-  color: rgba(240,234,216,0.6);
+  color: #fff;
   line-height: 1.7;
   letter-spacing: 0.5px;
   margin-bottom: 22px;
