@@ -20,7 +20,7 @@ window.electronAPI.on('app:first-run', () => {
              onerror="this.style.display='none'" />
         <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;
                    color:var(--text-primary,#1a1a2e);">
-          Chào mừng đến với QLQT Bảo Dưỡng Xe Máy
+          Chào mừng đến với Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật
         </h2>
         <p style="margin:0;color:var(--text-secondary,#666);font-size:14px;">
           Nhập thông tin kết nối SQL Server để bắt đầu

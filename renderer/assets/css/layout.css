@@ -352,8 +352,8 @@ body::before {
   margin-bottom: 8px;
   border-radius: 3px;
   padding: 6px 10px;
-  color: #e87070;
-  background: rgba(139,32,32,0.15);
+  color: #e3e1e1;
+  background: rgb(165 2 2 / 49%);
   border: 1px solid rgba(139,32,32,0.3);
 }
 #login-error.hidden { display: none !important; }
@@ -470,7 +470,8 @@ body::before {
 .login-submit-btn:hover::before { left: 100%; }
 
 .login-submit-btn:hover {
-  background: linear-gradient(135deg, #3d7a50, #c9a84c);
+  /* background: linear-gradient(135deg, #3d7a50, #c9a84c); */
+  background: linear-gradient(135deg, rgb(237 239 238), rgb(177 177 177));
   color: #0f1a0f;
   box-shadow: 0 4px 15px rgba(201,168,76,0.3);
 }
@@ -740,7 +741,7 @@ body::before {
 /* Toast container */
 #toast-container {
   position: fixed;
-  top: 20px;
+  top: 90px;
   right: 20px;
   z-index: var(--z-toast, 400);
   display: flex;

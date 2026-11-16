@@ -92,7 +92,7 @@ test('transfer import rejects a checksum mismatch before touching userData', asy
     fs.mkdirSync(userData);
     fs.writeFileSync(path.join(vehicleImages, 'test.png'), 'fake image');
     fs.writeFileSync(path.join(source, 'manifest.json'), JSON.stringify({
-      format: 'qlqtbdxm-transfer-package',
+      format: 'backup-transfer-package',
       version: 1,
       databaseBackup: null,
       entries: [{
@@ -194,7 +194,7 @@ test('transfer import rolls back files already copied when a later destination f
       sha256: createHash('sha256').update(content).digest('hex'),
     });
     const manifest = JSON.stringify({
-      format: 'qlqtbdxm-transfer-package',
+      format: 'backup-transfer-package',
       version: 1,
       databaseBackup: null,
       entries: [

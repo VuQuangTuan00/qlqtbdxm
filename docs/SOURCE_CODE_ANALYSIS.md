@@ -128,7 +128,7 @@ Các nhóm IPC hiện có:
 | Report | Tổng hợp, trạng thái thiết bị, theo kỳ, quá hạn |
 | Vehicle/Engine Maintenance | Loại xe, xe, hạng mục động cơ, ảnh và PDF |
 | DB Config | Đọc, kiểm tra, lưu kết nối SQL Server |
-| File Archive | Xuất/nhập bộ chuyển máy ZIP + `.bak` |
+| File Archive | Xuất/nhập sao lưu ZIP + `.bak` |
 
 Quyền đã được áp dụng tốt hơn ở nhóm xe và backup: CRUD xe/hạng mục/file yêu cầu admin; xuất/nhập backup yêu cầu admin; phê duyệt kế hoạch yêu cầu admin hoặc commander; tạo nghiệm thu giới hạn admin/commander/inspector.
 

@@ -19,11 +19,12 @@ function isSafeExternalUrl(url) {
  */
 function createMainWindow() {
   const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1024,
-    minHeight: 600,
-    title: 'Hệ Thống Quản Lý Bảo Dưỡng Xe Máy Quân Đội',
+    // width: 1400,
+    // height: 900,
+    // minWidth: 1024,
+    // minHeight: 600,
+    maximizable: true,
+    title: 'Hệ Thống Quy Trình Công Nghệ Và Định Mức Kinh Tế - Kỹ Thuật',
     icon: path.join(__dirname, '../renderer/assets/images/logo_app.png'),
     backgroundColor: '#f0f2f5',
     show: false,
@@ -33,8 +34,10 @@ function createMainWindow() {
       contextIsolation: true,
       sandbox: true,
       devTools: process.env.NODE_ENV !== 'production',
+      // devTools: false,
       spellcheck: false,
     },
+      autoHideMenuBar: true,
   });
 
   // Ngăn điều hướng ra ngoài
@@ -69,7 +72,7 @@ function createMainWindow() {
   win.loadFile(indexPath).catch((err) => {
     logger.error('[Window] Lỗi tải trang:', err);
   });
-
+  win.maximize();
   return win;
 }
 

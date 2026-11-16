@@ -205,7 +205,7 @@ async function exportTransferPackage(destinationPath, databaseBackupPath, databa
   const destination = path.resolve(destinationPath);
   const backupPath = path.resolve(databaseBackupPath);
   if (path.extname(destination).toLowerCase() !== '.zip') {
-    throw new Error('File bộ chuyển máy phải có đuôi .zip.');
+    throw new Error('File sao lưu phải có đuôi .zip.');
   }
   if (!fs.existsSync(backupPath) || !fs.statSync(backupPath).isFile()) {
     throw new Error('SQL Server không tạo được file .bak.');
@@ -221,7 +221,7 @@ async function exportTransferPackage(destinationPath, databaseBackupPath, databa
   const backupFileName = `${safeDatabaseName}.bak`;
   const backupEntry = `database/${backupFileName}`;
   const manifest = {
-    format: 'qlqtbdxm-transfer-package',
+    format: 'backup-transfer-package',
     version: 1,
     createdAt: new Date().toISOString(),
     database: databaseName,
@@ -229,7 +229,7 @@ async function exportTransferPackage(destinationPath, databaseBackupPath, databa
     fileFolders: FOLDERS,
     entries: await buildManifestEntries(root, backupPath, backupEntry),
   };
-  const manifestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qlqtbdxm-manifest-'));
+  const manifestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-transfer-package-'));
   const manifestPath = path.join(manifestDir, 'manifest.json');
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
 
@@ -348,7 +348,7 @@ try {
   $manifestPath = Join-Path $temp 'manifest.json'
   if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Thieu manifest.json trong goi chuyen may.' }
   $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-  if ($manifest.format -ne 'qlqtbdxm-transfer-package' -or $manifest.version -ne 1) { throw 'Manifest goi chuyen may khong hop le.' }
+  if ($manifest.format -ne 'backup-transfer-package' -or $manifest.version -ne 1) { throw 'Manifest goi chuyen may khong hop le.' }
   if (($backupCount -eq 1) -ne [bool]$manifest.databaseBackup) { throw 'Manifest va file database .bak khong khop.' }
   if ($null -eq $manifest.entries) { throw 'Manifest thieu danh sach checksum.' }
 

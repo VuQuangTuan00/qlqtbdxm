@@ -144,10 +144,7 @@ function _renderProfileTab(session) {
               <div class="detail-label">Vai trò</div>
               <div class="detail-value">${session?.roleName || '—'}</div>
             </div>
-            <div class="detail-item">
-              <div class="detail-label">Đơn vị</div>
-              <div class="detail-value">${session?.unitName || '—'}</div>
-            </div>
+          
           </div>
         </div>
       </div>
@@ -285,7 +282,7 @@ function _renderAboutTab() {
         <div class="card-body" style="text-align:center;padding:var(--space-8);">
           <img class="about-app-logo" src="assets/images/logo_app.png" alt="Logo Quy trình Công nghệ" />
           <h3 style="margin-bottom:var(--space-2);">Quy trình công nghệ</h3>
-          <p class="text-muted">Hệ Thống Quản Lý Bảo Dưỡng Xe Máy Quân Đội</p>
+          <p class="text-muted">Hệ Thống Quản Lý Bảo Dưỡng Xe Máy Công Binh</p>
           <div class="divider"></div>
           <div class="detail-grid">
             <div class="detail-item">

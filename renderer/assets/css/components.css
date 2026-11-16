@@ -228,14 +228,14 @@ td .cell-sub { font-size: var(--font-size-xs); color: var(--text-secondary); mar
 .toast.warning { border-left-color: var(--color-warning); }
 .toast.info    { border-left-color: var(--color-info); }
 
-.toast-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.toast-icon { font-size: 18px; flex-shrink: 0;  padding-top: 10px;}
 .toast.success .toast-icon { color: var(--color-success-text); }
 .toast.error   .toast-icon { color: var(--color-danger-text); }
 .toast.warning .toast-icon { color: var(--color-warning-text); }
 .toast.info    .toast-icon { color: var(--color-info-text); }
 
-.toast-body { flex: 1; }
-.toast-title   { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--text-heading); }
+.toast-body { flex: 1; padding-top: 10px;}
+.toast-title   { font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); color: var(--text-heading);}
 .toast-message { font-size: var(--font-size-xs); color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
 .toast-close   { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; padding: 0; flex-shrink: 0; }
 .toast-close:hover { color: #374151; }

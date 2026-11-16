@@ -395,7 +395,7 @@
 }
 #app .line-btn:hover:not(:disabled) {
    color: var(--color-primary-active);
-  background: #7ecfa3;
+  background: #8cfb80;
   border-color: #7EBBE4;
 
 }

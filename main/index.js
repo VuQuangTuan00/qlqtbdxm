@@ -20,7 +20,7 @@ if (!gotTheLock) {
 let mainWindow = null;
 
 app.whenReady().then(async () => {
-  logger.info('[App] Khởi động ứng dụng QLQT Bảo Dưỡng Xe Máy...');
+  logger.info('[App] Khởi động ứng dụng Quy trình công nghệ và định mức kinh tế - kỹ thuật...');
 
   // Lần đầu chạy: chưa có db-config.json → hiển thị màn hình nhập credentials
   const cfgPath = path.join(app.getPath('userData'), 'db-config.json');

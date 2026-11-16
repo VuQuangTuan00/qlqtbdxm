@@ -1,7 +1,7 @@
 {
   "name": "qlqtbdxm",
-  "version": "1.0.0",
-  "description": "Hệ thống quản lý bảo dưỡng xe máy quân đội",
+  "version": "1.0",
+  "description": "Hệ thống quản lý Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật",
   "main": "main/index.js",
   "scripts": {
     "test": "node tests/run-tests.js all",
@@ -16,7 +16,7 @@
     "reset-db": "node scripts/reset-db.js",
     "clean": "rimraf dist"
   },
-  "author": "Bộ Tư lệnh Xe Máy",
+  "author": "Lữ Đoàn Công Binh 279",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -33,7 +33,7 @@
   },
   "build": {
     "appId": "vn.military.qlqtbdxm",
-    "productName": "QLQT Bảo Dưỡng XM",
+    "productName": "Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật",
     "asar": true,
     "directories": {
       "output": "dist"
@@ -56,7 +56,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "QLQT Bảo Dưỡng XM"
+      "shortcutName": "Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật"
     }
   }
 }
