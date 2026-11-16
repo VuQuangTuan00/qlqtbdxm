@@ -189,7 +189,7 @@ async function createVehicle(data, userId) {
 
   await _audit(userId, 'create', 'vehicle', v.vehicle_id);
   logger.info(`[Vehicle] Tạo: ${vehicle_name}`);
-  return ok(_resolveVehicle(await vehicleRepo.findByIdFull(v.vehicle_id)), 'Tạo loại xe thành công');
+  return ok(_resolveVehicle(await vehicleRepo.findByIdFull(v.vehicle_id)), 'Thêm thành công!');
 }
 
 async function updateVehicle(id, data, userId) {

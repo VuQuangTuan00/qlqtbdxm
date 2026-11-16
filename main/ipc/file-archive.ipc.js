@@ -26,7 +26,7 @@ function register() {
       const { canceled, filePath } = await dialog.showSaveDialog(
         BrowserWindow.fromWebContents(event.sender) || undefined,
         {
-          title: 'Xuất bộ chuyển máy',
+          title: 'Sao lưu',
           defaultPath: path.join(app.getPath('documents'), `backup-${timestamp}.zip`),
           filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
         }
@@ -35,7 +35,7 @@ function register() {
 
       const config = getDbConfig();
       const safeDatabase = String(config.database || 'database').replace(/[<>:"/\\|?*]/g, '_');
-      const backupDirectory = process.env.SQLSERVER_BACKUP_DIR;
+      const backupDirectory = process.env.SQLSERVER_BACKUP_DIR ;
       if (!fs.existsSync(backupDirectory) || !fs.statSync(backupDirectory).isDirectory()) {
         throw new Error(`Không tìm thấy thư mục backup SQL Server: ${backupDirectory}. Có thể cấu hình SQLSERVER_BACKUP_DIR.`);
       }
@@ -51,7 +51,7 @@ function register() {
           config.database
         );
         logger.info(`[FileArchive] Transfer package exported: ${savedPath}`);
-        return ok({ path: savedPath }, 'Đã xuất bộ chuyển máy gồm database và file');
+        return ok({ path: savedPath }, 'Đã sao lưu gồm database và file');
       } finally {
         try {
           fs.rmSync(databaseBackupPath, { force: true });
@@ -62,7 +62,7 @@ function register() {
     } catch (err) {
       logger.error('[FileArchive] Transfer export failed:', err);
       (err.precedingErrors || []).forEach(e => console.error(' ->', e.message))
-      return fail(`Không tạo được bộ chuyển máy. Kiểm tra quyền BACKUP DATABASE và quyền ghi của dịch vụ SQL Server vào thư mục backup. Chi tiết: ${err.message}`);
+      return fail(`Không thể sao lưu. Kiểm tra quyền BACKUP DATABASE và quyền ghi của dịch vụ SQL Server vào thư mục backup. Chi tiết: ${err.message}`);
     }
   });
 

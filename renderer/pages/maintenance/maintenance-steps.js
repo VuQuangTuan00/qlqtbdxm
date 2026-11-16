@@ -161,7 +161,7 @@ async function _loadVehicleGrid() {
         });
         if (!confirmed) return;
         const res = await window.electronAPI.invoke('vehicle:delete', { id: parseInt(btn.dataset.id) });
-        if (res.success) { toast.success('Đã xóa loại xe'); _loadVehicleGrid(); }
+        if (res.success) { toast.success('Đã xóa thành công'); _loadVehicleGrid(); }
         else toast.error('Lỗi', res.error);
       });
     });
@@ -854,7 +854,7 @@ function openVehicleForm(v, onSave) {
           }
 
           if (res.success) {
-            toast.success(isEdit ? 'Cập nhật thành công' : 'Tạo loại xe thành công');
+            toast.success(isEdit ? 'Cập nhật thành công' : 'Thêm thành công');
             close();
             if (onSave) onSave(); else {
               if (!isEdit) {

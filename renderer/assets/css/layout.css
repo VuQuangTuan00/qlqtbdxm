@@ -741,7 +741,7 @@ body::before {
 /* Toast container */
 #toast-container {
   position: fixed;
-  top: 20px;
+  top: 90px;
   right: 20px;
   z-index: var(--z-toast, 400);
   display: flex;

@@ -1,6 +1,6 @@
 {
-  "name": "Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật",
-  "version": "1.0.0",
+  "name": "qlqtbdxm",
+  "version": "1.0",
   "description": "Hệ thống quản lý Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật",
   "main": "main/index.js",
   "scripts": {

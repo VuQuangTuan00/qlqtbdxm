@@ -205,7 +205,7 @@ async function exportTransferPackage(destinationPath, databaseBackupPath, databa
   const destination = path.resolve(destinationPath);
   const backupPath = path.resolve(databaseBackupPath);
   if (path.extname(destination).toLowerCase() !== '.zip') {
-    throw new Error('File bộ chuyển máy phải có đuôi .zip.');
+    throw new Error('File sao lưu phải có đuôi .zip.');
   }
   if (!fs.existsSync(backupPath) || !fs.statSync(backupPath).isFile()) {
     throw new Error('SQL Server không tạo được file .bak.');
