@@ -45,7 +45,7 @@ async function create(data, userId) {
       ]
     );
     const created = rows[0];
-    const qrValue = `QLQT-${created.id}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+    const qrValue = `QTCN-${created.id}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
     await client.query(
       'INSERT INTO qr_codes (equipment_id, qr_value) VALUES ($1, $2)',

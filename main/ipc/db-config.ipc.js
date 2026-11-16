@@ -102,7 +102,8 @@ function register({ setupMode = false } = {}) {
 
       logger.info(`[DBConfig] Test kết nối thành công: ${config.server}:${config.port} (${latency}ms)`);
       return response.ok({
-        message: `Kết nối thành công! ${shortVer}`,
+        // message: `Kết nối thành công! ${shortVer}`,
+        message: `Kết nối thành công!`,
         latency,
       });
     } catch (err) {

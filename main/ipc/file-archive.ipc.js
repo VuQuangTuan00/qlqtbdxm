@@ -27,7 +27,7 @@ function register() {
         BrowserWindow.fromWebContents(event.sender) || undefined,
         {
           title: 'Xuất bộ chuyển máy',
-          defaultPath: path.join(app.getPath('documents'), `qlqtbdxm-transfer-${timestamp}.zip`),
+          defaultPath: path.join(app.getPath('documents'), `backup-${timestamp}.zip`),
           filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
         }
       );
@@ -35,7 +35,7 @@ function register() {
 
       const config = getDbConfig();
       const safeDatabase = String(config.database || 'database').replace(/[<>:"/\\|?*]/g, '_');
-      const backupDirectory = process.env.SQLSERVER_BACKUP_DIR || 'C:\\Tools\\SQL Sever\\MSSQL16.MSSQLSERVER\\MSSQL\\Backup';
+      const backupDirectory = process.env.SQLSERVER_BACKUP_DIR;
       if (!fs.existsSync(backupDirectory) || !fs.statSync(backupDirectory).isDirectory()) {
         throw new Error(`Không tìm thấy thư mục backup SQL Server: ${backupDirectory}. Có thể cấu hình SQLSERVER_BACKUP_DIR.`);
       }

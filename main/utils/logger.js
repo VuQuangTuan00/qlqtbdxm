@@ -9,7 +9,7 @@ log.transports.file.level = process.env.LOG_LEVEL || 'info';
 log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
 
 // Đặt tên file log
-log.transports.file.fileName = 'qlqtbdxm.log';
+log.transports.file.fileName = 'qtcn.log';
 
 // Format log
 log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
