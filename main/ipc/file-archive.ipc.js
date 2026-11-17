@@ -6,6 +6,7 @@ const fs = require('fs');
 const { randomUUID } = require('crypto');
 const authService = require('../services/auth.service');
 const archiveService = require('../services/file-archive.service');
+const { processPendingCleanup } = require('../services/pending-file-cleanup.service');
 const {
   backupMssqlDatabase,
   restoreMssqlDatabase,
@@ -48,6 +49,13 @@ function register() {
         }
       );
       if (canceled || !filePath) return ok({ canceled: true });
+
+      const cleanupResult = processPendingCleanup();
+      if (cleanupResult.deleted || cleanupResult.remaining) {
+        logger.info(
+          `[FileArchive] Dọn file tồn đọng trước backup: đã xóa ${cleanupResult.deleted}, còn lại ${cleanupResult.remaining}`
+        );
+      }
 
       const config = getDbConfig();
       const safeDatabase = String(config.database || 'database').replace(/[<>:"/\\|?*]/g, '_');

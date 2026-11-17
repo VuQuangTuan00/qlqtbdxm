@@ -6,7 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { withTempDir } = require('../../helpers/test-environment');
 
-function loadConfigModule(userDataPath) {
+function loadConfigModule(userDataPath, options = {}) {
   const electronPath = require.resolve('electron');
   const modulePath = require.resolve('../../../main/config/db-config');
   const savedElectron = require.cache[electronPath];
@@ -16,10 +16,25 @@ function loadConfigModule(userDataPath) {
     id: electronPath,
     filename: electronPath,
     loaded: true,
-    exports: { app: { getPath: (name) => {
-      assert.equal(name, 'userData');
-      return userDataPath;
-    } } },
+    exports: {
+      app: { getPath: (name) => {
+        assert.equal(name, 'userData');
+        return userDataPath;
+      } },
+      safeStorage: {
+        isEncryptionAvailable() { return options.encryptionAvailable !== false; },
+        encryptString(value) {
+          if (options.encryptError) throw options.encryptError;
+          return Buffer.from(`safe-storage:${value}`, 'utf8');
+        },
+        decryptString(value) {
+          if (options.decryptError) throw options.decryptError;
+          const decoded = Buffer.from(value).toString('utf8');
+          if (!decoded.startsWith('safe-storage:')) throw new Error('ciphertext invalid');
+          return decoded.slice('safe-storage:'.length);
+        },
+      },
+    },
   };
   delete require.cache[modulePath];
   const configModule = require(modulePath);
@@ -62,6 +77,11 @@ test('valid db-config is returned without discarding optional or unknown keys', 
 
     const { readDbConfig } = loadConfigModule(userDataPath);
     assert.deepEqual(readDbConfig(), expected);
+    const disk = JSON.parse(fs.readFileSync(path.join(userDataPath, 'db-config.json'), 'utf8'));
+    assert.equal(Object.hasOwn(disk, 'password'), false);
+    assert.equal(disk.passwordEncryption, 'electron-safe-storage-v1');
+    assert.equal(typeof disk.passwordEncrypted, 'string');
+    assert.equal(fs.readFileSync(path.join(userDataPath, 'db-config.json'), 'utf8').includes('secret'), false);
   });
 });
 
@@ -81,7 +101,7 @@ test('malformed db-config throws and leaves the original bytes unchanged', async
 test('saving a repaired config preserves malformed bytes in a recovery backup', async () => {
   await withTempDir('db-config-repair-', async (userDataPath) => {
     const configPath = path.join(userDataPath, 'db-config.json');
-    const original = Buffer.from('{"mode":"sqlserver",');
+    const original = Buffer.from('{"mode":"sqlserver","password":"legacy-secret"');
     fs.writeFileSync(configPath, original);
 
     const { writeDbConfig } = loadConfigModule(userDataPath);
@@ -89,9 +109,20 @@ test('saving a repaired config preserves malformed bytes in a recovery backup', 
     const recoveryFiles = fs.readdirSync(userDataPath)
       .filter((name) => /^db-config\.invalid-.*\.bak$/.test(name));
 
-    assert.deepEqual(JSON.parse(fs.readFileSync(configPath, 'utf8')), saved);
+    const disk = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    assert.equal(Object.hasOwn(disk, 'password'), false);
+    assert.equal(disk.passwordEncryption, 'electron-safe-storage-v1');
+    assert.deepEqual(writeDbConfig({ password: '' }), saved);
     assert.equal(recoveryFiles.length, 1);
-    assert.deepEqual(fs.readFileSync(path.join(userDataPath, recoveryFiles[0])), original);
+    const backupText = fs.readFileSync(path.join(userDataPath, recoveryFiles[0]), 'utf8');
+    const backup = JSON.parse(backupText);
+    const encryptedPayload = Buffer.from(backup.contentEncrypted, 'base64')
+      .toString('utf8')
+      .slice('safe-storage:'.length);
+    assert.equal(backup.format, 'db-config-invalid-backup');
+    assert.equal(backup.encryption, 'electron-safe-storage-v1');
+    assert.equal(backupText.includes('legacy-secret'), false);
+    assert.deepEqual(Buffer.from(encryptedPayload, 'base64'), original);
   });
 });
 
@@ -117,7 +148,7 @@ test('port validation accepts only integers from 1 through 65535', async () => {
   });
 });
 
-test('writeDbConfig atomically merges password and unknown settings from the existing file', async () => {
+test('writeDbConfig atomically encrypts password and merges unknown settings from the existing file', async () => {
   await withTempDir('db-config-write-', async (userDataPath) => {
     const configPath = path.join(userDataPath, 'db-config.json');
     const existing = {
@@ -128,13 +159,18 @@ test('writeDbConfig atomically merges password and unknown settings from the exi
     fs.writeFileSync(configPath, JSON.stringify(existing, null, 2));
 
     const { writeDbConfig } = loadConfigModule(userDataPath);
-    const saved = writeDbConfig({ server: 'new-db.internal', password: '' });
+    const saved = writeDbConfig({ database: 'QTCN_NEXT', password: '' });
+    const disk = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
-    assert.equal(saved.server, 'new-db.internal');
+    assert.equal(saved.server, 'db.internal');
+    assert.equal(saved.database, 'QTCN_NEXT');
     assert.equal(saved.password, 'secret');
     assert.equal(saved.backupDirectory, 'D:\\SqlBackup');
     assert.deepEqual(saved.futureSetting, { enabled: true });
-    assert.deepEqual(JSON.parse(fs.readFileSync(configPath, 'utf8')), saved);
+    assert.equal(Object.hasOwn(disk, 'password'), false);
+    assert.equal(disk.passwordEncryption, 'electron-safe-storage-v1');
+    assert.equal(typeof disk.passwordEncrypted, 'string');
+    assert.equal(JSON.stringify(disk).includes('secret'), false);
     assert.deepEqual(fs.readdirSync(userDataPath), ['db-config.json']);
   });
 });
@@ -177,11 +213,101 @@ test('writing null instance removes the stored instance without discarding exist
     }));
 
     const { writeDbConfig } = loadConfigModule(userDataPath);
-    const saved = writeDbConfig({ instanceName: null });
+    const saved = writeDbConfig({ instanceName: null, password: 'replacement-secret' });
+    const disk = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
     assert.equal(Object.hasOwn(saved, 'instanceName'), false);
     assert.equal(saved.backupDirectory, 'D:\\SqlBackup');
     assert.deepEqual(saved.futureSetting, { enabled: true });
-    assert.deepEqual(JSON.parse(fs.readFileSync(configPath, 'utf8')), saved);
+    assert.equal(Object.hasOwn(disk, 'instanceName'), false);
+    assert.equal(Object.hasOwn(disk, 'password'), false);
+    assert.equal(disk.passwordEncryption, 'electron-safe-storage-v1');
+  });
+});
+
+test('an unchanged endpoint and password keep the existing ciphertext instead of encrypting it again', async () => {
+  await withTempDir('db-config-preserve-cipher-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    const { writeDbConfig } = loadConfigModule(userDataPath);
+    writeDbConfig(validConfig);
+    const before = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    const saved = writeDbConfig({ database: 'QTCN_NEXT', password: '' });
+    const after = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    assert.equal(saved.password, 'secret');
+    assert.equal(after.passwordEncrypted, before.passwordEncrypted);
+  });
+});
+
+test('changing a credential endpoint requires a new password and leaves the old file untouched', async () => {
+  await withTempDir('db-config-endpoint-password-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    const { writeDbConfig } = loadConfigModule(userDataPath);
+    writeDbConfig(validConfig);
+    const before = fs.readFileSync(configPath);
+
+    assert.throws(
+      () => writeDbConfig({ server: 'other-db.internal', password: '' }),
+      /nhập lại mật khẩu/i,
+    );
+    assert.deepEqual(fs.readFileSync(configPath), before);
+  });
+});
+
+test('recovery config never exposes plaintext password or ciphertext', async () => {
+  await withTempDir('db-config-recovery-sanitize-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    fs.writeFileSync(configPath, JSON.stringify({
+      ...validConfig,
+      passwordEncrypted: 'must-not-leak',
+      passwordEncryption: 'electron-safe-storage-v1',
+    }));
+
+    const { readDbConfigForRecovery } = loadConfigModule(userDataPath);
+    const recovery = readDbConfigForRecovery();
+
+    assert.equal(recovery.server, validConfig.server);
+    assert.equal(recovery.database, validConfig.database);
+    assert.equal(recovery.user, validConfig.user);
+    assert.equal(Object.hasOwn(recovery, 'password'), false);
+    assert.equal(Object.hasOwn(recovery, 'passwordEncrypted'), false);
+    assert.equal(Object.hasOwn(recovery, 'passwordEncryption'), false);
+  });
+});
+
+test('ciphertext from another machine enters recovery without losing public connection fields', async () => {
+  await withTempDir('db-config-wrong-machine-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    fs.writeFileSync(configPath, JSON.stringify({
+      mode: 'sqlserver',
+      server: 'other-machine\\SQLEXPRESS',
+      database: 'QTCN',
+      user: 'QTCN',
+      passwordEncrypted: Buffer.from('foreign-cipher').toString('base64'),
+      passwordEncryption: 'electron-safe-storage-v1',
+    }));
+
+    const { readDbConfig, readDbConfigForRecovery } = loadConfigModule(userDataPath, {
+      decryptError: new Error('DPAPI key mismatch'),
+    });
+
+    assert.throws(() => readDbConfig(), /không thể giải mã mật khẩu/i);
+    assert.deepEqual(readDbConfigForRecovery(), {
+      mode: 'sqlserver',
+      server: 'other-machine\\SQLEXPRESS',
+      database: 'QTCN',
+      user: 'QTCN',
+    });
+  });
+});
+
+test('safeStorage unavailable never writes a plaintext fallback', async () => {
+  await withTempDir('db-config-no-encryption-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    const { writeDbConfig } = loadConfigModule(userDataPath, { encryptionAvailable: false });
+
+    assert.throws(() => writeDbConfig(validConfig), /mã hóa mật khẩu/i);
+    assert.equal(fs.existsSync(configPath), false);
   });
 });

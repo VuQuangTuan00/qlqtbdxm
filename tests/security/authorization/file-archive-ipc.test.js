@@ -16,7 +16,9 @@ function loadFileArchiveIpc(root) {
     ipcMain: { handle(channel, handler) { handlers.set(channel, handler); } },
     dialog: {
       async showOpenDialog() { return { canceled: false, filePaths: [archivePath] }; },
-      async showSaveDialog() { return { canceled: true }; },
+      async showSaveDialog() {
+        return { canceled: false, filePath: path.join(root, 'export.zip') };
+      },
     },
     BrowserWindow: { fromWebContents() { return undefined; } },
     app: {
@@ -26,6 +28,11 @@ function loadFileArchiveIpc(root) {
     },
   };
   const archiveService = {
+    async exportTransferPackage(destination, databaseBackupPath) {
+      calls.push(['exportTransferPackage', destination, databaseBackupPath]);
+      fs.writeFileSync(destination, 'zip placeholder');
+      return destination;
+    },
     async restoreFilesFromTransferPackage(selectedPath) {
       calls.push(['restoreFiles', selectedPath]);
       return { backupPath: null };
@@ -48,7 +55,16 @@ function loadFileArchiveIpc(root) {
       return { safetyBackupPath: safety };
     },
     getDbConfig() { return { database: 'QTCN' }; },
-    async backupMssqlDatabase() { throw new Error('not expected'); },
+    async backupMssqlDatabase(backupPath) {
+      calls.push(['backupDatabase', backupPath]);
+      fs.writeFileSync(backupPath, 'bak placeholder');
+    },
+  };
+  const pendingCleanup = {
+    processPendingCleanup() {
+      calls.push('processPendingCleanup');
+      return { deleted: 0, remaining: 0 };
+    },
   };
 
   const modulePath = require.resolve('../../../main/ipc/file-archive.ipc');
@@ -60,6 +76,7 @@ function loadFileArchiveIpc(root) {
       requireAdmin: () => true,
     }],
     [require.resolve('../../../main/services/file-archive.service'), archiveService],
+    [require.resolve('../../../main/services/pending-file-cleanup.service'), pendingCleanup],
     [require.resolve('../../../main/utils/logger'), { info() {}, warn() {}, error() {} }],
   ]);
   const saved = new Map([[modulePath, require.cache[modulePath]]]);
@@ -101,5 +118,21 @@ test('file archive exposes separate file and database restore handlers', async (
     assert.ok(calls.some((call) => Array.isArray(call) && call[0] === 'extractDatabase'));
     assert.ok(calls.some((call) => Array.isArray(call) && call[0] === 'restoreDatabase'));
     assert.match(databaseResult.data.safetyBackupPath, /safety/i);
+  });
+});
+
+test('backup retries pending file cleanup before creating the database backup', async () => {
+  await withTempDir('file-archive-cleanup-', async (root) => {
+    const { handlers, calls } = loadFileArchiveIpc(root);
+
+    const result = await handlers.get('fileArchive:export')({ sender: {} });
+
+    assert.equal(result.success, true);
+    const cleanupIndex = calls.indexOf('processPendingCleanup');
+    const backupIndex = calls.findIndex((call) => Array.isArray(call) && call[0] === 'backupDatabase');
+    const archiveIndex = calls.findIndex((call) => Array.isArray(call) && call[0] === 'exportTransferPackage');
+    assert.ok(cleanupIndex >= 0);
+    assert.ok(cleanupIndex < backupIndex);
+    assert.ok(backupIndex < archiveIndex);
   });
 });

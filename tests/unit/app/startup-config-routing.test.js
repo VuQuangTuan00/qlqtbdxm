@@ -16,7 +16,14 @@ function loadConfigModule(userDataPath) {
     id: electronPath,
     filename: electronPath,
     loaded: true,
-    exports: { app: { getPath: () => userDataPath } },
+    exports: {
+      app: { getPath: () => userDataPath },
+      safeStorage: {
+        isEncryptionAvailable: () => true,
+        encryptString: (value) => Buffer.from(`safe-storage:${value}`, 'utf8'),
+        decryptString: (value) => Buffer.from(value).toString('utf8').slice('safe-storage:'.length),
+      },
+    },
   };
   delete require.cache[modulePath];
   const loaded = require(modulePath);

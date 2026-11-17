@@ -30,7 +30,8 @@ function _withStoredPassword(config) {
 
   let stored;
   try {
-    stored = _setupMode ? readDbConfigForRecovery() : readDbConfig();
+    // Chỉ Main process được đọc bản runtime đã giải mã. Recovery config luôn bị lọc bí mật.
+    stored = readDbConfig();
   } catch (_) {
     return config;
   }

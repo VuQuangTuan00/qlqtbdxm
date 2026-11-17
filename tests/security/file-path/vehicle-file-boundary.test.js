@@ -6,7 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { withTempDir } = require('../../helpers/test-environment');
 
-function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRepo = {}) {
+function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRepo = {}, cleanupService) {
   const electron = {
     app: { getPath(name) { assert.equal(name, 'userData'); return userDataPath; } },
     shell: { async openPath(filePath) { shellCalls.push(filePath); return ''; } },
@@ -16,6 +16,7 @@ function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRe
     getDb() { return { async query() { return { rows: [], rowCount: 0 }; } }; },
   };
   const modulePath = require.resolve('../../../main/services/vehicle.service');
+  const cleanupModulePath = require.resolve('../../../main/services/pending-file-cleanup.service');
   const replacements = new Map([
     [require.resolve('electron'), electron],
     [require.resolve('../../../main/repositories/vehicle.repository'), vehicleRepo],
@@ -24,8 +25,18 @@ function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRe
     [require.resolve('../../../main/database/index'), database],
     [require.resolve('../../../main/utils/logger'), { info() {}, warn() {}, error() {} }],
   ]);
+  if (cleanupService) {
+    replacements.set(
+      cleanupModulePath,
+      cleanupService
+    );
+  }
   const saved = new Map([[modulePath, require.cache[modulePath]]]);
   delete require.cache[modulePath];
+  if (!cleanupService) {
+    saved.set(cleanupModulePath, require.cache[cleanupModulePath]);
+    delete require.cache[cleanupModulePath];
+  }
   for (const [replacementPath, exports] of replacements) {
     saved.set(replacementPath, require.cache[replacementPath]);
     require.cache[replacementPath] = {
@@ -295,6 +306,33 @@ test('a failed maintenance delete preserves its PDF files', async () => {
     await assert.rejects(service.deleteMaintenance(1, 7), /database delete failed/);
     assert.equal(fs.existsSync(techPath), true);
     assert.equal(fs.existsSync(normPath), true);
+  });
+});
+
+test('a successful PDF replacement delegates the obsolete file to durable cleanup', async () => {
+  await withTempDir('vehicle-pdf-cleanup-', async (userData) => {
+    const pdfDir = path.join(userData, 'maintenance-files');
+    fs.mkdirSync(pdfDir);
+    const oldPath = path.join(pdfDir, 'old.pdf');
+    fs.writeFileSync(oldPath, '%PDF-1.4 old');
+    const cleanupCalls = [];
+    const service = loadVehicleService(userData, {
+      async findById() { return { tech_process_file_path: oldPath }; },
+      async update() {},
+    }, [], {}, {
+      deleteOrQueue(filePath) {
+        cleanupCalls.push(filePath);
+        return true;
+      },
+    });
+
+    const result = await service.uploadFile(1, 'tech_process', {
+      file_name: 'replacement.pdf',
+      file_buffer: Buffer.from('%PDF-1.4 replacement'),
+    }, 7);
+
+    assert.equal(result.success, true);
+    assert.deepEqual(cleanupCalls, [oldPath]);
   });
 });
 

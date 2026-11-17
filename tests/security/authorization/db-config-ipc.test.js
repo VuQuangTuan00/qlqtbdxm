@@ -6,7 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { withTempDir } = require('../../helpers/test-environment');
 
-function loadDbConfigIpc(userDataPath, authService, sqlOverride) {
+function loadDbConfigIpc(userDataPath, authService, sqlOverride, configOptions = {}) {
   const handlers = new Map();
   const electron = {
     ipcMain: { handle(channel, handler) { handlers.set(channel, handler); } },
@@ -17,6 +17,16 @@ function loadDbConfigIpc(userDataPath, authService, sqlOverride) {
       },
       relaunch() {},
       exit() {},
+    },
+    safeStorage: {
+      isEncryptionAvailable() { return configOptions.encryptionAvailable !== false; },
+      encryptString(value) { return Buffer.from(`safe-storage:${value}`, 'utf8'); },
+      decryptString(value) {
+        if (configOptions.decryptError) throw configOptions.decryptError;
+        const decoded = Buffer.from(value).toString('utf8');
+        if (!decoded.startsWith('safe-storage:')) throw new Error('ciphertext invalid');
+        return decoded.slice('safe-storage:'.length);
+      },
     },
   };
   const sql = sqlOverride || { connect: async () => { throw new Error('not used'); } };
@@ -142,16 +152,19 @@ test('saving db config preserves omitted password, backupDirectory, and unknown 
 
     const result = await handlers.get('dbconfig:set')(null, {
       mode: 'sqlserver',
-      server: 'new-db',
-      port: 14330,
-      database: 'QTCN',
+      server: 'old-db',
+      port: 1433,
+      database: 'QTCN_NEXT',
       user: 'app',
     });
     const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
     assert.equal(result.success, true);
-    assert.equal(saved.server, 'new-db');
-    assert.equal(saved.password, 'old-secret');
+    assert.equal(saved.server, 'old-db');
+    assert.equal(Object.hasOwn(saved, 'password'), false);
+    assert.equal(saved.passwordEncryption, 'electron-safe-storage-v1');
+    assert.equal(typeof saved.passwordEncrypted, 'string');
+    assert.equal(JSON.stringify(saved).includes('old-secret'), false);
     assert.equal(saved.backupDirectory, 'D:\\SqlBackup');
     assert.deepEqual(saved.futureSetting, { enabled: true });
   });
@@ -177,6 +190,29 @@ test('saving invalid db config is rejected without replacing the existing file',
   });
 });
 
+test('saving a changed SQL endpoint without a new password is rejected', async () => {
+  await withTempDir('db-config-changed-endpoint-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    const original = JSON.stringify({
+      mode: 'sqlserver', server: 'db.local', database: 'QTCN', user: 'app', password: 'secret',
+    });
+    fs.writeFileSync(configPath, original);
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => true },
+    );
+    ipcModule.register({ setupMode: false });
+
+    const result = await handlers.get('dbconfig:set')(null, {
+      server: 'other-db.local', database: 'QTCN', user: 'app', password: '',
+    });
+
+    assert.equal(result.success, false);
+    assert.match(result.error, /nhập lại mật khẩu/i);
+    assert.equal(fs.readFileSync(configPath, 'utf8'), original);
+  });
+});
+
 test('atomic replacement failure leaves the existing db config untouched', async () => {
   await withTempDir('db-config-atomic-save-', async (userDataPath) => {
     const configPath = path.join(userDataPath, 'db-config.json');
@@ -192,7 +228,7 @@ test('atomic replacement failure leaves the existing db config untouched', async
     fs.renameSync = () => { throw new Error('simulated atomic replace failure'); };
     try {
       const result = await handlers.get('dbconfig:set')(null, {
-        mode: 'sqlserver', server: 'new-db', database: 'QTCN', user: 'app',
+        mode: 'sqlserver', server: 'new-db', database: 'QTCN', user: 'app', password: 'new-secret',
       });
       assert.equal(result.success, false);
       assert.match(result.error, /atomic replace failure/i);
@@ -388,6 +424,50 @@ test('connection test does not reuse the stored password for a different server'
   });
 });
 
+test('connection test requires password re-entry when stored ciphertext cannot be decrypted', async () => {
+  await withTempDir('db-config-test-foreign-cipher-', async (userDataPath) => {
+    fs.writeFileSync(path.join(userDataPath, 'db-config.json'), JSON.stringify({
+      mode: 'sqlserver',
+      server: 'DBHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      passwordEncryption: 'electron-safe-storage-v1',
+      passwordEncrypted: Buffer.from('foreign-cipher').toString('base64'),
+    }));
+    let receivedOptions;
+    const sql = {
+      ConnectionPool: class {
+        constructor(options) { receivedOptions = options; }
+        async connect() { return this; }
+        request() { return { query: async () => ({ recordset: [{ version: 'SQL Server' }] }) }; }
+        async close() {}
+      },
+    };
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => false },
+      sql,
+      { decryptError: new Error('DPAPI key mismatch') },
+    );
+    ipcModule.register({ setupMode: true });
+
+    const getResult = await handlers.get('dbconfig:get')();
+    const testResult = await handlers.get('dbconfig:test')(null, {
+      server: 'DBHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      password: '',
+    });
+
+    assert.equal(getResult.success, true);
+    assert.equal(JSON.stringify(getResult).includes('foreign-cipher'), false);
+    assert.equal(testResult.success, true);
+    assert.equal(receivedOptions.password, '');
+  });
+});
+
 test('saving renderer config clears a stale instance and rejects unapproved keys', async () => {
   await withTempDir('db-config-set-whitelist-', async (userDataPath) => {
     const configPath = path.join(userDataPath, 'db-config.json');
@@ -412,6 +492,7 @@ test('saving renderer config clears a stale instance and rejects unapproved keys
       port: 1433,
       database: 'QTCN',
       user: 'app',
+      password: 'new-secret',
       backupDirectory: 'C:\\Untrusted',
       injectedKey: true,
     });

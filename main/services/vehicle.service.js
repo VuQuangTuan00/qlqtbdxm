@@ -10,6 +10,7 @@ const vehicleTypeRepo  = require('../repositories/vehicle-type.repository');
 const { getDb } = require('../database/index');
 const { ok, fail }      = require('../utils/response');
 const logger       = require('../utils/logger');
+const { deleteOrQueue } = require('./pending-file-cleanup.service');
 
 const FILE_FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
 const FILE_TABS = ['tech_process', 'norm_ktkt'];
@@ -41,14 +42,8 @@ function _saveFile(dir, originalName, buffer) {
 }
 
 function _deleteFile(filePath) {
-  try {
-    const abs = _resolveFilePath(filePath);
-    if (!abs) return false;
-    if (fs.existsSync(abs)) fs.unlinkSync(abs);
-    return true;
-  } catch (e) {
-    return false;
-  }
+  const abs = _resolveFilePath(filePath);
+  return abs ? deleteOrQueue(abs) : false;
 }
 
 function _isInside(rootPath, candidatePath) {

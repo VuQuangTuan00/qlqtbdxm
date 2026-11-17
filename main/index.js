@@ -8,6 +8,7 @@ const { readDbConfig, readDbConfigForRecovery } = require('./config/db-config');
 const { resolveDatabaseStartup } = require('./startup/database-startup');
 const { createMainWindow } = require('./window-manager');
 const registerAllIpcHandlers = require('./ipc/index');
+const { processPendingCleanup } = require('./services/pending-file-cleanup.service');
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -19,6 +20,13 @@ let mainWindow = null;
 
 app.whenReady().then(async () => {
   logger.info('[App] Khởi động ứng dụng Quy trình công nghệ và định mức kinh tế - kỹ thuật...');
+
+  const cleanupResult = processPendingCleanup();
+  if (cleanupResult.deleted || cleanupResult.remaining) {
+    logger.info(
+      `[App] Dọn file tồn đọng: đã xóa ${cleanupResult.deleted}, còn lại ${cleanupResult.remaining}`
+    );
+  }
 
   const dbConfigIpc = require('./ipc/db-config.ipc');
   const startup = await resolveDatabaseStartup({
