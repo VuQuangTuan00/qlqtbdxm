@@ -127,9 +127,43 @@ async function _execQuery(target, sqlStr, params = []) {
 
 // ── Init & Migrations ─────────────────────────────────────────────
 
+function normalizeEndpoint(cfg) {
+  let server = String(cfg.server || '').trim().replace(/^tcp:/i, '');
+  let instanceName = typeof cfg.instanceName === 'string' ? cfg.instanceName.trim() : '';
+  let port = (cfg.port === undefined || cfg.port === null || cfg.port === '')
+    ? undefined
+    : Number(cfg.port);
+
+  const withPort = /^(.*),\s*(\d+)$/.exec(server);
+  if (withPort) {
+    server = withPort[1].trim();
+    port = Number(withPort[2]);
+  }
+
+  if (/[\\/]$/.test(server)) throw new Error('Tên instance SQL Server không hợp lệ');
+
+  const withInstance = /^(.*?)[\\/](.+)$/.exec(server);
+  if (withInstance) {
+    server = withInstance[1].trim();
+    const parsedInstanceName = withInstance[2].trim();
+    if (!parsedInstanceName) throw new Error('Tên instance SQL Server không hợp lệ');
+    instanceName = instanceName || parsedInstanceName;
+  }
+
+  if (['.', '(local)'].includes(server.toLowerCase())) server = 'localhost';
+
+  return { server, instanceName, port };
+}
+
 function buildMssqlConnectionOptions(cfg) {
+  const endpoint = normalizeEndpoint(cfg);
+  if (!endpoint.server) throw new Error('Máy chủ SQL Server không được để trống');
+  if (endpoint.port !== undefined &&
+      (!Number.isInteger(endpoint.port) || endpoint.port < 1 || endpoint.port > 65535)) {
+    throw new Error('Cổng SQL Server phải là số nguyên từ 1 đến 65535');
+  }
   const connection = {
-    server: cfg.server,
+    server: endpoint.server,
     database: cfg.database,
     user: cfg.user,
     password: cfg.password,
@@ -147,10 +181,10 @@ function buildMssqlConnectionOptions(cfg) {
     requestTimeout: 60000,
   };
 
-  if (cfg.port !== undefined && cfg.port !== null && cfg.port !== '') {
-    connection.port = Number(cfg.port);
-  } else if (cfg.instanceName) {
-    connection.options.instanceName = cfg.instanceName;
+  if (endpoint.instanceName && (endpoint.port === undefined || endpoint.port === 1433)) {
+    connection.options.instanceName = endpoint.instanceName;
+  } else if (endpoint.port !== undefined) {
+    connection.port = endpoint.port;
   }
 
   return connection;
@@ -162,11 +196,14 @@ async function initMssqlDatabase() {
   const cfg = readDbConfig();
   if (!cfg) throw new Error('Chưa cấu hình kết nối SQL Server.');
 
-  _pool = await sql.connect(buildMssqlConnectionOptions(cfg));
+  const connectionOptions = buildMssqlConnectionOptions(cfg);
+  _pool = await sql.connect(connectionOptions);
 
-  const endpoint = cfg.port
-    ? `${cfg.server}:${cfg.port}`
-    : cfg.instanceName ? `${cfg.server}\\${cfg.instanceName}` : cfg.server;
+  const endpoint = connectionOptions.port !== undefined
+    ? `${connectionOptions.server}:${connectionOptions.port}`
+    : connectionOptions.options.instanceName
+      ? `${connectionOptions.server}\\${connectionOptions.options.instanceName}`
+      : connectionOptions.server;
   console.log(`[MSSQL] Kết nối thành công: ${endpoint}/${cfg.database}`);
   await _runMigrations();
   return _pool;
@@ -357,14 +394,223 @@ async function backupMssqlDatabase(destinationPath) {
   return { database: config.database, path: destinationPath };
 }
 
+function escapeIdentifier(value) {
+  return String(value).replace(/]/g, ']]');
+}
+
+function escapeSqlString(value) {
+  return String(value).replace(/'/g, "''");
+}
+
+function safeDatabaseFileName(value) {
+  const sanitized = String(value || 'database').replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim();
+  return sanitized || 'database';
+}
+
+function buildRestoreMoveClauses(fileList, currentFiles, defaultPaths, databaseName) {
+  const rowsFiles = (currentFiles || []).filter((file) => file.type_desc === 'ROWS');
+  const logFiles = (currentFiles || []).filter((file) => file.type_desc === 'LOG');
+  let rowsIndex = 0;
+  let logIndex = 0;
+  const baseName = safeDatabaseFileName(databaseName);
+
+  if (!Array.isArray(fileList) || fileList.length === 0) {
+    throw new Error('File backup không có danh sách file dữ liệu SQL Server.');
+  }
+
+  return fileList.map((file) => {
+    const logicalName = file.LogicalName;
+    const type = String(file.Type || '').toUpperCase();
+    if (!logicalName || !['D', 'L'].includes(type)) {
+      throw new Error('Danh sách file trong backup SQL Server không hợp lệ.');
+    }
+
+    let physicalPath;
+    if (type === 'D') {
+      physicalPath = rowsFiles[rowsIndex]?.physical_name;
+      if (!physicalPath) {
+        if (!defaultPaths.dataPath) throw new Error('SQL Server không cung cấp thư mục data mặc định.');
+        const suffix = rowsIndex === 0 ? '.mdf' : `_data_${rowsIndex + 1}.ndf`;
+        physicalPath = path.win32.join(defaultPaths.dataPath, `${baseName}${suffix}`);
+      }
+      rowsIndex += 1;
+    } else {
+      physicalPath = logFiles[logIndex]?.physical_name;
+      if (!physicalPath) {
+        if (!defaultPaths.logPath) throw new Error('SQL Server không cung cấp thư mục log mặc định.');
+        const suffix = logIndex === 0 ? '_log.ldf' : `_log_${logIndex + 1}.ldf`;
+        physicalPath = path.win32.join(defaultPaths.logPath, `${baseName}${suffix}`);
+      }
+      logIndex += 1;
+    }
+
+    return `MOVE N'${escapeSqlString(logicalName)}' TO N'${escapeSqlString(physicalPath)}'`;
+  });
+}
+
+async function requestWithPath(pool, statement, backupPath) {
+  const request = pool.request();
+  request.timeout = 0;
+  request.input('backupPath', sql.NVarChar(4000), backupPath);
+  return request.query(statement);
+}
+
+async function getBackupFileList(pool, backupPath) {
+  const result = await requestWithPath(
+    pool,
+    'RESTORE FILELISTONLY FROM DISK = @backupPath',
+    backupPath,
+  );
+  return result.recordset || [];
+}
+
+async function restoreBackupOnPool(pool, databaseName, backupPath, moveClauses) {
+  const databaseIdentifier = escapeIdentifier(databaseName);
+  const moves = moveClauses.length ? `, ${moveClauses.join(', ')}` : '';
+  return requestWithPath(
+    pool,
+    `RESTORE DATABASE [${databaseIdentifier}] FROM DISK = @backupPath ` +
+      `WITH REPLACE, RECOVERY, CHECKSUM${moves}`,
+    backupPath,
+  );
+}
+
+async function setDatabaseAccessMode(pool, databaseName, mode) {
+  const databaseIdentifier = escapeIdentifier(databaseName);
+  const suffix = mode === 'SINGLE_USER' ? ' WITH ROLLBACK IMMEDIATE' : '';
+  await pool.request().query(`ALTER DATABASE [${databaseIdentifier}] SET ${mode}${suffix}`);
+}
+
+async function restoreMssqlDatabase(backupPath, safetyBackupPath) {
+  const config = readDbConfig();
+  if (!config?.database) throw new Error('Chưa cấu hình database SQL Server.');
+  if (!backupPath || !safetyBackupPath) throw new Error('Thiếu đường dẫn backup để khôi phục database.');
+
+  const databaseName = config.database;
+  const databaseIdentifier = escapeIdentifier(databaseName);
+  const masterConfig = buildMssqlConnectionOptions({ ...config, database: 'master' });
+  const masterPool = new sql.ConnectionPool(masterConfig);
+  let safetyBackupCreated = false;
+  let restoreStarted = false;
+  let masterConnected = false;
+  let applicationPoolClosed = false;
+  let currentFiles = [];
+  let defaultPaths = { dataPath: '', logPath: '' };
+
+  try {
+    await masterPool.connect();
+    masterConnected = true;
+
+    await requestWithPath(
+      masterPool,
+      'RESTORE VERIFYONLY FROM DISK = @backupPath WITH CHECKSUM',
+      backupPath,
+    );
+    const incomingFileList = await getBackupFileList(masterPool, backupPath);
+
+    const currentRequest = masterPool.request();
+    currentRequest.input('databaseName', sql.NVarChar(128), databaseName);
+    const currentResult = await currentRequest.query(`
+      SELECT type_desc, physical_name
+      FROM sys.master_files
+      WHERE database_id = DB_ID(@databaseName)
+      ORDER BY file_id
+    `);
+    const pathResult = await masterPool.request().query(`
+      SELECT
+        CONVERT(nvarchar(4000), SERVERPROPERTY('InstanceDefaultDataPath')) AS data_path,
+        CONVERT(nvarchar(4000), SERVERPROPERTY('InstanceDefaultLogPath')) AS log_path
+    `);
+    defaultPaths = {
+      dataPath: pathResult.recordset?.[0]?.data_path || '',
+      logPath: pathResult.recordset?.[0]?.log_path || '',
+    };
+    currentFiles = currentResult.recordset || [];
+    const incomingMoves = buildRestoreMoveClauses(
+      incomingFileList,
+      currentFiles,
+      defaultPaths,
+      databaseName,
+    );
+
+    await requestWithPath(
+      masterPool,
+      `BACKUP DATABASE [${databaseIdentifier}] TO DISK = @backupPath WITH COPY_ONLY, INIT, CHECKSUM`,
+      safetyBackupPath,
+    );
+    safetyBackupCreated = true;
+
+    await closeMssqlDatabase();
+    applicationPoolClosed = true;
+    await setDatabaseAccessMode(masterPool, databaseName, 'SINGLE_USER');
+    restoreStarted = true;
+    await restoreBackupOnPool(masterPool, databaseName, backupPath, incomingMoves);
+    await setDatabaseAccessMode(masterPool, databaseName, 'MULTI_USER');
+
+    const stateRequest = masterPool.request();
+    stateRequest.input('databaseName', sql.NVarChar(128), databaseName);
+    const stateResult = await stateRequest.query(
+      'SELECT state_desc FROM sys.databases WHERE name = @databaseName'
+    );
+    if (stateResult.recordset?.[0]?.state_desc !== 'ONLINE') {
+      throw new Error('Database chưa trở lại trạng thái ONLINE sau khi khôi phục.');
+    }
+
+    return { database: databaseName, safetyBackupPath };
+  } catch (error) {
+    let rollbackMessage = '';
+    if (masterConnected && safetyBackupCreated && restoreStarted) {
+      try {
+        const safetyFileList = await getBackupFileList(masterPool, safetyBackupPath);
+        const rollbackMoves = buildRestoreMoveClauses(
+          safetyFileList,
+          currentFiles,
+          defaultPaths,
+          databaseName,
+        );
+        await setDatabaseAccessMode(masterPool, databaseName, 'SINGLE_USER');
+        await restoreBackupOnPool(masterPool, databaseName, safetyBackupPath, rollbackMoves);
+        await setDatabaseAccessMode(masterPool, databaseName, 'MULTI_USER');
+        rollbackMessage = ' Đã phục hồi database cũ thành công từ bản backup an toàn.';
+      } catch (rollbackError) {
+        rollbackMessage =
+          ` Không thể tự động rollback database: ${rollbackError.message}. ` +
+          `Bản backup an toàn: ${safetyBackupPath}`;
+      }
+    }
+    if (masterConnected && (restoreStarted || applicationPoolClosed)) {
+      try {
+        await setDatabaseAccessMode(masterPool, databaseName, 'MULTI_USER');
+      } catch (multiUserError) {
+        rollbackMessage += ` Không thể trả database về MULTI_USER: ${multiUserError.message}`;
+      }
+    }
+    if (applicationPoolClosed && !_pool) {
+      try {
+        _pool = await sql.connect(buildMssqlConnectionOptions(config));
+      } catch (reconnectError) {
+        rollbackMessage += ` Không thể kết nối lại ứng dụng với SQL Server: ${reconnectError.message}`;
+      }
+    }
+    error.message = `${error.message}${rollbackMessage}`;
+    throw error;
+  } finally {
+    if (masterConnected) {
+      try { await masterPool.close(); } catch (_) {}
+    }
+  }
+}
+
 module.exports = {
   initMssqlDatabase,
   getMssqlDb,
   closeMssqlDatabase,
   backupMssqlDatabase,
+  restoreMssqlDatabase,
   getMssqlBackupDirectory,
   resolveMssqlBackupDirectory,
   buildMssqlConnectionOptions,
+  normalizeEndpoint,
   getDbConfig: readDbConfig,
   transformSql: _transformSql,
 };

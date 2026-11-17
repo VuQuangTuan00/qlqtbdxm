@@ -6,7 +6,12 @@ const fs = require('fs');
 const { randomUUID } = require('crypto');
 const authService = require('../services/auth.service');
 const archiveService = require('../services/file-archive.service');
-const { backupMssqlDatabase, getMssqlBackupDirectory, getDbConfig } = require('../database');
+const {
+  backupMssqlDatabase,
+  restoreMssqlDatabase,
+  getMssqlBackupDirectory,
+  getDbConfig,
+} = require('../database');
 const { ok, fail } = require('../utils/response');
 const logger = require('../utils/logger');
 
@@ -14,6 +19,17 @@ function getAccessError() {
   if (!authService.requireAuth()) return 'Chưa đăng nhập';
   if (!authService.requireAdmin()) return 'Chỉ admin mới được xuất hoặc nhập file backup';
   return null;
+}
+
+async function chooseTransferPackage(event, title) {
+  return dialog.showOpenDialog(
+    BrowserWindow.fromWebContents(event.sender) || undefined,
+    {
+      title,
+      properties: ['openFile'],
+      filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
+    }
+  );
 }
 
 function register() {
@@ -63,35 +79,74 @@ function register() {
     }
   });
 
-  ipcMain.handle('fileArchive:import', async (event) => {
+  ipcMain.handle('fileArchive:restoreFiles', async (event) => {
     const denied = getAccessError();
     if (denied) return fail(denied);
 
     try {
-      const { canceled, filePaths } = await dialog.showOpenDialog(
-        BrowserWindow.fromWebContents(event.sender) || undefined,
-        {
-          title: 'Chọn file ZIP backup',
-          properties: ['openFile'],
-          filters: [{ name: 'ZIP archive', extensions: ['zip'] }],
-        }
-      );
+      const { canceled, filePaths } = await chooseTransferPackage(event, 'Chọn ZIP để khôi phục file');
       if (canceled || !filePaths.length) return ok({ canceled: true });
 
+      await archiveService.restoreFilesFromTransferPackage(filePaths[0]);
+      logger.info(`[FileArchive] Files restored from transfer package: ${filePaths[0]}`);
+      return ok({ path: filePaths[0] }, 'Đã khôi phục hình ảnh và tài liệu');
+    } catch (err) {
+      logger.error('[FileArchive] File restore failed:', err);
+      return fail(`Không thể khôi phục file. Chi tiết: ${err.message}`);
+    }
+  });
+
+  ipcMain.handle('fileArchive:restoreDatabase', async (event) => {
+    const denied = getAccessError();
+    if (denied) return fail(denied);
+
+    let extractedBackupPath = '';
+    try {
+      const { canceled, filePaths } = await chooseTransferPackage(event, 'Chọn ZIP để khôi phục database');
+      if (canceled || !filePaths.length) return ok({ canceled: true });
+
+      const config = getDbConfig();
+      const safeDatabase = String(config.database || 'database').replace(/[<>:"/\\|?*]/g, '_');
+      const backupDirectory = await getMssqlBackupDirectory();
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupDestination = path.join(
-        app.getPath('documents'),
-        `qlqtbdxm-restored-${timestamp}-${randomUUID().slice(0, 8)}.bak`
+      const uniqueSuffix = `${timestamp}-${randomUUID().slice(0, 8)}`;
+      extractedBackupPath = path.join(
+        backupDirectory,
+        `.${safeDatabase}-restore-incoming-${uniqueSuffix}.bak`
       );
-      const result = await archiveService.importTransferPackage(filePaths[0], backupDestination);
-      logger.info(`[FileArchive] Transfer package imported: ${filePaths[0]}`);
+      const safetyBackupPath = path.join(
+        backupDirectory,
+        `${safeDatabase}-safety-before-restore-${uniqueSuffix}.bak`
+      );
+
+      await archiveService.extractDatabaseBackupFromTransferPackage(
+        filePaths[0],
+        extractedBackupPath,
+      );
+      const restoreResult = await restoreMssqlDatabase(extractedBackupPath, safetyBackupPath);
+      logger.info(`[FileArchive] Database restored from transfer package: ${filePaths[0]}`);
+
+      const restartTimer = setTimeout(() => {
+        app.relaunch();
+        app.exit(0);
+      }, 500);
+      restartTimer.unref?.();
+
       return ok({
         path: filePaths[0],
-        databaseBackupPath: result.backupPath,
-      }, result.backupPath ? 'Đã nhập file và trích xuất database .bak' : 'Đã nhập file trong ZIP');
+        safetyBackupPath: restoreResult.safetyBackupPath,
+        restarting: true,
+      }, 'Đã khôi phục database. Ứng dụng sẽ khởi động lại');
     } catch (err) {
-      logger.error('[FileArchive] Transfer import failed:', err);
-      return fail(err.message);
+      logger.error('[FileArchive] Database restore failed:', err);
+      return fail(`Không thể khôi phục database. Chi tiết: ${err.message}`);
+    } finally {
+      if (extractedBackupPath) {
+        try { fs.rmSync(extractedBackupPath, { force: true }); }
+        catch (cleanupError) {
+          logger.warn(`[FileArchive] Không xóa được .bak tạm '${extractedBackupPath}': ${cleanupError.message}`);
+        }
+      }
     }
   });
 }

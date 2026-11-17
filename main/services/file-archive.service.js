@@ -9,7 +9,8 @@ const { promisify } = require('util');
 const { app } = require('electron');
 
 const execFileAsync = promisify(execFile);
-const FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
+const BACKUP_FOLDERS = ['vehicle-images', 'maintenance-files'];
+const RESTORE_FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
 const EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx'];
 const ARCHIVE_MAX_ENTRIES = 10000;
 const ARCHIVE_MAX_ENTRY_BYTES = 5 * 1024 * 1024 * 1024;
@@ -18,6 +19,23 @@ const ARCHIVE_MAX_COMPRESSION_RATIO = 200;
 
 function quotePowerShell(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+function decodePowerShellClixml(value) {
+  const raw = String(value || '').trim();
+  if (!raw.includes('CLIXML')) return raw;
+
+  const messages = [...raw.matchAll(/<S S="Error">([\s\S]*?)<\/S>/g)]
+    .map((match) => match[1]
+      .replace(/_x([0-9A-Fa-f]{4})_/g, (_token, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&amp;/g, '&')
+      .trim())
+    .filter(Boolean);
+  return messages.length ? messages.join('\n') : raw;
 }
 
 function isPathInside(rootPath, candidatePath) {
@@ -36,6 +54,16 @@ function listFilesRecursive(rootPath) {
   return files;
 }
 
+function assertLegacyUploadsEmpty(rootPath) {
+  const legacyFiles = listFilesRecursive(path.join(rootPath, 'uploads'));
+  if (legacyFiles.length > 0) {
+    throw new Error(
+      `Thư mục uploads còn ${legacyFiles.length} file legacy nên chưa thể tạo backup an toàn. ` +
+      'Hãy chuyển ảnh vào vehicle-images và tài liệu vào maintenance-files, sau đó sao lưu lại.'
+    );
+  }
+}
+
 function sha256File(filePath) {
   return new Promise((resolve, reject) => {
     const hash = createHash('sha256');
@@ -48,7 +76,7 @@ function sha256File(filePath) {
 
 async function buildManifestEntries(root, backupPath, backupEntry) {
   const sources = [];
-  for (const folder of FOLDERS) {
+  for (const folder of BACKUP_FOLDERS) {
     for (const filePath of listFilesRecursive(path.join(root, folder))) {
       sources.push({
         filePath,
@@ -79,7 +107,7 @@ async function runPowerShell(script) {
     ], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
     return stdout.trim();
   } catch (err) {
-    throw new Error(`Thao tác ZIP thất bại: ${(err.stderr || err.message || '').trim()}`);
+    throw new Error(`Thao tác ZIP thất bại: ${decodePowerShellClixml(err.stderr || err.message)}`);
   }
 }
 
@@ -95,6 +123,7 @@ async function exportFiles(destinationPath) {
   if (fs.existsSync(destination)) {
     throw new Error('File ZIP đã tồn tại. Hãy chọn tên khác để tránh ghi đè.');
   }
+  assertLegacyUploadsEmpty(root);
 
   const script = `
 $ErrorActionPreference = 'Stop'
@@ -104,7 +133,7 @@ $root = ${quotePowerShell(root)}
 $destination = ${quotePowerShell(destination)}
 $archive = [System.IO.Compression.ZipFile]::Open($destination, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
-  foreach ($folder in @(${FOLDERS.map(quotePowerShell).join(', ')})) {
+  foreach ($folder in @(${BACKUP_FOLDERS.map(quotePowerShell).join(', ')})) {
     $source = Join-Path $root $folder
     if (-not (Test-Path -LiteralPath $source -PathType Container)) { continue }
     $files = @(Get-ChildItem -LiteralPath $source -File -Recurse)
@@ -144,7 +173,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archivePath = ${quotePowerShell(archive)}
 $root = ${quotePowerShell(root)}
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString())
-$folders = @(${FOLDERS.map(quotePowerShell).join(', ')})
+$folders = @(${RESTORE_FOLDERS.map(quotePowerShell).join(', ')})
 $extensions = @(${EXTENSIONS.map(quotePowerShell).join(', ')})
 $zip = $null
 try {
@@ -216,6 +245,7 @@ async function exportTransferPackage(destinationPath, databaseBackupPath, databa
   if (isPathInside(root, destination)) {
     throw new Error('Không thể lưu ZIP bên trong thư mục dữ liệu ứng dụng.');
   }
+  assertLegacyUploadsEmpty(root);
 
   const safeDatabaseName = String(databaseName || 'database').replace(/[<>:"/\\|?*]/g, '_');
   const backupFileName = `${safeDatabaseName}.bak`;
@@ -226,7 +256,7 @@ async function exportTransferPackage(destinationPath, databaseBackupPath, databa
     createdAt: new Date().toISOString(),
     database: databaseName,
     databaseBackup: backupEntry,
-    fileFolders: FOLDERS,
+    fileFolders: BACKUP_FOLDERS,
     entries: await buildManifestEntries(root, backupPath, backupEntry),
   };
   const manifestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-transfer-package-'));
@@ -244,7 +274,7 @@ $manifestPath = ${quotePowerShell(manifestPath)}
 $destination = ${quotePowerShell(destination)}
 $archive = [System.IO.Compression.ZipFile]::Open($destination, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
-  foreach ($folder in @(${FOLDERS.map(quotePowerShell).join(', ')})) {
+  foreach ($folder in @(${BACKUP_FOLDERS.map(quotePowerShell).join(', ')})) {
     $source = Join-Path $root $folder
     if (-not (Test-Path -LiteralPath $source -PathType Container)) { continue }
     foreach ($file in @(Get-ChildItem -LiteralPath $source -File -Recurse)) {
@@ -271,7 +301,7 @@ Write-Output 'Da tao goi chuyen may.'
   }
 }
 
-async function importTransferPackage(archivePath, databaseBackupDestination) {
+async function restoreTransferPackage(archivePath, options = {}) {
   const archive = path.resolve(archivePath);
   if (!fs.existsSync(archive) || !fs.statSync(archive).isFile()) {
     throw new Error('Không tìm thấy file ZIP đã chọn.');
@@ -281,7 +311,17 @@ async function importTransferPackage(archivePath, databaseBackupDestination) {
   }
 
   const root = app.getPath('userData');
-  const backupDestination = databaseBackupDestination ? path.resolve(databaseBackupDestination) : '';
+  const restoreFiles = options.restoreFiles === true;
+  const restoreDatabase = options.restoreDatabase === true;
+  if (restoreFiles === restoreDatabase) {
+    throw new Error('Phải chọn đúng một chế độ khôi phục file hoặc database.');
+  }
+  const backupDestination = options.databaseBackupDestination
+    ? path.resolve(options.databaseBackupDestination)
+    : '';
+  if (restoreDatabase && !backupDestination) {
+    throw new Error('Chưa chọn nơi lưu file database .bak.');
+  }
   if (backupDestination && fs.existsSync(backupDestination)) {
     throw new Error('File .bak đích đã tồn tại. Hãy chọn tên khác.');
   }
@@ -293,8 +333,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $archivePath = ${quotePowerShell(archive)}
 $root = ${quotePowerShell(root)}
 $backupDestination = ${quotePowerShell(backupDestination)}
+$restoreFiles = ${restoreFiles ? '$true' : '$false'}
+$restoreDatabase = ${restoreDatabase ? '$true' : '$false'}
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ([Guid]::NewGuid().ToString())
-$folders = @(${FOLDERS.map(quotePowerShell).join(', ')})
+$folders = @(${RESTORE_FOLDERS.map(quotePowerShell).join(', ')})
 $extensions = @(${EXTENSIONS.map(quotePowerShell).join(', ')})
 $maxEntries = ${ARCHIVE_MAX_ENTRIES}
 $maxEntryBytes = ${ARCHIVE_MAX_ENTRY_BYTES}
@@ -302,6 +344,32 @@ $maxTotalUncompressedBytes = ${ARCHIVE_MAX_TOTAL_UNCOMPRESSED_BYTES}
 $maxCompressionRatio = ${ARCHIVE_MAX_COMPRESSION_RATIO}
 $zip = $null
 $backupCount = 0
+function Assert-SafeDestination([string]$baseRoot, [string]$relativePath) {
+  $baseFull = [System.IO.Path]::GetFullPath($baseRoot)
+  $normalizedRelative = $relativePath.Replace([char]92, [char]47)
+  $targetFull = [System.IO.Path]::GetFullPath((Join-Path $baseFull $normalizedRelative))
+  $basePrefix = $baseFull.TrimEnd([char]92, [char]47) + [System.IO.Path]::DirectorySeparatorChar
+  if (-not $targetFull.StartsWith($basePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Duong dan dich nam ngoai thu muc du lieu: $relativePath"
+  }
+
+  $segments = @($normalizedRelative.Split([char]47))
+  $current = $baseFull
+  for ($i = 0; $i -lt ($segments.Count - 1); $i++) {
+    $segment = $segments[$i]
+    if (-not $segment -or $segment -eq '.' -or $segment -eq '..') {
+      throw "Thanh phan duong dan khong hop le: $relativePath"
+    }
+    $current = Join-Path $current $segment
+    if (Test-Path -LiteralPath $current) {
+      $item = Get-Item -LiteralPath $current -Force
+      if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "Khong cho phep junction/symlink/reparse point trong duong dan restore: $relativePath"
+      }
+    }
+  }
+  return $targetFull
+}
 try {
   New-Item -ItemType Directory -Path $temp -Force | Out-Null
   $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
@@ -334,17 +402,25 @@ try {
       continue
     }
     if ($entryName -match '^([^/]+)/$' -and $folders -contains $Matches[1]) { continue }
-    if ($entryName -notmatch '^(uploads|vehicle-images|maintenance-files)/([^/]+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
+    if ($entryName -notmatch '^(uploads|vehicle-images|maintenance-files)/(.+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
     $folder = $Matches[1]
-    $fileName = $Matches[2]
-    if ($fileName.Contains('..') -or $fileName -eq '.' -or $fileName -eq '..') { throw "Ten file khong hop le: $fileName" }
+    $relativeFilePath = $Matches[2]
+    $pathSegments = @($relativeFilePath.Split([char]47))
+    foreach ($segment in $pathSegments) {
+      if (-not $segment -or $segment -eq '.' -or $segment -eq '..' -or
+          $segment.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars()) -ge 0) {
+        throw "Ten file khong hop le: $relativeFilePath"
+      }
+    }
+    $fileName = $pathSegments[-1]
     if ([System.IO.Path]::GetExtension($fileName).ToLowerInvariant() -notin $extensions) { throw "Dinh dang file khong duoc ho tro: $fileName" }
     $tempFolder = Join-Path $temp $folder
-    New-Item -ItemType Directory -Path $tempFolder -Force | Out-Null
-    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $tempFolder $fileName), $false)
+    $tempFile = Join-Path $tempFolder $relativeFilePath
+    New-Item -ItemType Directory -Path (Split-Path -Parent $tempFile) -Force | Out-Null
+    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $tempFile, $false)
   }
 
-  if ($backupCount -gt 0 -and -not $backupDestination) { throw 'Chua chon noi luu file database .bak.' }
+  if ($restoreDatabase -and $backupCount -ne 1) { throw 'Goi backup khong co dung mot file database .bak.' }
   $manifestPath = Join-Path $temp 'manifest.json'
   if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { throw 'Thieu manifest.json trong goi chuyen may.' }
   $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
@@ -358,7 +434,7 @@ try {
     if (-not $expectedPath -or $expectedPath.Contains('..') -or $expectedPath.StartsWith('/') -or $expectedPath.Contains([char]92)) {
       throw "Duong dan manifest khong hop le: $expectedPath"
     }
-    if ($expectedPath -notmatch '^(uploads|vehicle-images|maintenance-files)/([^/]+)$' -and $expectedPath -notmatch '^database/([^/]+\.bak)$') {
+    if ($expectedPath -notmatch '^(uploads|vehicle-images|maintenance-files)/(.+)$' -and $expectedPath -notmatch '^database/([^/]+\.bak)$') {
       throw "Entry manifest khong duoc ho tro: $expectedPath"
     }
     if ($expectedEntries.ContainsKey($expectedPath)) { throw "Manifest co entry trung lap: $expectedPath" }
@@ -376,13 +452,14 @@ try {
     if ($actualHash -ne ([string]$expected.sha256).ToLowerInvariant()) { throw "Checksum/hash khong khop: $relative" }
   }
 
-  $files = @($payloadFiles | Where-Object { $_.Extension -ne '.bak' })
+  $files = @()
+  if ($restoreFiles) { $files = @($payloadFiles | Where-Object { $_.Extension -ne '.bak' }) }
   $rollbackDir = Join-Path $temp '__rollback'
   $createdTargets = New-Object 'System.Collections.Generic.List[string]'
   try {
     foreach ($file in $files) {
       $relative = $file.FullName.Substring($temp.Length).TrimStart([char]92, [char]47)
-      $target = Join-Path $root $relative
+      $target = Assert-SafeDestination $root $relative
       $targetDir = Split-Path -Parent $target
       New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
       if (Test-Path -LiteralPath $target -PathType Leaf) {
@@ -395,13 +472,13 @@ try {
       Copy-Item -LiteralPath $file.FullName -Destination $target -Force
     }
 
-    if ($backupCount -eq 1) {
+    if ($restoreDatabase) {
       $backupFile = Get-ChildItem -LiteralPath (Join-Path $temp 'database') -Filter '*.bak' -File | Select-Object -First 1
       $backupDir = Split-Path -Parent $backupDestination
       New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
       Copy-Item -LiteralPath $backupFile.FullName -Destination $backupDestination
       Write-Output "DATABASE_BACKUP=$backupDestination"
-    } else {
+    } elseif ($restoreFiles) {
       Write-Output 'DATABASE_BACKUP=NONE'
     }
   } catch {
@@ -411,7 +488,7 @@ try {
     if (Test-Path -LiteralPath $rollbackDir -PathType Container) {
       foreach ($rollbackFile in @(Get-ChildItem -LiteralPath $rollbackDir -File -Recurse)) {
         $relative = $rollbackFile.FullName.Substring($rollbackDir.Length).TrimStart([char]92, [char]47)
-        $target = Join-Path $root $relative
+        $target = Assert-SafeDestination $root $relative
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
         Copy-Item -LiteralPath $rollbackFile.FullName -Destination $target -Force
       }
@@ -436,4 +513,21 @@ try {
   };
 }
 
-module.exports = { exportFiles, importFiles, exportTransferPackage, importTransferPackage };
+function restoreFilesFromTransferPackage(archivePath) {
+  return restoreTransferPackage(archivePath, { restoreFiles: true });
+}
+
+function extractDatabaseBackupFromTransferPackage(archivePath, databaseBackupDestination) {
+  return restoreTransferPackage(archivePath, {
+    restoreDatabase: true,
+    databaseBackupDestination,
+  });
+}
+
+module.exports = {
+  exportFiles,
+  importFiles,
+  exportTransferPackage,
+  restoreFilesFromTransferPackage,
+  extractDatabaseBackupFromTransferPackage,
+};

@@ -264,3 +264,165 @@ test('connection test uses the same named-instance connection builder as startup
   });
 });
 
+test('db config get includes instance name only when it is configured', async () => {
+  await withTempDir('db-config-get-instance-', async (userDataPath) => {
+    fs.writeFileSync(path.join(userDataPath, 'db-config.json'), JSON.stringify({
+      mode: 'sqlserver',
+      server: 'DBHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      password: 'secret',
+    }));
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => true },
+    );
+    ipcModule.register({ setupMode: false });
+
+    const result = await handlers.get('dbconfig:get')();
+
+    assert.equal(result.success, true);
+    assert.equal(result.data.instanceName, 'SQLEXPRESS');
+  });
+});
+
+test('db config get omits instance name for a valid config without one', async () => {
+  await withTempDir('db-config-get-no-instance-', async (userDataPath) => {
+    fs.writeFileSync(path.join(userDataPath, 'db-config.json'), JSON.stringify({
+      mode: 'sqlserver',
+      server: 'DBHOST',
+      port: 1433,
+      database: 'QTCN',
+      user: 'app',
+      password: 'secret',
+    }));
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => true },
+    );
+    ipcModule.register({ setupMode: false });
+
+    const result = await handlers.get('dbconfig:get')();
+
+    assert.equal(result.success, true);
+    assert.equal(Object.hasOwn(result.data, 'instanceName'), false);
+  });
+});
+
+test('connection test reuses the stored password for an unchanged endpoint', async () => {
+  await withTempDir('db-config-test-stored-password-', async (userDataPath) => {
+    fs.writeFileSync(path.join(userDataPath, 'db-config.json'), JSON.stringify({
+      mode: 'sqlserver',
+      server: 'DBHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      password: 'stored-secret',
+    }));
+    let receivedOptions;
+    const sql = {
+      ConnectionPool: class {
+        constructor(options) { receivedOptions = options; }
+        async connect() { return this; }
+        request() { return { query: async () => ({ recordset: [{ version: 'SQL Server' }] }) }; }
+        async close() {}
+      },
+    };
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => false },
+      sql,
+    );
+    ipcModule.register({ setupMode: true });
+
+    const result = await handlers.get('dbconfig:test')(null, {
+      server: 'DBHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      password: '',
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(receivedOptions.password, 'stored-secret');
+  });
+});
+
+test('connection test does not reuse the stored password for a different server', async () => {
+  await withTempDir('db-config-test-foreign-password-', async (userDataPath) => {
+    fs.writeFileSync(path.join(userDataPath, 'db-config.json'), JSON.stringify({
+      mode: 'sqlserver',
+      server: 'DBHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      password: 'stored-secret',
+    }));
+    let receivedOptions;
+    const sql = {
+      ConnectionPool: class {
+        constructor(options) { receivedOptions = options; }
+        async connect() { return this; }
+        request() { return { query: async () => ({ recordset: [{ version: 'SQL Server' }] }) }; }
+        async close() {}
+      },
+    };
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => false },
+      sql,
+    );
+    ipcModule.register({ setupMode: true });
+
+    const result = await handlers.get('dbconfig:test')(null, {
+      server: 'OTHERHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      password: '',
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(receivedOptions.password, '');
+  });
+});
+
+test('saving renderer config clears a stale instance and rejects unapproved keys', async () => {
+  await withTempDir('db-config-set-whitelist-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    fs.writeFileSync(configPath, JSON.stringify({
+      mode: 'sqlserver',
+      server: 'DBHOST',
+      instanceName: 'SQLEXPRESS',
+      database: 'QTCN',
+      user: 'app',
+      password: 'stored-secret',
+      backupDirectory: 'D:\\SqlBackup',
+      futureSetting: { enabled: true },
+    }));
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => true },
+    );
+    ipcModule.register({ setupMode: false });
+
+    const result = await handlers.get('dbconfig:set')(null, {
+      server: 'NEWHOST',
+      port: 1433,
+      database: 'QTCN',
+      user: 'app',
+      backupDirectory: 'C:\\Untrusted',
+      injectedKey: true,
+    });
+    const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+    assert.equal(result.success, true);
+    assert.equal(Object.hasOwn(saved, 'instanceName'), false);
+    assert.equal(saved.backupDirectory, 'D:\\SqlBackup');
+    assert.equal(Object.hasOwn(saved, 'injectedKey'), false);
+    assert.deepEqual(saved.futureSetting, { enabled: true });
+    assert.equal(Object.hasOwn(result.data.config, 'instanceName'), false);
+  });
+});
+

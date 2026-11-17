@@ -76,7 +76,8 @@ const ALLOWED_INVOKE_CHANNELS = [
 
   // File archive (admin only)
   'fileArchive:export',
-  'fileArchive:import',
+  'fileArchive:restoreFiles',
+  'fileArchive:restoreDatabase',
 
   // Vehicle & Engine Maintenance (kiến trúc mới)
   'vehicle:list',

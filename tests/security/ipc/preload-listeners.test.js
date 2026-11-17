@@ -6,12 +6,13 @@ const test = require('node:test');
 function loadPreload() {
   let exposedApi;
   const listeners = new Map();
+  const invoked = [];
   const electron = {
     contextBridge: {
       exposeInMainWorld(_name, api) { exposedApi = api; },
     },
     ipcRenderer: {
-      invoke() {},
+      invoke(channel) { invoked.push(channel); },
       on(channel, listener) {
         if (!listeners.has(channel)) listeners.set(channel, new Set());
         listeners.get(channel).add(listener);
@@ -43,7 +44,7 @@ function loadPreload() {
     else delete require.cache[electronPath];
   }
 
-  return { api: exposedApi, listeners };
+  return { api: exposedApi, listeners, invoked };
 }
 
 test('preload off removes the exact wrapped listener registered by on', () => {
@@ -63,5 +64,15 @@ test('preload rejects invoke and subscriptions outside its allowlists', async ()
   await assert.rejects(api.invoke('shell:exec', 'whoami'), /không được phép/i);
   api.on('shell:exec', () => {});
   assert.equal(listeners.has('shell:exec'), false);
+});
+
+test('preload allows the two separate restore channels and rejects the removed combined channel', async () => {
+  const { api, invoked } = loadPreload();
+
+  await api.invoke('fileArchive:restoreFiles');
+  await api.invoke('fileArchive:restoreDatabase');
+  await assert.rejects(api.invoke('fileArchive:import'), /không được phép/i);
+
+  assert.deepEqual(invoked, ['fileArchive:restoreFiles', 'fileArchive:restoreDatabase']);
 });
 

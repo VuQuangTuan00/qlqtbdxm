@@ -9,6 +9,7 @@ const {
   getMssqlDb,
   closeMssqlDatabase,
   backupMssqlDatabase,
+  restoreMssqlDatabase,
   getMssqlBackupDirectory,
   getDbConfig,
 } = require('./mssql');
@@ -31,6 +32,7 @@ module.exports = {
   getDb,
   closeDatabase,
   backupMssqlDatabase,
+  restoreMssqlDatabase,
   getMssqlBackupDirectory,
   getDbConfig,
 };

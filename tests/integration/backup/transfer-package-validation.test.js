@@ -77,7 +77,7 @@ test('transfer import rejects a package without a manifest before touching userD
     }
     const service = loadArchiveService(userData);
 
-    await assert.rejects(service.importTransferPackage(archive, ''), /manifest/i);
+    await assert.rejects(service.restoreFilesFromTransferPackage(archive), /manifest/i);
     assert.equal(fs.existsSync(path.join(userData, 'vehicle-images', 'test.png')), false);
   });
 });
@@ -109,7 +109,7 @@ test('transfer import rejects a checksum mismatch before touching userData', asy
     }
     const service = loadArchiveService(userData);
 
-    await assert.rejects(service.importTransferPackage(archive, ''), /checksum|hash/i);
+    await assert.rejects(service.restoreFilesFromTransferPackage(archive), /checksum|hash/i);
     assert.equal(fs.existsSync(path.join(userData, 'vehicle-images', 'test.png')), false);
   });
 });
@@ -123,15 +123,22 @@ test('transfer import source contains explicit entry and uncompressed-size quota
   assert.match(source, /maxTotalUncompressedBytes/i);
 });
 
-test('exported transfer package round-trips files and database backup with verified manifest', async (t) => {
+test('exported transfer package omits legacy uploads and supports independent file/database restore', async (t) => {
   if (process.platform !== 'win32') return;
   await withTempDir('archive-roundtrip-', async (root) => {
     const sourceUserData = path.join(root, 'source-profile');
     const destinationUserData = path.join(root, 'destination-profile');
     const imageDir = path.join(sourceUserData, 'vehicle-images');
+    const maintenanceDir = path.join(sourceUserData, 'maintenance-files');
+    const nestedMaintenanceDir = path.join(maintenanceDir, 'manuals');
+    const legacyUploadsDir = path.join(sourceUserData, 'uploads');
     fs.mkdirSync(imageDir, { recursive: true });
+    fs.mkdirSync(maintenanceDir, { recursive: true });
+    fs.mkdirSync(nestedMaintenanceDir, { recursive: true });
+    fs.mkdirSync(legacyUploadsDir, { recursive: true });
     fs.mkdirSync(destinationUserData);
     fs.writeFileSync(path.join(imageDir, 'vehicle.png'), 'image payload');
+    fs.writeFileSync(path.join(nestedMaintenanceDir, 'procedure.pdf'), 'pdf payload');
     const sourceBak = path.join(root, 'source.bak');
     fs.writeFileSync(sourceBak, 'database payload');
     const archive = path.join(root, 'transfer.zip');
@@ -139,12 +146,23 @@ test('exported transfer package round-trips files and database backup with verif
     try {
       await loadArchiveService(sourceUserData).exportTransferPackage(archive, sourceBak, 'QTCN_TEST');
       const destinationBak = path.join(root, 'destination.bak');
-      const result = await loadArchiveService(destinationUserData)
-        .importTransferPackage(archive, destinationBak);
+      const service = loadArchiveService(destinationUserData);
+      const fileResult = await service.restoreFilesFromTransferPackage(archive);
 
       assert.equal(fs.readFileSync(path.join(destinationUserData, 'vehicle-images', 'vehicle.png'), 'utf8'), 'image payload');
+      assert.equal(fs.readFileSync(path.join(destinationUserData, 'maintenance-files', 'manuals', 'procedure.pdf'), 'utf8'), 'pdf payload');
+      assert.equal(fs.existsSync(path.join(destinationUserData, 'uploads', 'legacy.pdf')), false);
+      assert.equal(fs.existsSync(destinationBak), false);
+      assert.equal(fileResult.backupPath, null);
+
+      fs.rmSync(path.join(destinationUserData, 'vehicle-images'), { recursive: true, force: true });
+      fs.rmSync(path.join(destinationUserData, 'maintenance-files'), { recursive: true, force: true });
+      const databaseResult = await service.extractDatabaseBackupFromTransferPackage(archive, destinationBak);
+
       assert.equal(fs.readFileSync(destinationBak, 'utf8'), 'database payload');
-      assert.equal(result.backupPath, destinationBak);
+      assert.equal(databaseResult.backupPath, destinationBak);
+      assert.equal(fs.existsSync(path.join(destinationUserData, 'vehicle-images', 'vehicle.png')), false);
+      assert.equal(fs.existsSync(path.join(destinationUserData, 'maintenance-files', 'manuals', 'procedure.pdf')), false);
     } catch (error) {
       if (/EPERM|operation not permitted/i.test(error.message)) {
         t.skip('PowerShell is blocked by the managed sandbox');
@@ -152,6 +170,24 @@ test('exported transfer package round-trips files and database backup with verif
       }
       throw error;
     }
+  });
+});
+
+test('transfer export refuses to silently omit files that still remain in legacy uploads', async () => {
+  await withTempDir('archive-legacy-uploads-', async (root) => {
+    const userData = path.join(root, 'profile');
+    const legacyDir = path.join(userData, 'uploads');
+    fs.mkdirSync(legacyDir, { recursive: true });
+    fs.writeFileSync(path.join(legacyDir, 'legacy.pdf'), 'legacy payload');
+    const sourceBak = path.join(root, 'source.bak');
+    const destination = path.join(root, 'transfer.zip');
+    fs.writeFileSync(sourceBak, 'database payload');
+
+    await assert.rejects(
+      loadArchiveService(userData).exportTransferPackage(destination, sourceBak, 'QTCN_TEST'),
+      /uploads.*maintenance-files|vehicle-images.*maintenance-files/i,
+    );
+    assert.equal(fs.existsSync(destination), false);
   });
 });
 
@@ -174,8 +210,8 @@ test('transfer import rejects traversal and duplicate ZIP entries', async (t) =>
     }
 
     const service = loadArchiveService(userData);
-    await assert.rejects(service.importTransferPackage(traversalArchive, ''), /đường dẫn|duong dan|khong hop le/i);
-    await assert.rejects(service.importTransferPackage(duplicateArchive, ''), /trung lap|duplicate/i);
+    await assert.rejects(service.restoreFilesFromTransferPackage(traversalArchive), /đường dẫn|duong dan|khong hop le/i);
+    await assert.rejects(service.restoreFilesFromTransferPackage(duplicateArchive), /trung lap|duplicate/i);
     assert.equal(fs.existsSync(path.join(root, 'escape.png')), false);
   });
 });
@@ -214,9 +250,56 @@ test('transfer import rolls back files already copied when a later destination f
       throw error;
     }
 
-    await assert.rejects(loadArchiveService(userData).importTransferPackage(archive, ''));
+    await assert.rejects(loadArchiveService(userData).restoreFilesFromTransferPackage(archive));
     assert.equal(fs.existsSync(path.join(userData, 'uploads', 'first.pdf')), false);
     assert.equal(fs.readFileSync(path.join(userData, 'vehicle-images'), 'utf8'), 'blocking file');
+  });
+});
+
+test('file restore rejects a junction that would escape userData', async (t) => {
+  if (process.platform !== 'win32') return;
+  await withTempDir('archive-junction-', async (root) => {
+    const userData = path.join(root, 'profile');
+    const outside = path.join(root, 'outside');
+    fs.mkdirSync(userData);
+    fs.mkdirSync(outside);
+    try {
+      fs.symlinkSync(outside, path.join(userData, 'vehicle-images'), 'junction');
+    } catch (error) {
+      if (['EPERM', 'EACCES'].includes(error.code)) {
+        t.skip('Junction creation is not permitted in this environment');
+        return;
+      }
+      throw error;
+    }
+
+    const content = 'image payload';
+    const manifest = JSON.stringify({
+      format: 'backup-transfer-package',
+      version: 1,
+      databaseBackup: null,
+      entries: [{
+        path: 'vehicle-images/escape.png',
+        size: Buffer.byteLength(content),
+        sha256: createHash('sha256').update(content).digest('hex'),
+      }],
+    });
+    const archive = path.join(root, 'junction.zip');
+    try {
+      createZipWithEntries(archive, [
+        { name: 'manifest.json', content: manifest },
+        { name: 'vehicle-images/escape.png', content },
+      ]);
+    } catch (error) {
+      if (error.code === 'EPERM') { t.skip('PowerShell is blocked by the managed sandbox'); return; }
+      throw error;
+    }
+
+    await assert.rejects(
+      loadArchiveService(userData).restoreFilesFromTransferPackage(archive),
+      /junction|symlink|reparse/i,
+    );
+    assert.equal(fs.existsSync(path.join(outside, 'escape.png')), false);
   });
 });
 

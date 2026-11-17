@@ -58,11 +58,12 @@ function _loadFileBackupTab() {
         <div class="card-header"><h5 class="card-title">Sao lưu</h5></div>
         <div class="card-body">
           <p class="text-sm text-muted" style="margin-bottom:var(--space-4);">
-            Sao lưu dữ liệu sẽ tạo một file ZIP chứa toàn bộ ảnh, tài liệu và file database .bak. Nhập file ZIP sẽ thay thế toàn bộ ảnh, tài liệu và database bằng nội dung trong file ZIP.
+            Sao lưu tạo một file ZIP chứa hình ảnh xe, file bảo dưỡng và database. Có thể khôi phục file hoặc database riêng biệt từ cùng file ZIP.
           </p>
           <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
             <button class="btn btn-primary" id="btn-export-file-backup">Sao lưu</button>
-            <button class="btn btn-secondary" id="btn-import-file-backup">Nhập File ZIP</button>
+            <button class="btn btn-secondary" id="btn-restore-files">Khôi phục file</button>
+            <button class="btn btn-danger" id="btn-restore-database">Khôi phục database</button>
           </div>
           <div id="file-backup-status" role="status" aria-live="polite" style="display:none;margin-top:var(--space-4);"></div>
         </div>
@@ -71,12 +72,13 @@ function _loadFileBackupTab() {
   `;
 
   const exportButton = el.querySelector('#btn-export-file-backup');
-  const importButton = el.querySelector('#btn-import-file-backup');
+  const restoreFilesButton = el.querySelector('#btn-restore-files');
+  const restoreDatabaseButton = el.querySelector('#btn-restore-database');
+  const actionButtons = [exportButton, restoreFilesButton, restoreDatabaseButton];
   const status = el.querySelector('#file-backup-status');
 
   async function run(button, channel) {
-    exportButton.disabled = true;
-    importButton.disabled = true;
+    actionButtons.forEach((actionButton) => { actionButton.disabled = true; });
     const label = button.textContent;
     button.textContent = 'Đang xử lý...';
     status.style.display = 'none';
@@ -85,7 +87,7 @@ function _loadFileBackupTab() {
       if (result.data?.canceled) return;
       status.className = result.success ? 'alert alert-success' : 'alert alert-danger';
       status.textContent = result.success
-        ? `${result.message || 'Hoàn tất'}${result.data?.path ? `: ${result.data.path}` : ''}${result.data?.databaseBackupPath ? ` | File .bak: ${result.data.databaseBackupPath}. Hãy restore file này bằng SSMS.` : ''}`
+        ? `${result.message || 'Hoàn tất'}${result.data?.path ? `: ${result.data.path}` : ''}${result.data?.safetyBackupPath ? ` | Bản an toàn: ${result.data.safetyBackupPath}` : ''}`
         : result.error;
       status.style.display = '';
     } catch (err) {
@@ -94,20 +96,28 @@ function _loadFileBackupTab() {
       status.style.display = '';
     } finally {
       button.textContent = label;
-      exportButton.disabled = false;
-      importButton.disabled = false;
+      actionButtons.forEach((actionButton) => { actionButton.disabled = false; });
     }
   }
 
   exportButton.addEventListener('click', () => run(exportButton, 'fileArchive:export'));
-  importButton.addEventListener('click', async () => {
+  restoreFilesButton.addEventListener('click', async () => {
     const confirmed = await modal.confirm({
-      title: 'Sao lưu dữ liệu',
-      message: 'Ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP',
-      confirmText: 'Chọn file ZIP',
+      title: 'Khôi phục file',
+      message: 'Hình ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP. Database không bị thay đổi.',
+      confirmText: 'Khôi phục file',
       type: 'warning',
     });
-    if (confirmed) run(importButton, 'fileArchive:import');
+    if (confirmed) run(restoreFilesButton, 'fileArchive:restoreFiles');
+  });
+  restoreDatabaseButton.addEventListener('click', async () => {
+    const confirmed = await modal.confirm({
+      title: 'Khôi phục database',
+      message: 'Database hiện tại sẽ được sao lưu an toàn rồi thay bằng database trong ZIP. Hình ảnh và tài liệu không bị thay đổi. Ứng dụng sẽ khởi động lại khi hoàn tất.',
+      confirmText: 'Khôi phục database',
+      type: 'danger',
+    });
+    if (confirmed) run(restoreDatabaseButton, 'fileArchive:restoreDatabase');
   });
 }
 

@@ -15,6 +15,33 @@ const logger   = require('../utils/logger');
 
 let _setupMode = false;
 
+const ALLOWED = ['server', 'port', 'database', 'user', 'password', 'instanceName'];
+
+function _pick(config) {
+  const out = {};
+  for (const key of ALLOWED) {
+    if (config && config[key] !== undefined) out[key] = config[key];
+  }
+  return out;
+}
+
+function _withStoredPassword(config) {
+  if (!config || config.password) return config;
+
+  let stored;
+  try {
+    stored = _setupMode ? readDbConfigForRecovery() : readDbConfig();
+  } catch (_) {
+    return config;
+  }
+  if (!stored || !stored.password) return config;
+
+  const norm = (value) => String(value ?? '').trim().toLowerCase();
+  const sameEndpoint = ['server', 'port', 'user', 'instanceName']
+    .every((key) => norm(stored[key]) === norm(config[key]));
+  return sameEndpoint ? { ...config, password: stored.password } : config;
+}
+
 function setSetupMode(enabled) {
   _setupMode = enabled === true;
 }
@@ -39,6 +66,7 @@ function register({ setupMode = false } = {}) {
         database: config.database || '',
         user:     config.user || '',
         password: '',
+        ...(config.instanceName ? { instanceName: config.instanceName } : {}),
       });
     } catch (err) {
       logger.error('[DBConfig] Lỗi đọc config:', err);
@@ -51,7 +79,7 @@ function register({ setupMode = false } = {}) {
     try {
       const denied = _authorize();
       if (denied) return denied;
-      const saved = writeDbConfig(config);
+      const saved = writeDbConfig({ instanceName: null, ..._pick(config) });
       logger.info('[DBConfig] Đã lưu cấu hình SQL Server');
       setTimeout(() => {
         app.relaunch();
@@ -62,6 +90,7 @@ function register({ setupMode = false } = {}) {
         port: saved.port,
         database: saved.database,
         user: saved.user,
+        ...(saved.instanceName ? { instanceName: saved.instanceName } : {}),
       } });
     } catch (err) {
       logger.error('[DBConfig] Lỗi lưu config:', err);
@@ -76,7 +105,10 @@ function register({ setupMode = false } = {}) {
     const start = Date.now();
     let pool;
     try {
-      const validated = validateDbConfig({ ...(config || {}), mode: 'sqlserver' });
+      const validated = validateDbConfig({
+        ..._pick(_withStoredPassword(config || {})),
+        mode: 'sqlserver',
+      });
       const connectionOptions = buildMssqlConnectionOptions(validated);
       connectionOptions.pool = { max: 1, min: 0 };
       connectionOptions.requestTimeout = 5000;
@@ -89,9 +121,11 @@ function register({ setupMode = false } = {}) {
       const fullVer  = recordset[0]?.version || '';
       const shortVer = fullVer.split('\n')[0].trim() || 'SQL Server';
 
-      const endpoint = validated.port
-        ? `${validated.server}:${validated.port}`
-        : validated.instanceName ? `${validated.server}\\${validated.instanceName}` : validated.server;
+      const endpoint = connectionOptions.port !== undefined
+        ? `${connectionOptions.server}:${connectionOptions.port}`
+        : connectionOptions.options.instanceName
+          ? `${connectionOptions.server}\\${connectionOptions.options.instanceName}`
+          : connectionOptions.server;
       logger.info(`[DBConfig] Test kết nối thành công: ${endpoint} (${latency}ms)`);
       return response.ok({
         // message: `Kết nối thành công! ${shortVer}`,

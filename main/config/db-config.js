@@ -27,6 +27,7 @@ function validateDbConfig(config) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     throw new Error('Cấu hình SQL Server không hợp lệ');
   }
+  config = { ...config };
   if (config.mode !== 'sqlserver') {
     throw new Error('Chế độ database phải là sqlserver');
   }
@@ -43,7 +44,9 @@ function validateDbConfig(config) {
     config = { ...config, port };
   }
 
-  if (config.instanceName !== undefined &&
+  if (config.instanceName === null || config.instanceName === '') {
+    delete config.instanceName;
+  } else if (config.instanceName !== undefined &&
       (typeof config.instanceName !== 'string' || !config.instanceName.trim())) {
     throw new Error('Tên instance SQL Server không hợp lệ');
   }

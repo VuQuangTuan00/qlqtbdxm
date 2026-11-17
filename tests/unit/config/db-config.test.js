@@ -138,3 +138,50 @@ test('writeDbConfig atomically merges password and unknown settings from the exi
     assert.deepEqual(fs.readdirSync(userDataPath), ['db-config.json']);
   });
 });
+
+test('null and empty instance names are omitted from validated config', async () => {
+  await withTempDir('db-config-empty-instance-', async (userDataPath) => {
+    const { validateDbConfig } = loadConfigModule(userDataPath);
+
+    const withNull = validateDbConfig({ ...validConfig, instanceName: null });
+    const withEmpty = validateDbConfig({ ...validConfig, instanceName: '' });
+
+    assert.equal(Object.hasOwn(withNull, 'instanceName'), false);
+    assert.equal(Object.hasOwn(withEmpty, 'instanceName'), false);
+  });
+});
+
+test('non-string and whitespace-only instance names remain invalid', async () => {
+  await withTempDir('db-config-invalid-instance-', async (userDataPath) => {
+    const { validateDbConfig } = loadConfigModule(userDataPath);
+
+    assert.throws(
+      () => validateDbConfig({ ...validConfig, instanceName: 123 }),
+      /instance SQL Server/i,
+    );
+    assert.throws(
+      () => validateDbConfig({ ...validConfig, instanceName: '   ' }),
+      /instance SQL Server/i,
+    );
+  });
+});
+
+test('writing null instance removes the stored instance without discarding existing extensions', async () => {
+  await withTempDir('db-config-remove-instance-', async (userDataPath) => {
+    const configPath = path.join(userDataPath, 'db-config.json');
+    fs.writeFileSync(configPath, JSON.stringify({
+      ...validConfig,
+      instanceName: 'SQLEXPRESS',
+      backupDirectory: 'D:\\SqlBackup',
+      futureSetting: { enabled: true },
+    }));
+
+    const { writeDbConfig } = loadConfigModule(userDataPath);
+    const saved = writeDbConfig({ instanceName: null });
+
+    assert.equal(Object.hasOwn(saved, 'instanceName'), false);
+    assert.equal(saved.backupDirectory, 'D:\\SqlBackup');
+    assert.deepEqual(saved.futureSetting, { enabled: true });
+    assert.deepEqual(JSON.parse(fs.readFileSync(configPath, 'utf8')), saved);
+  });
+});
