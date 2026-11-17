@@ -20,6 +20,7 @@ function isInside(rootPath, candidatePath) {
 function createPendingFileCleanupService({
   fsModule = fs,
   getUserDataPath = () => app.getPath('userData'),
+  getStorageRoot = () => require('./file-storage.service').getStorageRoot(),
   logger = defaultLogger,
   createId = randomUUID,
 } = {}) {
@@ -27,12 +28,26 @@ function createPendingFileCleanupService({
     return path.join(getUserDataPath(), QUEUE_FILE);
   }
 
-  function isSafeCleanupPath(filePath) {
+  function getAvailableStorageRoot() {
+    try {
+      const root = path.resolve(getStorageRoot());
+      if (!fsModule.existsSync(root) || !fsModule.statSync(root).isDirectory() ||
+          fsModule.lstatSync(root).isSymbolicLink()) {
+        return null;
+      }
+      return root;
+    } catch (error) {
+      logger.warn(`[FileCleanup] Kho file dÃ¹ng chung chÆ°a sáºµn sÃ ng: ${error.message}`);
+      return null;
+    }
+  }
+
+  function isSafeCleanupPath(filePath, storageRoot = getAvailableStorageRoot()) {
     if (typeof filePath !== 'string' || !filePath.trim()) return false;
-    const userData = path.resolve(getUserDataPath());
+    if (!storageRoot) return false;
     const candidate = path.resolve(filePath);
     const allowedRoot = ALLOWED_FOLDERS
-      .map((folder) => path.join(userData, folder))
+      .map((folder) => path.join(storageRoot, folder))
       .find((root) => isInside(root, candidate));
     if (!allowedRoot) return false;
 
@@ -161,11 +176,16 @@ function createPendingFileCleanupService({
     if (!fsModule.existsSync(queuePath)) return { deleted: 0, remaining: 0 };
     const queue = readQueue();
     if (!queue.writable) return { deleted: 0, remaining: 0 };
+    if (!queue.paths.length) return { deleted: 0, remaining: 0 };
+    const storageRoot = getAvailableStorageRoot();
+    if (!storageRoot) {
+      return { deleted: 0, remaining: queue.paths.length };
+    }
     const remaining = [];
     let deleted = 0;
 
     for (const filePath of queue.paths) {
-      if (!isSafeCleanupPath(filePath)) {
+      if (!isSafeCleanupPath(filePath, storageRoot)) {
         logger.warn(`[FileCleanup] Loại đường dẫn queue không an toàn: '${filePath}'`);
         continue;
       }

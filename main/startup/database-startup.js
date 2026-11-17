@@ -7,6 +7,7 @@ function publicDbConfig(config) {
     port: source.port,
     database: source.database || '',
     user: source.user || '',
+    fileStorageRoot: source.fileStorageRoot || '',
   };
 }
 

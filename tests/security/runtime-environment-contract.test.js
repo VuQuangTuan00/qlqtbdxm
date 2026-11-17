@@ -71,3 +71,12 @@ test('database setup screens do not invent endpoints and recover from save failu
     assert.match(source, /btn\.disabled = false/, relativePath);
   }
 });
+
+test('runtime payload storage has no legacy uploads behavior', () => {
+  for (const directory of ['main', 'renderer']) {
+    for (const filePath of collectRuntimeFiles(path.join(root, directory))) {
+      const source = fs.readFileSync(filePath, 'utf8');
+      assert.doesNotMatch(source, /(?:^|[^A-Za-z])uploads(?:[^A-Za-z]|$)/i, path.relative(root, filePath));
+    }
+  }
+});

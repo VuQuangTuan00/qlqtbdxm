@@ -4,13 +4,13 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { randomUUID, createHash } = require('crypto');
+const { createHash } = require('crypto');
 const { promisify } = require('util');
-const { app } = require('electron');
+const fileStorage = require('./file-storage.service');
 
 const execFileAsync = promisify(execFile);
 const BACKUP_FOLDERS = ['vehicle-images', 'maintenance-files'];
-const RESTORE_FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
+const RESTORE_FOLDERS = BACKUP_FOLDERS;
 const EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx'];
 const ARCHIVE_MAX_ENTRIES = 10000;
 const ARCHIVE_MAX_ENTRY_BYTES = 5 * 1024 * 1024 * 1024;
@@ -54,13 +54,24 @@ function listFilesRecursive(rootPath) {
   return files;
 }
 
-function assertLegacyUploadsEmpty(rootPath) {
-  const legacyFiles = listFilesRecursive(path.join(rootPath, 'uploads'));
-  if (legacyFiles.length > 0) {
-    throw new Error(
-      `Thư mục uploads còn ${legacyFiles.length} file legacy nên chưa thể tạo backup an toàn. ` +
-      'Hãy chuyển ảnh vào vehicle-images và tài liệu vào maintenance-files, sau đó sao lưu lại.'
-    );
+function copyDirectorySnapshot(sourcePath, destinationPath) {
+  if (!fs.existsSync(sourcePath)) return;
+  const sourceStat = fs.lstatSync(sourcePath);
+  if (sourceStat.isSymbolicLink() || !sourceStat.isDirectory()) {
+    throw new Error(`Thư mục nguồn backup không hợp lệ: ${sourcePath}`);
+  }
+
+  fs.mkdirSync(destinationPath, { recursive: true });
+  for (const entry of fs.readdirSync(sourcePath, { withFileTypes: true })) {
+    const source = path.join(sourcePath, entry.name);
+    const destination = path.join(destinationPath, entry.name);
+    const stat = fs.lstatSync(source);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`Không cho phép symlink hoặc junction trong dữ liệu backup: ${source}`);
+    }
+    if (stat.isDirectory()) copyDirectorySnapshot(source, destination);
+    else if (stat.isFile()) fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+    else throw new Error(`Loại file không được hỗ trợ trong dữ liệu backup: ${source}`);
   }
 }
 
@@ -112,19 +123,17 @@ async function runPowerShell(script) {
 }
 
 async function exportFiles(destinationPath) {
-  const root = app.getPath('userData');
+  const root = fileStorage.getStorageRoot();
   const destination = path.resolve(destinationPath);
   if (path.extname(destination).toLowerCase() !== '.zip') {
     throw new Error('File sao lưu phải có đuôi .zip.');
   }
   if (isPathInside(root, destination)) {
-    throw new Error('Không thể lưu ZIP bên trong thư mục dữ liệu ứng dụng.');
+    throw new Error('Không thể lưu ZIP bên trong kho file dùng chung.');
   }
   if (fs.existsSync(destination)) {
     throw new Error('File ZIP đã tồn tại. Hãy chọn tên khác để tránh ghi đè.');
   }
-  assertLegacyUploadsEmpty(root);
-
   const script = `
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
@@ -165,7 +174,7 @@ async function importFiles(archivePath) {
     throw new Error('Chỉ chấp nhận file .zip.');
   }
 
-  const root = app.getPath('userData');
+  const root = fileStorage.getStorageRoot();
   const script = `
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
@@ -183,7 +192,7 @@ try {
   foreach ($entry in $zip.Entries) {
     $entryName = $entry.FullName.Replace([char]92, [char]47)
     if ($entryName -match '^([^/]+)/$' -and $folders -contains $Matches[1]) { continue }
-    if ($entryName -notmatch '^(uploads|vehicle-images|maintenance-files)/([^/]+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
+    if ($entryName -notmatch '^(vehicle-images|maintenance-files)/([^/]+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
     $folder = $Matches[1]
     $fileName = $Matches[2]
     if ($fileName.Contains('..') -or $fileName -eq '.' -or $fileName -eq '..') { throw "Ten file khong hop le: $fileName" }
@@ -230,7 +239,7 @@ Write-Output 'Da nhap ZIP backup.'
 }
 
 async function exportTransferPackage(destinationPath, databaseBackupPath, databaseName) {
-  const root = app.getPath('userData');
+  const storageRoot = fileStorage.getStorageRoot();
   const destination = path.resolve(destinationPath);
   const backupPath = path.resolve(databaseBackupPath);
   if (path.extname(destination).toLowerCase() !== '.zip') {
@@ -242,28 +251,33 @@ async function exportTransferPackage(destinationPath, databaseBackupPath, databa
   if (fs.existsSync(destination)) {
     throw new Error('File ZIP đã tồn tại. Hãy chọn tên khác để tránh ghi đè.');
   }
-  if (isPathInside(root, destination)) {
-    throw new Error('Không thể lưu ZIP bên trong thư mục dữ liệu ứng dụng.');
+  if (isPathInside(storageRoot, destination)) {
+    throw new Error('Không thể lưu ZIP bên trong kho file dùng chung.');
   }
-  assertLegacyUploadsEmpty(root);
 
   const safeDatabaseName = String(databaseName || 'database').replace(/[<>:"/\\|?*]/g, '_');
   const backupFileName = `${safeDatabaseName}.bak`;
   const backupEntry = `database/${backupFileName}`;
-  const manifest = {
-    format: 'backup-transfer-package',
-    version: 1,
-    createdAt: new Date().toISOString(),
-    database: databaseName,
-    databaseBackup: backupEntry,
-    fileFolders: BACKUP_FOLDERS,
-    entries: await buildManifestEntries(root, backupPath, backupEntry),
-  };
   const manifestDir = fs.mkdtempSync(path.join(os.tmpdir(), 'backup-transfer-package-'));
+  const root = path.join(manifestDir, 'files');
   const manifestPath = path.join(manifestDir, 'manifest.json');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+  try {
+    fs.mkdirSync(root, { recursive: true });
+    for (const folder of BACKUP_FOLDERS) {
+      copyDirectorySnapshot(path.join(storageRoot, folder), path.join(root, folder));
+    }
+    const manifest = {
+      format: 'backup-transfer-package',
+      version: 1,
+      createdAt: new Date().toISOString(),
+      database: databaseName,
+      databaseBackup: backupEntry,
+      fileFolders: BACKUP_FOLDERS,
+      entries: await buildManifestEntries(root, backupPath, backupEntry),
+    };
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
 
-  const script = `
+    const script = `
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -290,7 +304,6 @@ try {
 Write-Output 'Da tao goi chuyen may.'
 `;
 
-  try {
     await runPowerShell(script);
     return destination;
   } catch (err) {
@@ -310,7 +323,6 @@ async function restoreTransferPackage(archivePath, options = {}) {
     throw new Error('Chỉ chấp nhận file .zip.');
   }
 
-  const root = app.getPath('userData');
   const restoreFiles = options.restoreFiles === true;
   const restoreDatabase = options.restoreDatabase === true;
   if (restoreFiles === restoreDatabase) {
@@ -325,6 +337,7 @@ async function restoreTransferPackage(archivePath, options = {}) {
   if (backupDestination && fs.existsSync(backupDestination)) {
     throw new Error('File .bak đích đã tồn tại. Hãy chọn tên khác.');
   }
+  const root = restoreFiles ? fileStorage.getStorageRoot() : '';
 
   const script = `
 $ErrorActionPreference = 'Stop'
@@ -402,7 +415,7 @@ try {
       continue
     }
     if ($entryName -match '^([^/]+)/$' -and $folders -contains $Matches[1]) { continue }
-    if ($entryName -notmatch '^(uploads|vehicle-images|maintenance-files)/(.+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
+    if ($entryName -notmatch '^(vehicle-images|maintenance-files)/(.+)$') { throw "Duong dan trong ZIP khong hop le: $entryName" }
     $folder = $Matches[1]
     $relativeFilePath = $Matches[2]
     $pathSegments = @($relativeFilePath.Split([char]47))
@@ -434,7 +447,7 @@ try {
     if (-not $expectedPath -or $expectedPath.Contains('..') -or $expectedPath.StartsWith('/') -or $expectedPath.Contains([char]92)) {
       throw "Duong dan manifest khong hop le: $expectedPath"
     }
-    if ($expectedPath -notmatch '^(uploads|vehicle-images|maintenance-files)/(.+)$' -and $expectedPath -notmatch '^database/([^/]+\.bak)$') {
+    if ($expectedPath -notmatch '^(vehicle-images|maintenance-files)/(.+)$' -and $expectedPath -notmatch '^database/([^/]+\.bak)$') {
       throw "Entry manifest khong duoc ho tro: $expectedPath"
     }
     if ($expectedEntries.ContainsKey($expectedPath)) { throw "Manifest co entry trung lap: $expectedPath" }

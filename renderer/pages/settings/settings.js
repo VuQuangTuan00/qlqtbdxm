@@ -524,6 +524,12 @@ async function _loadDbConfigTab() {
             <label class="form-label required">Tên database</label>
             <input type="text" class="form-control" id="db-name" placeholder="QTCN" />
           </div>
+          <div class="form-group">
+            <label class="form-label required">Thư mục file dùng chung (UNC)</label>
+            <input type="text" class="form-control" id="db-file-storage-root"
+                   placeholder="\\\\MAY-CHU\\QTCN-Files" />
+            <div class="form-hint">Tất cả máy trong LAN phải có quyền đọc, ghi và xóa tại thư mục này.</div>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label required">Tên đăng nhập (SQL Auth)</label>
@@ -552,6 +558,7 @@ async function _loadDbConfigTab() {
     document.getElementById('db-port').value   = c.port   || 1433;
     document.getElementById('db-name').value   = c.database || '';
     document.getElementById('db-user').value   = c.user   || '';
+    document.getElementById('db-file-storage-root').value = c.fileStorageRoot || '';
   }
 
   function _getFormConfig() {
@@ -561,6 +568,7 @@ async function _loadDbConfigTab() {
       database: document.getElementById('db-name').value.trim(),
       user:     document.getElementById('db-user').value.trim(),
       password: document.getElementById('db-password').value,
+      fileStorageRoot: document.getElementById('db-file-storage-root').value.trim(),
     };
   }
 
@@ -583,8 +591,11 @@ async function _loadDbConfigTab() {
 
   document.getElementById('btn-save-db').addEventListener('click', async () => {
     const config = _getFormConfig();
-    if (!config.server || !config.database || !config.user) {
-      toast.warning('Thiếu thông tin', 'Vui lòng điền đầy đủ Server, Database và Tên đăng nhập');
+    if (!config.server || !config.database || !config.user || !config.fileStorageRoot) {
+      toast.warning(
+        'Thiếu thông tin',
+        'Vui lòng điền đầy đủ Server, Database, Tên đăng nhập và thư mục file dùng chung',
+      );
       return;
     }
     const confirmed = await modal.confirm({

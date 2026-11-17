@@ -7,9 +7,9 @@
 function _isAdmin() { return store.hasRole('admin'); }
 
 
-function _imgSrc(imgPath) {
-  if (!imgPath) return null;
-  return 'file:///' + imgPath.replace(/\\/g, '/');
+function _imgSrc(imgUrl) {
+  if (typeof imgUrl !== 'string' || !/^file:/i.test(imgUrl)) return null;
+  return imgUrl;
 }
 
 function _wireImgFallbacks(container) {
@@ -169,7 +169,7 @@ async function _loadVehicleGrid() {
 }
 
 function _renderVehicleCard(v) {
-  const src = _imgSrc(v.img_path);
+  const src = _imgSrc(v.img_url);
   const img = src
     ? `<img src="${src}" alt="${v.vehicle_name}" data-has-fallback
            class="vehicle-card-image" />
@@ -259,7 +259,7 @@ async function renderVehicleDetail(container, params) {
 }
 
 function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, onTabChange, onEditToggle, onRefresh) {
-  const src = _imgSrc(v.img_path);
+  const src = _imgSrc(v.img_url);
   const img = src
     ? `<img src="${src}" alt="${v.vehicle_name}" data-has-fallback
            class="vehicle-detail-image" />
@@ -778,8 +778,8 @@ function openVehicleForm(v, onSave) {
           border:2px dashed var(--border-color-dark);border-radius:var(--border-radius-sm);
           display:flex;align-items:center;justify-content:center;
           background:var(--bg-table-header);overflow:hidden;cursor:pointer;">
-          ${v?.img_path
-            ? `<img src="${_imgSrc(v.img_path)}" data-image-preview style="width:100%;height:100%;object-fit:cover;" />`
+          ${v?.img_url
+            ? `<img src="${_imgSrc(v.img_url)}" data-image-preview style="width:100%;height:100%;object-fit:cover;" />`
             : `<span class="image-placeholder"><svg aria-hidden="true" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m4 17 5-4 3 3 3-2 5 4"/></svg></span>`}
         </div>
         <div style="flex:1;">

@@ -35,6 +35,13 @@ test('shared SQL setup screen distinguishes first-run from recovery', () => {
   assert.match(source, /dbconfig:test/);
   assert.match(source, /dbconfig:set/);
   assert.match(source, /if \(!res\.success\)/);
+  assert.match(source, /id="dbs-file-storage-root"/);
+  assert.match(source, /fileStorageRoot:/);
+  assert.match(source, /Thư mục file dùng chung \(UNC\)/);
+
+  const settingsSource = read('renderer/pages/settings/settings.js');
+  assert.match(settingsSource, /id="db-file-storage-root"/);
+  assert.match(settingsSource, /fileStorageRoot:/);
 });
 
 test('recovery values are assigned as DOM properties instead of interpolated markup', () => {
@@ -75,7 +82,13 @@ test('recovery values are assigned as DOM properties instead of interpolated mar
   setupHandler({
     mode: 'recovery',
     error: unsafe,
-    config: { server: unsafe, port: 1433, database: unsafe, user: unsafe },
+    config: {
+      server: unsafe,
+      port: 1433,
+      database: unsafe,
+      user: unsafe,
+      fileStorageRoot: unsafe,
+    },
   });
 
   assert.doesNotMatch(overlay.innerHTML, /onerror=alert/);
@@ -84,4 +97,5 @@ test('recovery values are assigned as DOM properties instead of interpolated mar
   assert.equal(element('dbs-port').value, '1433');
   assert.equal(element('dbs-db').value, unsafe);
   assert.equal(element('dbs-user').value, unsafe);
+  assert.equal(element('dbs-file-storage-root').value, unsafe);
 });

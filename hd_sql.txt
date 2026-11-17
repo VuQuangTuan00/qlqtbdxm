@@ -39,3 +39,52 @@ CREATE USER qtcn FOR LOGIN qtcn;
 ALTER ROLE db_datareader ADD MEMBER qtcn;
 ALTER ROLE db_datawriter ADD MEMBER qtcn;
 ALTER ROLE db_ddladmin  ADD MEMBER qtcn;
+
+
+**** cap quyen cho folder
+
++ 
+Nhấp chuột phải vào D:\QTCN-Files:
+1. Chọn Properties.
+2. Chọn tab Sharing.
+3. Chọn Advanced Sharing....
+4. Đánh dấu Share this folder.
+5. Nhập Share name:
+QTCN-Files
+6. Nhấn Permissions.
+7. Thêm tài khoản hoặc nhóm người dùng được phép sử dụng ứng dụng.
+8. Cấp tối thiểu:
+Read
+Change
+Quyền Change cần thiết để ứng dụng thêm, sửa và xóa file.
+
++
+Cấp quyền tại tab Security
+Trong cửa sổ Properties của D:\QTCN-Files:
+1. Chọn tab Security.
+2. Nhấn Edit → Add.
+3. Thêm cùng tài khoản hoặc nhóm đã cấp trong phần Sharing.
+4. Cấp quyền:
+Modify
+Read & execute
+List folder contents
+Read
+Write
+Quyền Modify cho phép ứng dụng xóa ảnh/PDF cũ khi người dùng cập nhật dữ liệu.
+Cần cấp quyền ở cả hai nơi:
+- Tab Sharing.
+- Tab Security.
+
++
+Bật chia sẻ mạng trên máy chủ
+Trên DESKTOP-SEPTJA2:
+1. Mở Control Panel → Network and Sharing Center.
+2. Chọn Change advanced sharing settings.
+3. Bật:
+Turn on network discovery
+Turn on file and printer sharing
+4. Trong Windows Firewall, cho phép:
+File and Printer Sharing
+Network Discovery
+Mạng Windows nên được đặt là Private network.
+

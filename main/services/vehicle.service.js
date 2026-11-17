@@ -2,7 +2,8 @@
 
 const path = require('path');
 const fs   = require('fs');
-const { app, shell } = require('electron');
+const { randomUUID } = require('crypto');
+const { shell } = require('electron');
 
 const vehicleRepo      = require('../repositories/vehicle.repository');
 const engineRepo       = require('../repositories/engine-maintenance.repository');
@@ -11,83 +12,49 @@ const { getDb } = require('../database/index');
 const { ok, fail }      = require('../utils/response');
 const logger       = require('../utils/logger');
 const { deleteOrQueue } = require('./pending-file-cleanup.service');
+const fileStorage = require('./file-storage.service');
 
-const FILE_FOLDERS = ['uploads', 'vehicle-images', 'maintenance-files'];
 const FILE_TABS = ['tech_process', 'norm_ktkt'];
 const MAX_PDF_SIZE = 50 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 // ── Helpers file ────────────────────────────────────────────────
 
-function _ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
-  return dirPath;
-}
-
 function _vehicleImgDir() {
-  return _ensureDir(path.join(app.getPath('userData'), 'vehicle-images'));
+  return fileStorage.ensureFolder('vehicle-images');
 }
 
 function _pdfDir() {
-  return _ensureDir(path.join(app.getPath('userData'), 'maintenance-files'));
+  return fileStorage.ensureFolder('maintenance-files');
 }
 
-function _saveFile(dir, originalName, buffer) {
+function _saveFile(dir, originalName, buffer, expectedFolder) {
   const ext  = path.extname(originalName) || '';
   const base = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_\-]/g, '_');
-  const fname = `${base}_${Date.now()}${ext}`;
+  const fname = `${base || 'file'}_${Date.now()}_${randomUUID()}${ext.toLowerCase()}`;
   const fpath = path.join(dir, fname);
-  fs.writeFileSync(fpath, buffer);
-  return { name: fname, filePath: fpath };
+  const storedPath = fileStorage.toStoredPath(fpath, expectedFolder);
+  fs.writeFileSync(fpath, buffer, { flag: 'wx' });
+  return { name: fname, filePath: fpath, storedPath };
 }
 
-function _deleteFile(filePath) {
-  const abs = _resolveFilePath(filePath);
-  return abs ? deleteOrQueue(abs) : false;
+function _deleteAbsoluteFile(filePath) {
+  return filePath ? deleteOrQueue(filePath) : false;
 }
 
-function _isInside(rootPath, candidatePath) {
-  const relative = path.relative(rootPath, candidatePath);
-  return relative !== '' && !relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative);
-}
-
-function _isAllowedFilePath(candidatePath) {
-  const userDataPath = path.resolve(app.getPath('userData'));
-  const absoluteCandidate = path.resolve(candidatePath);
-  const allowedRoots = FILE_FOLDERS.map((folder) => path.resolve(userDataPath, folder));
-  const lexicalRoot = allowedRoots.find((rootPath) => _isInside(rootPath, absoluteCandidate));
-  if (!lexicalRoot) return false;
-
-  // Chặn symlink/junction nằm trong userData nhưng trỏ ra ngoài.
-  if (fs.existsSync(absoluteCandidate)) {
-    const realCandidate = fs.realpathSync(absoluteCandidate);
-    const realRoot = fs.existsSync(lexicalRoot) ? fs.realpathSync(lexicalRoot) : lexicalRoot;
-    return _isInside(realRoot, realCandidate);
+function _resolveStoredPath(storedPath, expectedFolder, options) {
+  if (!storedPath) return null;
+  try {
+    return fileStorage.resolveStoredPath(storedPath, expectedFolder, options);
+  } catch (error) {
+    logger.warn(`[Vehicle] Rejected file path '${storedPath}': ${error.message}`);
+    return null;
   }
-  return true;
 }
 
-function _resolveFilePath(p, fallbackFolder) {
-  if (!p) return null;
-  const userDataPath = app.getPath('userData');
-  const normalizedPath = p.replace(/[\\/]/g, path.sep);
-  const storedPath = path.resolve(path.isAbsolute(normalizedPath)
-    ? normalizedPath
-    : path.join(userDataPath, normalizedPath));
-  if (_isAllowedFilePath(storedPath) && (fs.existsSync(storedPath) || !fallbackFolder)) {
-    return storedPath;
-  }
-
-  const fileName = path.basename(normalizedPath);
-  const candidatePaths = [
-    path.join(userDataPath, 'uploads', fileName),
-    path.join(userDataPath, fallbackFolder, fileName),
-  ];
-  const fallback = candidatePaths.find((candidate) =>
-    _isAllowedFilePath(candidate) && fs.existsSync(candidate)
-  );
-  if (fallback) return fallback;
-  return _isAllowedFilePath(storedPath) ? storedPath : null;
+function _deleteStoredFile(storedPath, expectedFolder) {
+  const absolutePath = _resolveStoredPath(storedPath, expectedFolder, { mustExist: false });
+  return absolutePath ? deleteOrQueue(absolutePath) : false;
 }
 
 function _validTab(tab) {
@@ -131,13 +98,10 @@ function _validateImage(fileName, buffer) {
   return signatureMatches ? null : 'Nội dung file không đúng định dạng ảnh';
 }
 
-function _storePath(absolutePath) {
-  return absolutePath || null;
-}
-
 function _resolveVehicle(v) {
-  if (v && v.img_path) v.img_path = _resolveFilePath(v.img_path, 'vehicle-images');
-  return v;
+  if (!v) return v;
+  const resolved = v.img_path ? _resolveStoredPath(v.img_path, 'vehicle-images') : null;
+  return { ...v, img_url: resolved ? fileStorage.toFileUrl(resolved) : null };
 }
 
 // ── Vehicle CRUD ────────────────────────────────────────────────
@@ -164,9 +128,9 @@ async function createVehicle(data, userId) {
     const buf   = Buffer.from(img_buffer);
     const validationError = _validateImage(img_name, buf);
     if (validationError) return fail(validationError);
-    const saved = _saveFile(_vehicleImgDir(), img_name, buf);
+    const saved = _saveFile(_vehicleImgDir(), img_name, buf, 'vehicle-images');
     savedImgName = saved.name;
-    savedImgPath = _storePath(saved.filePath);
+    savedImgPath = saved.storedPath;
   }
 
   let v;
@@ -178,7 +142,7 @@ async function createVehicle(data, userId) {
       is_active:    true,
     });
   } catch (error) {
-    _deleteFile(savedImgPath);
+    _deleteStoredFile(savedImgPath, 'vehicle-images');
     throw error;
   }
 
@@ -209,20 +173,20 @@ async function updateVehicle(id, data, userId) {
     const buf   = Buffer.from(img_buffer);
     const validationError = _validateImage(img_name, buf);
     if (validationError) return fail(validationError);
-    const saved = _saveFile(_vehicleImgDir(), img_name, buf);
+    const saved = _saveFile(_vehicleImgDir(), img_name, buf, 'vehicle-images');
     replacementPath = saved.filePath;
     oldPathToDelete = existing.img_path;
     updateData.img_name = saved.name;
-    updateData.img_path = _storePath(saved.filePath);
+    updateData.img_path = saved.storedPath;
   }
 
   try {
     await vehicleRepo.update(id, updateData);
   } catch (error) {
-    _deleteFile(replacementPath);
+    _deleteAbsoluteFile(replacementPath);
     throw error;
   }
-  _deleteFile(oldPathToDelete);
+  _deleteStoredFile(oldPathToDelete, 'vehicle-images');
   await _audit(userId, 'update', 'vehicle', id);
   return ok(_resolveVehicle(await vehicleRepo.findByIdFull(id)), 'Cập nhật thành công');
 }
@@ -241,10 +205,10 @@ async function deleteVehicle(id, userId) {
   const items = await engineRepo.findByVehicle(id);
   await vehicleRepo.delete(id);
   for (const item of items) {
-    _deleteFile(item.tech_process_file_path);
-    _deleteFile(item.norm_ktkt_file_path);
+    _deleteStoredFile(item.tech_process_file_path, 'maintenance-files');
+    _deleteStoredFile(item.norm_ktkt_file_path, 'maintenance-files');
   }
-  _deleteFile(v.img_path);
+  _deleteStoredFile(v.img_path, 'vehicle-images');
   await _audit(userId, 'delete', 'vehicle', id);
   return ok(null, 'Xóa loại xe thành công');
 }
@@ -285,8 +249,8 @@ async function deleteMaintenance(id, userId) {
   const item = await engineRepo.findById(id);
   if (!item) return fail('Không tìm thấy hạng mục');
   await engineRepo.delete(id);
-  _deleteFile(item.tech_process_file_path);
-  _deleteFile(item.norm_ktkt_file_path);
+  _deleteStoredFile(item.tech_process_file_path, 'maintenance-files');
+  _deleteStoredFile(item.norm_ktkt_file_path, 'maintenance-files');
   return ok(null, 'Xóa hạng mục thành công');
 }
 
@@ -311,8 +275,8 @@ async function uploadFile(id, tab, fileData, userId) {
   const validationError = _validatePdf(file_name, buf);
   if (validationError) return fail(validationError);
 
-  const saved = _saveFile(_pdfDir(), file_name, buf);
-  const storedPath = _storePath(saved.filePath);
+  const saved = _saveFile(_pdfDir(), file_name, buf, 'maintenance-files');
+  const storedPath = saved.storedPath;
 
   const updateData = tab === 'tech_process'
     ? { tech_process_file_name: saved.name, tech_process_file_path: storedPath }
@@ -321,10 +285,10 @@ async function uploadFile(id, tab, fileData, userId) {
   try {
     await engineRepo.update(id, updateData);
   } catch (error) {
-    _deleteFile(saved.filePath);
+    _deleteAbsoluteFile(saved.filePath);
     throw error;
   }
-  _deleteFile(oldPath);
+  _deleteStoredFile(oldPath, 'maintenance-files');
   return ok({ file_name: saved.name }, 'Upload thành công');
 }
 
@@ -334,7 +298,9 @@ async function deleteFile(id, tab, userId) {
   if (!item) return fail('Không tìm thấy hạng mục');
 
   const filePath = tab === 'tech_process' ? item.tech_process_file_path : item.norm_ktkt_file_path;
-  const resolvedPath = filePath ? _resolveFilePath(filePath, 'maintenance-files') : null;
+  const resolvedPath = filePath
+    ? _resolveStoredPath(filePath, 'maintenance-files', { mustExist: false })
+    : null;
   if (filePath && !resolvedPath) return fail('Đường dẫn file không hợp lệ');
 
   const updateData = tab === 'tech_process'
@@ -342,7 +308,7 @@ async function deleteFile(id, tab, userId) {
     : { norm_ktkt_file_name: null, norm_ktkt_file_path: null };
 
   await engineRepo.update(id, updateData);
-  _deleteFile(resolvedPath);
+  _deleteAbsoluteFile(resolvedPath);
   return ok(null, 'Đã xóa file');
 }
 
@@ -355,7 +321,7 @@ async function readFile(id, tab) {
   const fileName = tab === 'tech_process' ? item.tech_process_file_name : item.norm_ktkt_file_name;
 
   if (!filePath) return fail('Chưa có file');
-  const absPath = _resolveFilePath(filePath, 'maintenance-files');
+  const absPath = _resolveStoredPath(filePath, 'maintenance-files');
   if (!absPath || !fs.existsSync(absPath)) return fail('File không tồn tại trên đĩa hoặc đường dẫn không hợp lệ');
 
   const buffer = fs.readFileSync(absPath);
@@ -370,8 +336,8 @@ async function openFile(id, tab) {
   const filePath = tab === 'tech_process' ? item.tech_process_file_path : item.norm_ktkt_file_path;
   if (!filePath) return fail('Chưa có file');
 
-  const absPath = _resolveFilePath(filePath, 'maintenance-files');
-  if (!absPath || !fs.existsSync(absPath)) return fail('File không tồn tại trong uploads hoặc maintenance-files');
+  const absPath = _resolveStoredPath(filePath, 'maintenance-files');
+  if (!absPath || !fs.existsSync(absPath)) return fail('File không tồn tại trong kho file dùng chung');
 
   const openError = await shell.openPath(absPath);
   return openError ? fail(`Không mở được file: ${openError}`) : ok(null, 'Đã mở file bằng ứng dụng mặc định');

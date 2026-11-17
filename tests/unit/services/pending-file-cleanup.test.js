@@ -9,11 +9,15 @@ const {
   createPendingFileCleanupService,
 } = require('../../../main/services/pending-file-cleanup.service');
 
-function createService(userDataPath, { unlinkSync, fsModule = Object.create(fs) } = {}) {
+function createService(
+  userDataPath,
+  { unlinkSync, fsModule = Object.create(fs), storageRoot = userDataPath, getStorageRoot } = {},
+) {
   if (unlinkSync) fsModule.unlinkSync = unlinkSync;
   return createPendingFileCleanupService({
     fsModule,
     getUserDataPath: () => userDataPath,
+    getStorageRoot: getStorageRoot || (() => storageRoot),
     logger: { info() {}, warn() {}, error() {} },
     createId: () => 'test-id',
   });
@@ -147,5 +151,48 @@ test('a malformed queue remains byte-for-byte intact when quarantine fails', asy
     assert.deepEqual(service.processPendingCleanup(), { deleted: 0, remaining: 0 });
     assert.deepEqual(fs.readFileSync(queuePath), original);
     assert.deepEqual(fs.readdirSync(userData), ['pending-file-cleanup.json']);
+  });
+});
+
+test('cleanup queue stays local while deleting files from a separate shared root', async () => {
+  await withTempDir('cleanup-shared-root-', async (root) => {
+    const userData = path.join(root, 'profile');
+    const storageRoot = path.join(root, 'shared');
+    const imageDir = path.join(storageRoot, 'vehicle-images');
+    fs.mkdirSync(userData);
+    fs.mkdirSync(imageDir, { recursive: true });
+    const imagePath = path.join(imageDir, 'old.png');
+    fs.writeFileSync(imagePath, 'old image');
+    const service = createService(userData, { storageRoot });
+
+    assert.equal(service.deleteOrQueue(imagePath), true);
+    assert.equal(fs.existsSync(imagePath), false);
+    assert.equal(service.getCleanupQueuePath(), path.join(userData, 'pending-file-cleanup.json'));
+  });
+});
+
+test('retry preserves queued shared files when the storage root is unavailable', async () => {
+  await withTempDir('cleanup-unavailable-root-', async (root) => {
+    const userData = path.join(root, 'profile');
+    const storageRoot = path.join(root, 'shared');
+    const pdfDir = path.join(storageRoot, 'maintenance-files');
+    fs.mkdirSync(userData);
+    fs.mkdirSync(pdfDir, { recursive: true });
+    const pdfPath = path.join(pdfDir, 'old.pdf');
+    fs.writeFileSync(pdfPath, 'old pdf');
+    const service = createService(userData, {
+      getStorageRoot() { throw new Error('network share unavailable'); },
+    });
+    fs.writeFileSync(
+      service.getCleanupQueuePath(),
+      JSON.stringify({ version: 1, paths: [path.resolve(pdfPath)] }),
+      'utf8',
+    );
+
+    assert.deepEqual(service.processPendingCleanup(), { deleted: 0, remaining: 1 });
+    assert.deepEqual(
+      JSON.parse(fs.readFileSync(service.getCleanupQueuePath(), 'utf8')),
+      { version: 1, paths: [path.resolve(pdfPath)] },
+    );
   });
 });

@@ -7,6 +7,7 @@ const { randomUUID } = require('crypto');
 const authService = require('../services/auth.service');
 const archiveService = require('../services/file-archive.service');
 const { processPendingCleanup } = require('../services/pending-file-cleanup.service');
+const fileStorage = require('../services/file-storage.service');
 const {
   backupMssqlDatabase,
   restoreMssqlDatabase,
@@ -57,6 +58,9 @@ function register() {
         );
       }
 
+      const storageRoot = fileStorage.getStorageRoot();
+      fileStorage.testReadWriteAccess(storageRoot);
+
       const config = getDbConfig();
       const safeDatabase = String(config.database || 'database').replace(/[<>:"/\\|?*]/g, '_');
       const backupDirectory = await getMssqlBackupDirectory();
@@ -83,7 +87,7 @@ function register() {
     } catch (err) {
       logger.error('[FileArchive] Transfer export failed:', err);
       (err.precedingErrors || []).forEach(e => console.error(' ->', e.message))
-      return fail(`Không thể sao lưu. Kiểm tra quyền BACKUP DATABASE và quyền ghi của dịch vụ SQL Server vào thư mục backup. Chi tiết: ${err.message}`);
+      return fail(`Không thể sao lưu. Kiểm tra quyền kho file dùng chung, quyền BACKUP DATABASE và quyền ghi của dịch vụ SQL Server vào thư mục backup. Chi tiết: ${err.message}`);
     }
   });
 

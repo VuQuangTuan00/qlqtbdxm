@@ -9,13 +9,16 @@ const {
   validateDbConfig,
 } = require('../config/db-config');
 const { buildMssqlConnectionOptions } = require('../database/mssql');
+const { testReadWriteAccess } = require('../services/file-storage.service');
 const authService = require('../services/auth.service');
 const response = require('../utils/response');
 const logger   = require('../utils/logger');
 
 let _setupMode = false;
 
-const ALLOWED = ['server', 'port', 'database', 'user', 'password', 'instanceName'];
+const ALLOWED = [
+  'server', 'port', 'database', 'user', 'password', 'instanceName', 'fileStorageRoot',
+];
 
 function _pick(config) {
   const out = {};
@@ -67,6 +70,7 @@ function register({ setupMode = false } = {}) {
         database: config.database || '',
         user:     config.user || '',
         password: '',
+        fileStorageRoot: config.fileStorageRoot || '',
         ...(config.instanceName ? { instanceName: config.instanceName } : {}),
       });
     } catch (err) {
@@ -91,6 +95,7 @@ function register({ setupMode = false } = {}) {
         port: saved.port,
         database: saved.database,
         user: saved.user,
+        fileStorageRoot: saved.fileStorageRoot,
         ...(saved.instanceName ? { instanceName: saved.instanceName } : {}),
       } });
     } catch (err) {
@@ -121,6 +126,7 @@ function register({ setupMode = false } = {}) {
       const latency  = Date.now() - start;
       const fullVer  = recordset[0]?.version || '';
       const shortVer = fullVer.split('\n')[0].trim() || 'SQL Server';
+      testReadWriteAccess(validated.fileStorageRoot);
 
       const endpoint = connectionOptions.port !== undefined
         ? `${connectionOptions.server}:${connectionOptions.port}`

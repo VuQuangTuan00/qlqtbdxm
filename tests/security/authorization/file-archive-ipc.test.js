@@ -6,7 +6,7 @@ const path = require('node:path');
 const test = require('node:test');
 const { withTempDir } = require('../../helpers/test-environment');
 
-function loadFileArchiveIpc(root) {
+function loadFileArchiveIpc(root, { storageError } = {}) {
   const handlers = new Map();
   const calls = [];
   const archivePath = path.join(root, 'transfer.zip');
@@ -66,6 +66,18 @@ function loadFileArchiveIpc(root) {
       return { deleted: 0, remaining: 0 };
     },
   };
+  const fileStorage = {
+    getStorageRoot() {
+      calls.push('getStorageRoot');
+      if (storageError) throw storageError;
+      return path.join(root, 'shared-storage');
+    },
+    testReadWriteAccess(storageRoot) {
+      calls.push(['testStorage', storageRoot]);
+      if (storageError) throw storageError;
+      return true;
+    },
+  };
 
   const modulePath = require.resolve('../../../main/ipc/file-archive.ipc');
   const replacements = new Map([
@@ -77,6 +89,7 @@ function loadFileArchiveIpc(root) {
     }],
     [require.resolve('../../../main/services/file-archive.service'), archiveService],
     [require.resolve('../../../main/services/pending-file-cleanup.service'), pendingCleanup],
+    [require.resolve('../../../main/services/file-storage.service'), fileStorage],
     [require.resolve('../../../main/utils/logger'), { info() {}, warn() {}, error() {} }],
   ]);
   const saved = new Map([[modulePath, require.cache[modulePath]]]);
@@ -129,10 +142,27 @@ test('backup retries pending file cleanup before creating the database backup', 
 
     assert.equal(result.success, true);
     const cleanupIndex = calls.indexOf('processPendingCleanup');
+    const storageIndex = calls.findIndex((call) => Array.isArray(call) && call[0] === 'testStorage');
     const backupIndex = calls.findIndex((call) => Array.isArray(call) && call[0] === 'backupDatabase');
     const archiveIndex = calls.findIndex((call) => Array.isArray(call) && call[0] === 'exportTransferPackage');
     assert.ok(cleanupIndex >= 0);
-    assert.ok(cleanupIndex < backupIndex);
+    assert.ok(cleanupIndex < storageIndex);
+    assert.ok(storageIndex < backupIndex);
     assert.ok(backupIndex < archiveIndex);
+  });
+});
+
+test('backup stops before SQL BACKUP DATABASE when shared storage is unavailable', async () => {
+  await withTempDir('file-archive-storage-failure-', async (root) => {
+    const { handlers, calls } = loadFileArchiveIpc(root, {
+      storageError: new Error('Không thể truy cập kho UNC'),
+    });
+
+    const result = await handlers.get('fileArchive:export')({ sender: {} });
+
+    assert.equal(result.success, false);
+    assert.match(result.error, /UNC|kho/i);
+    assert.equal(calls.some((call) => Array.isArray(call) && call[0] === 'backupDatabase'), false);
+    assert.equal(calls.some((call) => Array.isArray(call) && call[0] === 'exportTransferPackage'), false);
   });
 });

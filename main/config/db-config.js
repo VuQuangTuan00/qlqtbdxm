@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { randomUUID } = require('crypto');
 const { app, safeStorage } = require('electron');
+const { validateFileStorageRoot } = require('../services/file-storage.service');
 
 const PASSWORD_ENCRYPTION = 'electron-safe-storage-v1';
 
@@ -37,6 +38,7 @@ function validateDbConfig(config) {
   requireNonEmptyString(config, 'server', 'Máy chủ SQL Server');
   requireNonEmptyString(config, 'database', 'Tên database');
   requireNonEmptyString(config, 'user', 'Tên đăng nhập');
+  config.fileStorageRoot = validateFileStorageRoot(config.fileStorageRoot);
 
   if (config.port !== undefined && config.port !== null && config.port !== '') {
     const port = Number(config.port);

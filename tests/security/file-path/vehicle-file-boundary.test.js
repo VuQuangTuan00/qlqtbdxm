@@ -5,8 +5,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { withTempDir } = require('../../helpers/test-environment');
+const {
+  createFileStorageService,
+} = require('../../../main/services/file-storage.service');
+const {
+  createPendingFileCleanupService,
+} = require('../../../main/services/pending-file-cleanup.service');
 
-function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRepo = {}, cleanupService) {
+function loadVehicleService(
+  userDataPath,
+  engineRepo,
+  shellCalls = [],
+  vehicleRepo = {},
+  cleanupService,
+  storageRoot = userDataPath,
+) {
   const electron = {
     app: { getPath(name) { assert.equal(name, 'userData'); return userDataPath; } },
     shell: { async openPath(filePath) { shellCalls.push(filePath); return ''; } },
@@ -17,6 +30,16 @@ function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRe
   };
   const modulePath = require.resolve('../../../main/services/vehicle.service');
   const cleanupModulePath = require.resolve('../../../main/services/pending-file-cleanup.service');
+  const storageModulePath = require.resolve('../../../main/services/file-storage.service');
+  const storageService = createFileStorageService({
+    readConfig: () => ({ fileStorageRoot: storageRoot }),
+    normalizeRoot: (value) => path.resolve(value),
+  });
+  const resolvedCleanupService = cleanupService || createPendingFileCleanupService({
+    getUserDataPath: () => userDataPath,
+    getStorageRoot: () => path.resolve(storageRoot),
+    logger: { info() {}, warn() {}, error() {} },
+  });
   const replacements = new Map([
     [require.resolve('electron'), electron],
     [require.resolve('../../../main/repositories/vehicle.repository'), vehicleRepo],
@@ -24,19 +47,11 @@ function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRe
     [require.resolve('../../../main/repositories/vehicle-type.repository'), emptyRepo],
     [require.resolve('../../../main/database/index'), database],
     [require.resolve('../../../main/utils/logger'), { info() {}, warn() {}, error() {} }],
+    [storageModulePath, storageService],
+    [cleanupModulePath, resolvedCleanupService],
   ]);
-  if (cleanupService) {
-    replacements.set(
-      cleanupModulePath,
-      cleanupService
-    );
-  }
   const saved = new Map([[modulePath, require.cache[modulePath]]]);
   delete require.cache[modulePath];
-  if (!cleanupService) {
-    saved.set(cleanupModulePath, require.cache[cleanupModulePath]);
-    delete require.cache[cleanupModulePath];
-  }
   for (const [replacementPath, exports] of replacements) {
     saved.set(replacementPath, require.cache[replacementPath]);
     require.cache[replacementPath] = {
@@ -54,7 +69,7 @@ function loadVehicleService(userDataPath, engineRepo, shellCalls = [], vehicleRe
   return service;
 }
 
-test('read/open reject an absolute maintenance path outside userData', async () => {
+test('read/open reject an absolute maintenance path outside shared storage', async () => {
   await withTempDir('vehicle-path-read-', async (root) => {
     const userData = path.join(root, 'profile');
     fs.mkdirSync(userData);
@@ -76,7 +91,7 @@ test('read/open reject an absolute maintenance path outside userData', async () 
   });
 });
 
-test('deleteFile never deletes or clears a record for a path outside userData', async () => {
+test('deleteFile never deletes or clears a record for an absolute path', async () => {
   await withTempDir('vehicle-path-delete-', async (root) => {
     const userData = path.join(root, 'profile');
     fs.mkdirSync(userData);
@@ -139,7 +154,7 @@ test('PDF upload validates extension and signature before writing', async () => 
   });
 });
 
-test('readFile supports current relative paths and the legacy uploads fallback', async () => {
+test('readFile accepts only a maintenance-files relative path and rejects uploads', async () => {
   await withTempDir('vehicle-path-valid-', async (userData) => {
     const currentDir = path.join(userData, 'maintenance-files');
     const legacyDir = path.join(userData, 'uploads');
@@ -159,11 +174,11 @@ test('readFile supports current relative paths and the legacy uploads fallback',
     assert.equal(Buffer.from(current.data.base64, 'base64').toString(), '%PDF-1.4 current');
 
     item = {
-      tech_process_file_path: 'missing-machine-path/legacy.pdf',
+      tech_process_file_path: 'uploads/legacy.pdf',
       tech_process_file_name: 'legacy.pdf',
     };
     const legacy = await service.readFile(1, 'tech_process');
-    assert.equal(Buffer.from(legacy.data.base64, 'base64').toString(), '%PDF-1.4 legacy');
+    assert.equal(legacy.success, false);
   });
 });
 
@@ -174,7 +189,7 @@ test('a failed PDF metadata update removes the new file and preserves the old fi
     const oldPath = path.join(pdfDir, 'old.pdf');
     fs.writeFileSync(oldPath, '%PDF-1.4 old');
     const service = loadVehicleService(userData, {
-      async findById() { return { tech_process_file_path: oldPath }; },
+      async findById() { return { tech_process_file_path: 'maintenance-files/old.pdf' }; },
       async update() { throw new Error('database update failed'); },
     });
 
@@ -197,7 +212,7 @@ test('a failed PDF delete metadata update preserves the physical file', async ()
     const oldPath = path.join(pdfDir, 'old.pdf');
     fs.writeFileSync(oldPath, '%PDF-1.4 old');
     const service = loadVehicleService(userData, {
-      async findById() { return { tech_process_file_path: oldPath }; },
+      async findById() { return { tech_process_file_path: 'maintenance-files/old.pdf' }; },
       async update() { throw new Error('database update failed'); },
     });
 
@@ -225,7 +240,7 @@ test('a symlink inside maintenance-files cannot escape the approved root', async
     }
     const service = loadVehicleService(userData, {
       async findById() {
-        return { tech_process_file_path: link, tech_process_file_name: 'linked.pdf' };
+        return { tech_process_file_path: 'maintenance-files/linked.pdf', tech_process_file_name: 'linked.pdf' };
       },
     });
 
@@ -275,7 +290,7 @@ test('a failed vehicle update preserves the old image and removes the replacemen
     fs.writeFileSync(oldPath, Buffer.from('89504e470d0a1a0a01', 'hex'));
     const png = Buffer.from('89504e470d0a1a0a00000000', 'hex');
     const service = loadVehicleService(userData, {}, [], {
-      async findById() { return { vehicle_id: 1, img_path: oldPath }; },
+      async findById() { return { vehicle_id: 1, img_path: 'vehicle-images/old.png' }; },
       async update() { throw new Error('database update failed'); },
     });
 
@@ -298,7 +313,10 @@ test('a failed maintenance delete preserves its PDF files', async () => {
     fs.writeFileSync(normPath, '%PDF-1.4 norm');
     const service = loadVehicleService(userData, {
       async findById() {
-        return { tech_process_file_path: techPath, norm_ktkt_file_path: normPath };
+        return {
+          tech_process_file_path: 'maintenance-files/tech.pdf',
+          norm_ktkt_file_path: 'maintenance-files/norm.pdf',
+        };
       },
       async delete() { throw new Error('database delete failed'); },
     });
@@ -317,7 +335,7 @@ test('a successful PDF replacement delegates the obsolete file to durable cleanu
     fs.writeFileSync(oldPath, '%PDF-1.4 old');
     const cleanupCalls = [];
     const service = loadVehicleService(userData, {
-      async findById() { return { tech_process_file_path: oldPath }; },
+      async findById() { return { tech_process_file_path: 'maintenance-files/old.pdf' }; },
       async update() {},
     }, [], {}, {
       deleteOrQueue(filePath) {
@@ -334,5 +352,88 @@ test('a successful PDF replacement delegates the obsolete file to durable cleanu
     assert.equal(result.success, true);
     assert.deepEqual(cleanupCalls, [oldPath]);
   });
+});
+
+test('new image and PDF files are written to shared storage while repositories receive relative paths', async () => {
+  await withTempDir('vehicle-shared-storage-', async (root) => {
+    const userData = path.join(root, 'profile');
+    const storageRoot = path.join(root, 'shared');
+    fs.mkdirSync(userData);
+    fs.mkdirSync(storageRoot);
+    const createdVehicles = [];
+    const maintenanceUpdates = [];
+    const vehicleRepo = {
+      async create(data) {
+        createdVehicles.push(data);
+        return { ...data, vehicle_id: 1 };
+      },
+      async findByIdFull() { return { ...createdVehicles[0], vehicle_id: 1 }; },
+    };
+    const engineRepo = {
+      async findById() { return { id: 5 }; },
+      async update(_id, data) { maintenanceUpdates.push(data); },
+    };
+    const service = loadVehicleService(userData, engineRepo, [], vehicleRepo, undefined, storageRoot);
+
+    const imageResult = await service.createVehicle({
+      vehicle_name: 'Xe thử nghiệm',
+      img_name: 'xe.png',
+      img_buffer: Buffer.from('89504e470d0a1a0a00000000', 'hex'),
+    }, 7);
+    const pdfResult = await service.uploadFile(5, 'tech_process', {
+      file_name: 'quy-trinh.pdf',
+      file_buffer: Buffer.from('%PDF-1.4 valid'),
+    }, 7);
+
+    assert.equal(imageResult.success, true);
+    assert.equal(pdfResult.success, true);
+    assert.match(createdVehicles[0].img_path, /^vehicle-images\/[A-Za-z0-9_-]+_\d+_[0-9a-f-]+\.png$/);
+    assert.match(maintenanceUpdates[0].tech_process_file_path, /^maintenance-files\/[A-Za-z0-9_-]+_\d+_[0-9a-f-]+\.pdf$/);
+    assert.equal(fs.existsSync(path.join(storageRoot, ...createdVehicles[0].img_path.split('/'))), true);
+    assert.equal(
+      fs.existsSync(path.join(storageRoot, ...maintenanceUpdates[0].tech_process_file_path.split('/'))),
+      true,
+    );
+    assert.equal(fs.existsSync(path.join(userData, 'vehicle-images')), false);
+    assert.equal(fs.existsSync(path.join(userData, 'maintenance-files')), false);
+    assert.match(imageResult.data.img_url, /^file:/);
+    assert.equal(imageResult.data.img_path, createdVehicles[0].img_path);
+  });
+});
+
+test('two uploads in the same millisecond use different collision-resistant names', async () => {
+  await withTempDir('vehicle-file-collision-', async (storageRoot) => {
+    const updates = [];
+    const service = loadVehicleService(storageRoot, {
+      async findById() { return { id: 1 }; },
+      async update(_id, data) { updates.push(data); },
+    });
+    const originalNow = Date.now;
+    Date.now = () => 123456789;
+    try {
+      await service.uploadFile(1, 'tech_process', {
+        file_name: 'same.pdf', file_buffer: Buffer.from('%PDF-1.4 first'),
+      }, 7);
+      await service.uploadFile(1, 'norm_ktkt', {
+        file_name: 'same.pdf', file_buffer: Buffer.from('%PDF-1.4 second'),
+      }, 7);
+    } finally {
+      Date.now = originalNow;
+    }
+
+    const paths = [updates[0].tech_process_file_path, updates[1].norm_ktkt_file_path];
+    assert.notEqual(paths[0], paths[1]);
+    assert.equal(fs.existsSync(path.join(storageRoot, ...paths[0].split('/'))), true);
+    assert.equal(fs.existsSync(path.join(storageRoot, ...paths[1].split('/'))), true);
+  });
+});
+
+test('maintenance renderer consumes the trusted image URL returned by Main', () => {
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../../../renderer/pages/maintenance/maintenance-steps.js'),
+    'utf8',
+  );
+  assert.match(source, /_imgSrc\(v\.img_url\)/);
+  assert.doesNotMatch(source, /['"]file:\/\/\/['"]\s*\+/);
 });
 

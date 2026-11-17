@@ -49,6 +49,7 @@ test('missing db config selects first-run without attempting a connection', asyn
 test('valid db config initializes the database and selects ready mode', async () => {
   const config = {
     mode: 'sqlserver', server: 'db.local', port: 1433, database: 'QTCN', user: 'app', password: 'secret',
+    fileStorageRoot: '\\\\FILE-SERVER\\QTCN-Files',
   };
   let initCalls = 0;
   const result = await resolveDatabaseStartup({
@@ -76,7 +77,9 @@ test('malformed db config selects recovery without changing the file', async () 
 
     assert.equal(result.mode, 'recovery');
     assert.match(result.error, /Không thể đọc cấu hình SQL Server/i);
-    assert.deepEqual(result.config, { server: '', port: undefined, database: '', user: '' });
+    assert.deepEqual(result.config, {
+      server: '', port: undefined, database: '', user: '', fileStorageRoot: '',
+    });
     assert.equal(initCalls, 0);
     assert.deepEqual(fs.readFileSync(configPath), original);
   });
@@ -91,6 +94,7 @@ test('connection failure selects recovery without exposing password or unknown k
     user: 'app',
     password: 'must-stay-private',
     backupDirectory: 'D:\\SqlBackup',
+    fileStorageRoot: '\\\\FILE-SERVER\\QTCN-Files',
   };
 
   const result = await resolveDatabaseStartup({
@@ -102,7 +106,13 @@ test('connection failure selects recovery without exposing password or unknown k
   assert.deepEqual(result, {
     mode: 'recovery',
     error: 'connection refused',
-    config: { server: 'db.local', port: 1433, database: 'QTCN', user: 'app' },
+    config: {
+      server: 'db.local',
+      port: 1433,
+      database: 'QTCN',
+      user: 'app',
+      fileStorageRoot: '\\\\FILE-SERVER\\QTCN-Files',
+    },
   });
   assert.equal(JSON.stringify(result).includes('must-stay-private'), false);
   assert.equal(JSON.stringify(result).includes('SqlBackup'), false);

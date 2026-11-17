@@ -71,6 +71,17 @@ window.electronAPI.on('app:db-setup', (payload = {}) => {
                  border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:14px;" />
       </div>
 
+      <!-- Shared file storage -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">
+          Thư mục file dùng chung (UNC) *
+        </label>
+        <input id="dbs-file-storage-root" type="text"
+          placeholder="\\\\MAY-CHU\\QTCN-Files"
+          style="width:100%;box-sizing:border-box;padding:9px 12px;
+                 border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:14px;" />
+      </div>
+
       <!-- User + Password -->
       <div style="display:flex;gap:12px;margin-bottom:20px;">
         <div style="flex:1;">
@@ -121,6 +132,7 @@ window.electronAPI.on('app:db-setup', (payload = {}) => {
   document.getElementById('dbs-port').value = toInputValue(config.port);
   document.getElementById('dbs-db').value = toInputValue(config.database);
   document.getElementById('dbs-user').value = toInputValue(config.user);
+  document.getElementById('dbs-file-storage-root').value = toInputValue(config.fileStorageRoot);
 
   function _cfg() {
     const portValue = document.getElementById('dbs-port').value.trim();
@@ -130,6 +142,7 @@ window.electronAPI.on('app:db-setup', (payload = {}) => {
       database: document.getElementById('dbs-db').value.trim(),
       user:     document.getElementById('dbs-user').value.trim(),
       password: document.getElementById('dbs-password').value,
+      fileStorageRoot: document.getElementById('dbs-file-storage-root').value.trim(),
     };
   }
 
@@ -151,8 +164,8 @@ window.electronAPI.on('app:db-setup', (payload = {}) => {
 
   document.getElementById('dbs-save').addEventListener('click', async () => {
     const cfg = _cfg();
-    if (!cfg.server || !cfg.database || !cfg.user) {
-      _result(false, 'Vui lòng điền đầy đủ Server, Database và Tên đăng nhập');
+    if (!cfg.server || !cfg.database || !cfg.user || !cfg.fileStorageRoot) {
+      _result(false, 'Vui lòng điền đầy đủ Server, Database, Tên đăng nhập và thư mục file dùng chung');
       return;
     }
     const btn = document.getElementById('dbs-save');

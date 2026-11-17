@@ -54,6 +54,7 @@ const validConfig = {
   database: 'QTCN',
   user: 'qtcn_app',
   password: 'secret',
+  fileStorageRoot: '\\\\FILE-SERVER\\QTCN-Files',
 };
 
 test('missing db-config returns null even when production-style DB env variables exist', async () => {
@@ -145,6 +146,24 @@ test('port validation accepts only integers from 1 through 65535', async () => {
     assert.throws(() => validateDbConfig({ ...validConfig, port: 0 }), /Cổng SQL Server/i);
     assert.throws(() => validateDbConfig({ ...validConfig, port: 65536 }), /Cổng SQL Server/i);
     assert.throws(() => validateDbConfig({ ...validConfig, port: 1433.5 }), /Cổng SQL Server/i);
+  });
+});
+
+test('file storage root is required and must be an absolute UNC share', async () => {
+  await withTempDir('db-config-storage-root-', async (userDataPath) => {
+    const { validateDbConfig } = loadConfigModule(userDataPath);
+    const withoutRoot = { ...validConfig };
+    delete withoutRoot.fileStorageRoot;
+
+    assert.throws(() => validateDbConfig(withoutRoot), /UNC|dùng chung|file/i);
+    assert.throws(
+      () => validateDbConfig({ ...validConfig, fileStorageRoot: 'C:\\QTCN-Files' }),
+      /UNC|dùng chung|file/i,
+    );
+    assert.equal(
+      validateDbConfig({ ...validConfig, fileStorageRoot: '\\\\FILE-SERVER\\QTCN-Files\\' }).fileStorageRoot,
+      '\\\\FILE-SERVER\\QTCN-Files',
+    );
   });
 });
 

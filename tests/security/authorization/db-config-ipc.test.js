@@ -5,8 +5,11 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const { withTempDir } = require('../../helpers/test-environment');
+const actualStorageService = require('../../../main/services/file-storage.service');
 
-function loadDbConfigIpc(userDataPath, authService, sqlOverride, configOptions = {}) {
+const FILE_STORAGE_ROOT = '\\\\FILE-SERVER\\QTCN-Files';
+
+function loadDbConfigIpc(userDataPath, authService, sqlOverride, configOptions = {}, storageOverride = {}) {
   const handlers = new Map();
   const electron = {
     ipcMain: { handle(channel, handler) { handlers.set(channel, handler); } },
@@ -41,16 +44,22 @@ function loadDbConfigIpc(userDataPath, authService, sqlOverride, configOptions =
 
   const modulePath = require.resolve('../../../main/ipc/db-config.ipc');
   const configModulePath = require.resolve('../../../main/config/db-config');
+  const storageModulePath = require.resolve('../../../main/services/file-storage.service');
   const replacements = new Map([
     [require.resolve('electron'), electron],
     [require.resolve('mssql'), sql],
     [require.resolve('../../../main/database'), database],
     [require.resolve('../../../main/services/auth.service'), authService],
+    [storageModulePath, {
+      ...actualStorageService,
+      testReadWriteAccess: storageOverride.testReadWriteAccess || (() => true),
+    }],
     [require.resolve('../../../main/utils/logger'), { info() {}, warn() {}, error() {} }],
   ]);
   const saved = new Map([
     [modulePath, require.cache[modulePath]],
     [configModulePath, require.cache[configModulePath]],
+    [storageModulePath, require.cache[storageModulePath]],
   ]);
   for (const replacementPath of replacements.keys()) {
     saved.set(replacementPath, require.cache[replacementPath]);
@@ -86,6 +95,7 @@ test('db config is available during first-run without a session', async () => {
       database: '',
       user: '',
       password: '',
+      fileStorageRoot: '',
     });
   });
 });
@@ -122,6 +132,7 @@ test('db config is available to an administrator after setup', async () => {
   await withTempDir('db-config-admin-', async (userDataPath) => {
     fs.writeFileSync(path.join(userDataPath, 'db-config.json'), JSON.stringify({
       mode: 'sqlserver', server: 'db.local', database: 'QTCN', user: 'app', password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     }));
     const authService = { requireAdmin: () => true };
     const { ipcModule, handlers } = loadDbConfigIpc(userDataPath, authService);
@@ -143,6 +154,7 @@ test('saving db config preserves omitted password, backupDirectory, and unknown 
       database: 'QTCN',
       user: 'app',
       password: 'old-secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
       backupDirectory: 'D:\\SqlBackup',
       futureSetting: { enabled: true },
     }));
@@ -156,6 +168,7 @@ test('saving db config preserves omitted password, backupDirectory, and unknown 
       port: 1433,
       database: 'QTCN_NEXT',
       user: 'app',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
     const saved = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 
@@ -175,6 +188,7 @@ test('saving invalid db config is rejected without replacing the existing file',
     const configPath = path.join(userDataPath, 'db-config.json');
     const original = JSON.stringify({
       mode: 'sqlserver', server: 'db.local', database: 'QTCN', user: 'app', password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
     fs.writeFileSync(configPath, original);
     const authService = { requireAdmin: () => true };
@@ -183,6 +197,7 @@ test('saving invalid db config is rejected without replacing the existing file',
 
     const result = await handlers.get('dbconfig:set')(null, {
       mode: 'sqlserver', server: '', database: 'QTCN', user: 'app',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
 
     assert.equal(result.success, false);
@@ -195,6 +210,7 @@ test('saving a changed SQL endpoint without a new password is rejected', async (
     const configPath = path.join(userDataPath, 'db-config.json');
     const original = JSON.stringify({
       mode: 'sqlserver', server: 'db.local', database: 'QTCN', user: 'app', password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
     fs.writeFileSync(configPath, original);
     const { ipcModule, handlers } = loadDbConfigIpc(
@@ -205,6 +221,7 @@ test('saving a changed SQL endpoint without a new password is rejected', async (
 
     const result = await handlers.get('dbconfig:set')(null, {
       server: 'other-db.local', database: 'QTCN', user: 'app', password: '',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
 
     assert.equal(result.success, false);
@@ -218,6 +235,7 @@ test('atomic replacement failure leaves the existing db config untouched', async
     const configPath = path.join(userDataPath, 'db-config.json');
     const original = JSON.stringify({
       mode: 'sqlserver', server: 'db.local', database: 'QTCN', user: 'app', password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
     fs.writeFileSync(configPath, original);
     const authService = { requireAdmin: () => true };
@@ -229,6 +247,7 @@ test('atomic replacement failure leaves the existing db config untouched', async
     try {
       const result = await handlers.get('dbconfig:set')(null, {
         mode: 'sqlserver', server: 'new-db', database: 'QTCN', user: 'app', password: 'new-secret',
+        fileStorageRoot: FILE_STORAGE_ROOT,
       });
       assert.equal(result.success, false);
       assert.match(result.error, /atomic replace failure/i);
@@ -257,6 +276,7 @@ test('connection test rejects missing endpoint instead of inventing localhost de
 
     const result = await handlers.get('dbconfig:test')(null, {
       server: '', database: 'QTCN', user: 'app', password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
 
     assert.equal(result.success, false);
@@ -288,6 +308,7 @@ test('connection test uses the same named-instance connection builder as startup
 
     const result = await handlers.get('dbconfig:test')(null, {
       server: 'DBHOST', instanceName: 'SQLEXPRESS', database: 'QTCN', user: 'app', password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
 
     assert.equal(result.success, true);
@@ -309,6 +330,7 @@ test('db config get includes instance name only when it is configured', async ()
       database: 'QTCN',
       user: 'app',
       password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     }));
     const { ipcModule, handlers } = loadDbConfigIpc(
       userDataPath,
@@ -332,6 +354,7 @@ test('db config get omits instance name for a valid config without one', async (
       database: 'QTCN',
       user: 'app',
       password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     }));
     const { ipcModule, handlers } = loadDbConfigIpc(
       userDataPath,
@@ -355,6 +378,7 @@ test('connection test reuses the stored password for an unchanged endpoint', asy
       database: 'QTCN',
       user: 'app',
       password: 'stored-secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     }));
     let receivedOptions;
     const sql = {
@@ -378,6 +402,7 @@ test('connection test reuses the stored password for an unchanged endpoint', asy
       database: 'QTCN',
       user: 'app',
       password: '',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
 
     assert.equal(result.success, true);
@@ -394,6 +419,7 @@ test('connection test does not reuse the stored password for a different server'
       database: 'QTCN',
       user: 'app',
       password: 'stored-secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     }));
     let receivedOptions;
     const sql = {
@@ -417,6 +443,7 @@ test('connection test does not reuse the stored password for a different server'
       database: 'QTCN',
       user: 'app',
       password: '',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
 
     assert.equal(result.success, true);
@@ -434,6 +461,7 @@ test('connection test requires password re-entry when stored ciphertext cannot b
       user: 'app',
       passwordEncryption: 'electron-safe-storage-v1',
       passwordEncrypted: Buffer.from('foreign-cipher').toString('base64'),
+      fileStorageRoot: FILE_STORAGE_ROOT,
     }));
     let receivedOptions;
     const sql = {
@@ -459,6 +487,7 @@ test('connection test requires password re-entry when stored ciphertext cannot b
       database: 'QTCN',
       user: 'app',
       password: '',
+      fileStorageRoot: FILE_STORAGE_ROOT,
     });
 
     assert.equal(getResult.success, true);
@@ -478,6 +507,7 @@ test('saving renderer config clears a stale instance and rejects unapproved keys
       database: 'QTCN',
       user: 'app',
       password: 'stored-secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
       backupDirectory: 'D:\\SqlBackup',
       futureSetting: { enabled: true },
     }));
@@ -493,6 +523,7 @@ test('saving renderer config clears a stale instance and rejects unapproved keys
       database: 'QTCN',
       user: 'app',
       password: 'new-secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
       backupDirectory: 'C:\\Untrusted',
       injectedKey: true,
     });
@@ -501,9 +532,75 @@ test('saving renderer config clears a stale instance and rejects unapproved keys
     assert.equal(result.success, true);
     assert.equal(Object.hasOwn(saved, 'instanceName'), false);
     assert.equal(saved.backupDirectory, 'D:\\SqlBackup');
+    assert.equal(saved.fileStorageRoot, FILE_STORAGE_ROOT);
     assert.equal(Object.hasOwn(saved, 'injectedKey'), false);
     assert.deepEqual(saved.futureSetting, { enabled: true });
     assert.equal(Object.hasOwn(result.data.config, 'instanceName'), false);
+  });
+});
+
+test('connection test verifies read-write access to the configured shared file root', async () => {
+  await withTempDir('db-config-test-storage-', async (userDataPath) => {
+    const storageCalls = [];
+    const sql = {
+      ConnectionPool: class {
+        async connect() { return this; }
+        request() { return { query: async () => ({ recordset: [{ version: 'SQL Server' }] }) }; }
+        async close() {}
+      },
+    };
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => false },
+      sql,
+      {},
+      { testReadWriteAccess(root) { storageCalls.push(root); } },
+    );
+    ipcModule.register({ setupMode: true });
+
+    const result = await handlers.get('dbconfig:test')(null, {
+      server: 'DBHOST',
+      port: 1433,
+      database: 'QTCN',
+      user: 'app',
+      password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
+    });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(storageCalls, [FILE_STORAGE_ROOT]);
+  });
+});
+
+test('connection test reports an inaccessible shared file root', async () => {
+  await withTempDir('db-config-test-storage-failure-', async (userDataPath) => {
+    const sql = {
+      ConnectionPool: class {
+        async connect() { return this; }
+        request() { return { query: async () => ({ recordset: [{ version: 'SQL Server' }] }) }; }
+        async close() {}
+      },
+    };
+    const { ipcModule, handlers } = loadDbConfigIpc(
+      userDataPath,
+      { requireAdmin: () => false },
+      sql,
+      {},
+      { testReadWriteAccess() { throw new Error('SMB access denied'); } },
+    );
+    ipcModule.register({ setupMode: true });
+
+    const result = await handlers.get('dbconfig:test')(null, {
+      server: 'DBHOST',
+      port: 1433,
+      database: 'QTCN',
+      user: 'app',
+      password: 'secret',
+      fileStorageRoot: FILE_STORAGE_ROOT,
+    });
+
+    assert.equal(result.success, false);
+    assert.match(result.error, /SMB access denied/);
   });
 });
 
