@@ -517,7 +517,7 @@ async function _loadDbConfigTab() {
           <div class="form-row">
             <div class="form-group">
               <label class="form-label required">Tên đăng nhập (SQL Auth)</label>
-              <input type="text" class="form-control" id="db-user" placeholder="sa hoặc qlqt_user" />
+              <input type="text" class="form-control" id="db-user" placeholder="sa" />
             </div>
             <div class="form-group">
               <label class="form-label">Mật khẩu</label>

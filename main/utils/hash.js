@@ -2,7 +2,7 @@
 
 const bcrypt = require('bcryptjs');
 
-const ROUNDS = parseInt(process.env.BCRYPT_ROUNDS || '10', 10);
+const ROUNDS = 10;
 
 /**
  * Hash mật khẩu

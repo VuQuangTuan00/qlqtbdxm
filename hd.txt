@@ -1,19 +1,11 @@
-1. Mở SQL Shell (psql) và chạy:
-CREATE USER qlqt_user WITH PASSWORD '123456';
-CREATE DATABASE qlqtbdxm OWNER qlqt_user;
-GRANT ALL PRIVILEGES ON DATABASE qlqtbdxm TO qlqt_user;
+HƯỚNG DẪN CÀI NHANH
 
-2. QLQT Bảo Dưỡng XM Setup.exe
-Chuột phải → Run as administrator
-Cài xong → KHÔNG mở vội
+1. Cài và cấu hình Microsoft SQL Server trên máy chủ.
+2. Tạo database và tài khoản SQL Server riêng cho ứng dụng; cấp quyền migration, đọc/ghi và backup/restore cần thiết.
+3. Cài ứng dụng từ file Setup.exe hoặc chạy `npm start` khi phát triển.
+4. Ở lần mở đầu tiên, nhập Server, Port (nếu có), Database, User và Password trên màn hình thiết lập SQL Server.
+5. Nhấn "Kiểm tra kết nối", sau đó nhấn "Kết nối & Khởi động".
 
-3.C:\Users\<TênUser>\AppData\Local\QLQT Bảo Dưỡng XM
-Tạo file .env với nội dung:
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=matkhau_postgres
-DB_NAME=qlqtbdxm
+Ứng dụng lưu cấu hình trong db-config.json thuộc Electron userData. Không tạo hoặc sử dụng file .env.
 
-4. Chuột phải icon → Run as administrator
-
+Nếu SQL Server nằm trên máy khác, cấu hình TCP/IP và firewall trong phạm vi mạng nội bộ được phép. Khi backup qua mạng, dùng đường dẫn UNC và cấp quyền cho cả dịch vụ SQL Server lẫn tài khoản Windows chạy ứng dụng.

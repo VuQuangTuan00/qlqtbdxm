@@ -83,10 +83,10 @@ Luồng trong `main/index.js`:
 1. Yêu cầu single-instance lock; instance thứ hai chỉ khôi phục/focus cửa sổ cũ.
 2. Khi Electron `ready`, đăng ký IPC cấu hình database trước.
 3. Kiểm tra `db-config.json` trong `app.getPath('userData')`.
-4. Nếu chưa có cấu hình, mở cửa sổ và gửi sự kiện `app:first-run`.
+4. Nếu chưa có cấu hình, mở cửa sổ và gửi `app:db-setup` ở chế độ `first-run`.
 5. Nếu đã có cấu hình, khởi tạo SQL Server và chạy migration chưa áp dụng.
 6. Đăng ký toàn bộ IPC nghiệp vụ rồi mở cửa sổ chính.
-7. Nếu kết nối database lỗi, cửa sổ vẫn được mở để hiển thị màn hình thiết lập lại database.
+7. Nếu kết nối database lỗi, gửi cùng sự kiện `app:db-setup` ở chế độ `recovery` để hiển thị chi tiết lỗi và dữ liệu có thể phục hồi.
 8. Trước khi thoát, đóng connection pool SQL Server.
 
 Đánh giá: luồng first-run hợp lý cho ứng dụng desktop. Tuy nhiên, IPC cấu hình database tồn tại suốt vòng đời ứng dụng và hiện không có kiểm tra admin, nên cần bảo vệ trạng thái “đang first-run” hoặc quyền quản trị tại Main process.

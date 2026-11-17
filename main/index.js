@@ -1,13 +1,11 @@
 'use strict';
 
-const { app, ipcMain, shell, dialog } = require('electron');
-const path = require('path');
-const fs   = require('fs');
-
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const { app } = require('electron');
 
 const logger = require('./utils/logger');
-const { initDatabase, closeDatabase, getDbConfig, getDb } = require('./database/index');
+const { initDatabase, closeDatabase } = require('./database/index');
+const { readDbConfig, readDbConfigForRecovery } = require('./config/db-config');
+const { resolveDatabaseStartup } = require('./startup/database-startup');
 const { createMainWindow } = require('./window-manager');
 const registerAllIpcHandlers = require('./ipc/index');
 
@@ -22,28 +20,31 @@ let mainWindow = null;
 app.whenReady().then(async () => {
   logger.info('[App] Khởi động ứng dụng Quy trình công nghệ và định mức kinh tế - kỹ thuật...');
 
-  // Lần đầu chạy: chưa có db-config.json → hiển thị màn hình nhập credentials
-  const cfgPath = path.join(app.getPath('userData'), 'db-config.json');
-  const hasDbConfig = fs.existsSync(cfgPath);
   const dbConfigIpc = require('./ipc/db-config.ipc');
+  const startup = await resolveDatabaseStartup({
+    readDbConfig,
+    readDbConfigForRecovery,
+    initDatabase,
+  });
 
   // Handler phải tồn tại trước khi renderer setup chạy; ngoài setup/recovery chỉ admin được gọi.
-  dbConfigIpc.register({ setupMode: !hasDbConfig });
+  dbConfigIpc.register({ setupMode: startup.mode !== 'ready' });
 
-  if (!hasDbConfig) {
+  if (startup.mode === 'first-run') {
     logger.info('[App] Lần đầu khởi chạy — hiển thị màn hình nhập kết nối SQL Server');
     mainWindow = createMainWindow();
     mainWindow.webContents.once('did-finish-load', () => {
-      mainWindow.webContents.send('app:first-run', {});
+      mainWindow.webContents.send('app:db-setup', {
+        mode: 'first-run',
+        error: '',
+        config: {},
+      });
     });
   } else {
-    let dbError = null;
-    try {
-      await initDatabase();
+    if (startup.mode === 'ready') {
       logger.info('[App] Database đã sẵn sàng');
-    } catch (err) {
-      logger.error('[App] Lỗi khởi tạo database:', err);
-      dbError = err.message;
+    } else {
+      logger.error('[App] Lỗi khởi tạo database:', startup.error);
       dbConfigIpc.setSetupMode(true);
     }
 
@@ -54,12 +55,12 @@ app.whenReady().then(async () => {
 
     mainWindow = createMainWindow();
 
-    if (dbError) {
+    if (startup.mode === 'recovery') {
       mainWindow.webContents.once('did-finish-load', () => {
-        const cfg = getDbConfig();
         mainWindow.webContents.send('app:db-setup', {
-          error: dbError,
-          config: { server: cfg.server || cfg.host, port: cfg.port, database: cfg.database, user: cfg.user },
+          mode: 'recovery',
+          error: startup.error,
+          config: startup.config,
         });
       });
     }

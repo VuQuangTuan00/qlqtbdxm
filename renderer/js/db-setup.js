@@ -1,6 +1,18 @@
 'use strict';
 
-window.electronAPI.on('app:db-setup', ({ error, config }) => {
+window.electronAPI.on('app:db-setup', (payload = {}) => {
+  const mode = payload.mode === 'recovery' ? 'recovery' : 'first-run';
+  const error = typeof payload.error === 'string' ? payload.error : '';
+  const config = payload.config && typeof payload.config === 'object' ? payload.config : {};
+  const title = mode === 'recovery'
+    ? 'Không kết nối được cơ sở dữ liệu'
+    : 'Thiết lập kết nối SQL Server lần đầu';
+  const subtitle = mode === 'recovery'
+    ? 'Kiểm tra và cập nhật thông tin kết nối để tiếp tục'
+    : 'Nhập thông tin kết nối SQL Server để bắt đầu';
+  const saveLabel = mode === 'recovery'
+    ? 'Kết nối & Khởi động lại'
+    : 'Kết nối & Khởi động';
   const overlay = document.createElement('div');
   overlay.id = 'db-setup-overlay';
   overlay.style.cssText = [
@@ -18,17 +30,17 @@ window.electronAPI.on('app:db-setup', ({ error, config }) => {
       <!-- Header -->
       <div style="text-align:center;margin-bottom:24px;">
         <div style="font-size:44px;margin-bottom:10px;">🔌</div>
-        <h2 style="margin:0 0 6px;font-size:18px;color:#1a1a1a;">Không kết nối được cơ sở dữ liệu</h2>
+        <h2 style="margin:0 0 6px;font-size:18px;color:#1a1a1a;">${title}</h2>
         <p style="margin:0;font-size:13px;color:#6b7280;">
-          Nhập thông tin kết nối SQL Server để tiếp tục
+          ${subtitle}
         </p>
       </div>
 
       <!-- Error detail -->
-      <div style="
+      <div id="dbs-error" style="display:${mode === 'recovery' ? 'block' : 'none'};
         background:#fee2e2;border-radius:8px;padding:10px 14px;
         margin-bottom:20px;font-size:12px;color:#b91c1c;word-break:break-all;
-      ">${error}</div>
+      "></div>
 
       <!-- Server + Port -->
       <div style="display:flex;gap:12px;margin-bottom:14px;">
@@ -36,14 +48,14 @@ window.electronAPI.on('app:db-setup', ({ error, config }) => {
           <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">
             Địa chỉ máy chủ (Server) *
           </label>
-          <input id="dbs-server" type="text" value="${config.server || config.host || '127.0.0.1'}"
+          <input id="dbs-server" type="text"
             placeholder="192.168.1.100 hoặc SERVER\\INSTANCE"
             style="width:100%;box-sizing:border-box;padding:9px 12px;
                    border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:14px;" />
         </div>
         <div style="flex:1;">
           <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">Cổng</label>
-          <input id="dbs-port" type="number" value="${config.port || 1433}"
+          <input id="dbs-port" type="number" placeholder="1433 (tùy chọn)"
             style="width:100%;box-sizing:border-box;padding:9px 12px;
                    border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:14px;" />
         </div>
@@ -54,7 +66,7 @@ window.electronAPI.on('app:db-setup', ({ error, config }) => {
         <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">
           Tên database *
         </label>
-        <input id="dbs-db" type="text" value="${config.database || ''}"
+        <input id="dbs-db" type="text"
           style="width:100%;box-sizing:border-box;padding:9px 12px;
                  border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:14px;" />
       </div>
@@ -65,7 +77,7 @@ window.electronAPI.on('app:db-setup', ({ error, config }) => {
           <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">
             Tên đăng nhập (SQL Auth) *
           </label>
-          <input id="dbs-user" type="text" value="${config.user || ''}"
+          <input id="dbs-user" type="text"
             style="width:100%;box-sizing:border-box;padding:9px 12px;
                    border:1px solid rgba(0,0,0,0.15);border-radius:8px;font-size:14px;" />
         </div>
@@ -94,17 +106,27 @@ window.electronAPI.on('app:db-setup', ({ error, config }) => {
           flex:2;padding:10px;border:none;
           border-radius:8px;background:#1a1a1a;color:#fff;
           cursor:pointer;font-size:13px;font-weight:600;
-        ">Kết nối &amp; Khởi động lại</button>
+        ">${saveLabel}</button>
       </div>
     </div>
   `;
 
   document.body.appendChild(overlay);
 
+  const toInputValue = (value) => (
+    typeof value === 'string' || typeof value === 'number' ? String(value) : ''
+  );
+  document.getElementById('dbs-error').textContent = error;
+  document.getElementById('dbs-server').value = toInputValue(config.server || config.host);
+  document.getElementById('dbs-port').value = toInputValue(config.port);
+  document.getElementById('dbs-db').value = toInputValue(config.database);
+  document.getElementById('dbs-user').value = toInputValue(config.user);
+
   function _cfg() {
+    const portValue = document.getElementById('dbs-port').value.trim();
     return {
       server:   document.getElementById('dbs-server').value.trim(),
-      port:     parseInt(document.getElementById('dbs-port').value) || 1433,
+      port:     portValue ? Number(portValue) : undefined,
       database: document.getElementById('dbs-db').value.trim(),
       user:     document.getElementById('dbs-user').value.trim(),
       password: document.getElementById('dbs-password').value,
@@ -136,6 +158,11 @@ window.electronAPI.on('app:db-setup', ({ error, config }) => {
     const btn = document.getElementById('dbs-save');
     btn.disabled = true; btn.textContent = 'Đang lưu…';
     if (!cfg.password) delete cfg.password;
-    await window.electronAPI.invoke('dbconfig:set', { mode: 'sqlserver', ...cfg });
+    const res = await window.electronAPI.invoke('dbconfig:set', { mode: 'sqlserver', ...cfg });
+    if (!res.success) {
+      btn.disabled = false;
+      btn.textContent = saveLabel;
+      _result(false, res.error || 'Không thể lưu cấu hình SQL Server');
+    }
   });
 });

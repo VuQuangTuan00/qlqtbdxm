@@ -1,6 +1,6 @@
 'use strict';
 
-const { BrowserWindow, shell } = require('electron');
+const { BrowserWindow, shell, app } = require('electron');
 const path = require('path');
 const { pathToFileURL } = require('url');
 const logger = require('./utils/logger');
@@ -18,6 +18,7 @@ function isSafeExternalUrl(url) {
  * @returns {BrowserWindow}
  */
 function createMainWindow() {
+  const isDevelopment = !app.isPackaged;
   const win = new BrowserWindow({
     // width: 1400,
     // height: 900,
@@ -33,7 +34,7 @@ function createMainWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
-      devTools: process.env.NODE_ENV !== 'production',
+      devTools: isDevelopment,
       // devTools: false,
       spellcheck: false,
     },
@@ -58,7 +59,7 @@ function createMainWindow() {
 
   win.once('ready-to-show', () => {
     win.show();
-    if (process.env.NODE_ENV === 'development') {
+    if (isDevelopment) {
       win.webContents.openDevTools({ mode: 'detach' });
     }
     logger.info('[Window] Cửa sổ chính đã hiển thị');
@@ -83,6 +84,7 @@ function createMainWindow() {
  * @returns {BrowserWindow}
  */
 function createChildWindow(parent, options = {}) {
+  const isDevelopment = !app.isPackaged;
   const defaults = {
     width: 800,
     height: 600,
@@ -94,6 +96,7 @@ function createChildWindow(parent, options = {}) {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      devTools: isDevelopment,
     },
   };
 
@@ -106,6 +109,7 @@ function createChildWindow(parent, options = {}) {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      devTools: isDevelopment,
     },
   });
   win.once('ready-to-show', () => win.show());

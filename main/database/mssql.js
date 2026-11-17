@@ -3,31 +3,9 @@
 const sql  = require('mssql');
 const path = require('path');
 const fs   = require('fs');
+const { readDbConfig } = require('../config/db-config');
 
 let _pool = null;
-
-// ── Config ───────────────────────────────────────────────────────
-
-function getDbConfig() {
-  try {
-    const { app } = require('electron');
-    if (app) {
-      const cfgPath = path.join(app.getPath('userData'), 'db-config.json');
-      if (fs.existsSync(cfgPath)) {
-        const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf-8'));
-        if (cfg.mode === 'sqlserver') return cfg;
-      }
-    }
-  } catch (_) {}
-
-  return {
-    server:       process.env.DB_SERVER   || process.env.DB_HOST || '127.20.10.3',
-    instanceName: process.env.DB_INSTANCE || 'MSSQLSERVER',
-    database:     process.env.DB_NAME     || 'QTCN',
-    user:         process.env.DB_USER     || 'qtcn',
-    password:     process.env.DB_PASSWORD || '1',
-  };
-}
 
 // ── SQL Transformation (PG → MSSQL) ──────────────────────────────
 
@@ -149,32 +127,47 @@ async function _execQuery(target, sqlStr, params = []) {
 
 // ── Init & Migrations ─────────────────────────────────────────────
 
-async function initMssqlDatabase() {
-  if (_pool) return _pool;
-
-  const cfg = getDbConfig();
-
-  _pool = await sql.connect({
-    server:   cfg.server || cfg.host || '127.20.10.3',
+function buildMssqlConnectionOptions(cfg) {
+  const connection = {
+    server: cfg.server,
     database: cfg.database,
-    user:     cfg.user,
+    user: cfg.user,
     password: cfg.password,
     options: {
-      instanceName:           cfg.instanceName || 'MSSQLSERVER',
-      encrypt:                true,
+      encrypt: true,
       trustServerCertificate: true,
-      enableArithAbort:       true,
+      enableArithAbort: true,
     },
     pool: {
-      max:               10,
-      min:               0,
+      max: 10,
+      min: 0,
       idleTimeoutMillis: 30000,
     },
     connectionTimeout: 5000,
-    requestTimeout:    60000,
-  });
+    requestTimeout: 60000,
+  };
 
-  console.log(`[MSSQL] Kết nối thành công: ${cfg.server || cfg.host}\\${cfg.instanceName || 'MSSQLSERVER'}/${cfg.database}`);
+  if (cfg.port !== undefined && cfg.port !== null && cfg.port !== '') {
+    connection.port = Number(cfg.port);
+  } else if (cfg.instanceName) {
+    connection.options.instanceName = cfg.instanceName;
+  }
+
+  return connection;
+}
+
+async function initMssqlDatabase() {
+  if (_pool) return _pool;
+
+  const cfg = readDbConfig();
+  if (!cfg) throw new Error('Chưa cấu hình kết nối SQL Server.');
+
+  _pool = await sql.connect(buildMssqlConnectionOptions(cfg));
+
+  const endpoint = cfg.port
+    ? `${cfg.server}:${cfg.port}`
+    : cfg.instanceName ? `${cfg.server}\\${cfg.instanceName}` : cfg.server;
+  console.log(`[MSSQL] Kết nối thành công: ${endpoint}/${cfg.database}`);
   await _runMigrations();
   return _pool;
 }
@@ -300,9 +293,60 @@ async function closeMssqlDatabase() {
   }
 }
 
+async function resolveMssqlBackupDirectory(config, loadServerDefault) {
+  let backupDirectory = typeof config?.backupDirectory === 'string'
+    ? config.backupDirectory.trim()
+    : '';
+
+  if (!backupDirectory) {
+    const serverDefault = await loadServerDefault();
+    backupDirectory = typeof serverDefault === 'string' ? serverDefault.trim() : '';
+  }
+
+  if (!backupDirectory) {
+    throw new Error(
+      'SQL Server không cung cấp thư mục backup mặc định. ' +
+      'Hãy cấu hình backupDirectory trong db-config.json; với SQL Server từ xa, dùng đường dẫn UNC dùng chung.'
+    );
+  }
+
+  let directoryExists = false;
+  try {
+    directoryExists = fs.existsSync(backupDirectory) && fs.statSync(backupDirectory).isDirectory();
+  } catch (error) {
+    throw new Error(
+      `Không thể truy cập thư mục backup SQL Server: ${backupDirectory}. Chi tiết: ${error.message}. ` +
+      'Hãy cấu hình backupDirectory trong db-config.json; với SQL Server từ xa, dùng đường dẫn UNC dùng chung.'
+    );
+  }
+
+  if (!directoryExists) {
+    throw new Error(
+      `Không tìm thấy thư mục backup SQL Server: ${backupDirectory}. ` +
+      'Hãy cấu hình backupDirectory trong db-config.json; với SQL Server từ xa, dùng đường dẫn UNC dùng chung.'
+    );
+  }
+
+  return backupDirectory;
+}
+
+async function getMssqlBackupDirectory() {
+  if (!_pool) throw new Error('SQL Server chưa khởi tạo');
+  const config = readDbConfig();
+  if (!config) throw new Error('Chưa cấu hình kết nối SQL Server.');
+
+  return resolveMssqlBackupDirectory(config, async () => {
+    const result = await _pool.request().query(
+      "SELECT CONVERT(nvarchar(4000), SERVERPROPERTY('InstanceDefaultBackupPath')) AS backup_directory"
+    );
+    return result.recordset?.[0]?.backup_directory || '';
+  });
+}
+
 async function backupMssqlDatabase(destinationPath) {
   if (!_pool) throw new Error('SQL Server chưa khởi tạo');
-  const config = getDbConfig();
+  const config = readDbConfig();
+  if (!config) throw new Error('Chưa cấu hình kết nối SQL Server.');
   if (!config.database) throw new Error('Chưa cấu hình tên database.');
 
   const databaseName = String(config.database).replace(/]/g, ']]');
@@ -318,6 +362,9 @@ module.exports = {
   getMssqlDb,
   closeMssqlDatabase,
   backupMssqlDatabase,
-  getDbConfig,
+  getMssqlBackupDirectory,
+  resolveMssqlBackupDirectory,
+  buildMssqlConnectionOptions,
+  getDbConfig: readDbConfig,
   transformSql: _transformSql,
 };

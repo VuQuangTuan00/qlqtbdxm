@@ -32,8 +32,10 @@ LUU Y
   bat buoc de dong bo cac ban ghi voi anh/tai lieu.
 - Neu database dich da co du lieu, hay tao backup .bak rieng truoc khi restore.
 - Khi xuat, SQL Server service can quyen ghi vao thu muc backup SQL Server.
-  Mac dinh app dung C:\Tools\SQL Sever\MSSQL16.MSSQLSERVER\MSSQL\Backup.
-  Neu instance khac, dat bien SQLSERVER_BACKUP_DIR trong .env truoc khi mo app.
+  App tu dong lay thu muc backup mac dinh cua SQL Server instance dang ket noi.
+  Neu SQL Server o may khac hoac can thu muc rieng, them khoa backupDirectory
+  vao db-config.json trong thu muc userData. Dung duong dan UNC ma ca dich vu
+  SQL Server va app deu co the truy cap.
 - Khi restore, tai khoan dung SSMS can quyen doc file .bak trong Documents.
 - ZIP phai duoc giu cung database .bak trong cung goi; khong ghep file tu
   hai thoi diem backup khac nhau.

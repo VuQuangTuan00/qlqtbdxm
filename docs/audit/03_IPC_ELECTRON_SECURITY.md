@@ -47,7 +47,7 @@ Chi tiết và permission matrix nằm trong `02_AUTH_RBAC_AUDIT.md`. Main proce
 | `nodeIntegration` | false | false, không override được |
 | `contextIsolation` | true | true, không override được |
 | `sandbox` | true | true, không override được |
-| DevTools | tắt khi `NODE_ENV=production` | mặc định Electron; child hiện chưa được dùng |
+| DevTools | bật khi development, tắt khi đóng gói theo `app.isPackaged` | cùng chính sách với main, không override bật lại được trong bản đóng gói |
 | New windows | deny; chỉ HTTP(S) mở ngoài | chưa có API caller trong source |
 | Navigation | chỉ document app; HTTP(S) mở ngoài | chưa có load/navigation flow trong source |
 

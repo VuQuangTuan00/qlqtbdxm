@@ -6,7 +6,7 @@ const fs = require('fs');
 const { randomUUID } = require('crypto');
 const authService = require('../services/auth.service');
 const archiveService = require('../services/file-archive.service');
-const { backupMssqlDatabase, getDbConfig } = require('../database');
+const { backupMssqlDatabase, getMssqlBackupDirectory, getDbConfig } = require('../database');
 const { ok, fail } = require('../utils/response');
 const logger = require('../utils/logger');
 
@@ -35,10 +35,7 @@ function register() {
 
       const config = getDbConfig();
       const safeDatabase = String(config.database || 'database').replace(/[<>:"/\\|?*]/g, '_');
-      const backupDirectory = process.env.SQLSERVER_BACKUP_DIR ;
-      if (!fs.existsSync(backupDirectory) || !fs.statSync(backupDirectory).isDirectory()) {
-        throw new Error(`Không tìm thấy thư mục backup SQL Server: ${backupDirectory}. Có thể cấu hình SQLSERVER_BACKUP_DIR.`);
-      }
+      const backupDirectory = await getMssqlBackupDirectory();
       const databaseBackupPath = path.join(
         backupDirectory,
         `${safeDatabase}-${Date.now()}-${randomUUID().slice(0, 8)}.bak`

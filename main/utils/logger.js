@@ -1,12 +1,11 @@
 'use strict';
 
 const log = require('electron-log');
-const path = require('path');
 const { app } = require('electron');
 
 // Cấu hình electron-log
-log.transports.file.level = process.env.LOG_LEVEL || 'info';
-log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
+log.transports.file.level = 'info';
+log.transports.console.level = app?.isPackaged === false ? 'debug' : 'warn';
 
 // Đặt tên file log
 log.transports.file.fileName = 'qtcn.log';

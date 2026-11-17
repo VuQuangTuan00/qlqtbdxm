@@ -2,9 +2,13 @@
 
 const { ipcMain, app } = require('electron');
 const sql  = require('mssql');
-const path = require('path');
-const fs   = require('fs');
-const { getDbConfig } = require('../database');
+const {
+  readDbConfig,
+  readDbConfigForRecovery,
+  writeDbConfig,
+  validateDbConfig,
+} = require('../config/db-config');
+const { buildMssqlConnectionOptions } = require('../database/mssql');
 const authService = require('../services/auth.service');
 const response = require('../utils/response');
 const logger   = require('../utils/logger');
@@ -28,12 +32,12 @@ function register({ setupMode = false } = {}) {
     try {
       const denied = _authorize();
       if (denied) return denied;
-      const config = getDbConfig();
+      const config = (_setupMode ? readDbConfigForRecovery() : readDbConfig()) || {};
       return response.ok({
         server:   config.server || config.host || '',
         port:     config.port,
-        database: config.database,
-        user:     config.user,
+        database: config.database || '',
+        user:     config.user || '',
         password: '',
       });
     } catch (err) {
@@ -47,22 +51,18 @@ function register({ setupMode = false } = {}) {
     try {
       const denied = _authorize();
       if (denied) return denied;
-      const configPath = path.join(app.getPath('userData'), 'db-config.json');
-      // Giữ lại password cũ nếu request không gửi password mới
-      if (!config.password && fs.existsSync(configPath)) {
-        try {
-          const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-          if (existing.password) config = { ...config, password: existing.password };
-        } catch (_) {}
-      }
-      // Luôn lưu với mode sqlserver
-      fs.writeFileSync(configPath, JSON.stringify({ mode: 'sqlserver', ...config }, null, 2), 'utf-8');
-      logger.info(`[DBConfig] Đã lưu config vào ${configPath}`);
+      const saved = writeDbConfig(config);
+      logger.info('[DBConfig] Đã lưu cấu hình SQL Server');
       setTimeout(() => {
         app.relaunch();
         app.exit(0);
       }, 500);
-      return response.ok({ message: 'Đã lưu, đang khởi động lại ứng dụng...' });
+      return response.ok({ message: 'Đã lưu, đang khởi động lại ứng dụng...', config: {
+        server: saved.server,
+        port: saved.port,
+        database: saved.database,
+        user: saved.user,
+      } });
     } catch (err) {
       logger.error('[DBConfig] Lỗi lưu config:', err);
       return response.fail(err.message);
@@ -76,40 +76,33 @@ function register({ setupMode = false } = {}) {
     const start = Date.now();
     let pool;
     try {
-      pool = await sql.connect({
-        server:   config.server || config.host || 'localhost',
-        port:     parseInt(config.port) || 1433,
-        database: config.database,
-        user:     config.user,
-        password: config.password,
-        options: {
-          encrypt:                true,
-          trustServerCertificate: true,
-          enableArithAbort:       true,
-        },
-        pool:              { max: 1, min: 0 },
-        connectionTimeout: 5000,
-        requestTimeout:    5000,
-      });
+      const validated = validateDbConfig({ ...(config || {}), mode: 'sqlserver' });
+      const connectionOptions = buildMssqlConnectionOptions(validated);
+      connectionOptions.pool = { max: 1, min: 0 };
+      connectionOptions.requestTimeout = 5000;
+      pool = new sql.ConnectionPool(connectionOptions);
+      await pool.connect();
 
       const { recordset } = await pool.request()
         .query('SELECT @@VERSION AS version, @@SERVERNAME AS server_name');
-      await pool.close();
-
       const latency  = Date.now() - start;
       const fullVer  = recordset[0]?.version || '';
       const shortVer = fullVer.split('\n')[0].trim() || 'SQL Server';
 
-      logger.info(`[DBConfig] Test kết nối thành công: ${config.server}:${config.port} (${latency}ms)`);
+      const endpoint = validated.port
+        ? `${validated.server}:${validated.port}`
+        : validated.instanceName ? `${validated.server}\\${validated.instanceName}` : validated.server;
+      logger.info(`[DBConfig] Test kết nối thành công: ${endpoint} (${latency}ms)`);
       return response.ok({
         // message: `Kết nối thành công! ${shortVer}`,
         message: `Kết nối thành công!`,
         latency,
       });
     } catch (err) {
-      try { if (pool) await pool.close(); } catch (_) {}
       logger.warn(`[DBConfig] Test kết nối thất bại: ${err.message}`);
       return response.fail(`Kết nối thất bại: ${err.message}`);
+    } finally {
+      try { if (pool) await pool.close(); } catch (_) {}
     }
   });
 }

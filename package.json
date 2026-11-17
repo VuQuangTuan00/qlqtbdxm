@@ -1,6 +1,6 @@
 {
   "name": "qlqtbdxm",
-  "version": "1.0",
+  "version": "1.0.0",
   "description": "Hệ thống quản lý Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật",
   "main": "main/index.js",
   "scripts": {
@@ -12,15 +12,12 @@
     "start": "electron .",
     "dev": "electron . --inspect=5858",
     "build": "npm run clean && electron-builder --win",
-    "seed": "node scripts/seed.js",
-    "reset-db": "node scripts/reset-db.js",
     "clean": "rimraf dist"
   },
   "author": "Lữ Đoàn Công Binh 279",
   "license": "MIT",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "dotenv": "^16.6.1",
     "electron-log": "^5.1.2",
     "mssql": "^11.0.1",
     "tedious": "^19.2.2"

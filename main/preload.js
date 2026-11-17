@@ -108,7 +108,6 @@ const ALLOWED_ON_CHANNELS = [
   'app:notification',
   'app:updateAvailable',
   'app:db-setup',
-  'app:first-run',
 ];
 
 /**

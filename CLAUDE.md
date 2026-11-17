@@ -61,14 +61,9 @@ Repository viết cú pháp PostgreSQL-style. mssql.js tự động chuyển san
 
 ### Cấu hình kết nối SQL Server
 
-Khi chưa có `db-config.json`, fallback đọc từ `.env`:
-```
-DB_SERVER=DESKTOP-SEPTJA2
-DB_PORT=1433
-DB_NAME=QTCN
-DB_USER=qtcn
-DB_PASSWORD=1
-```
+`db-config.json` trong thư mục Electron `userData` là nguồn cấu hình kết nối duy nhất.
+Khi file chưa tồn tại hoặc không hợp lệ, ứng dụng hiển thị màn hình thiết lập SQL Server;
+không đọc `.env` và không tự dùng địa chỉ hoặc tài khoản mặc định.
 
 Luôn dùng `encrypt: true, trustServerCertificate: true` — SQL Server được cấu hình Encrypt: Mandatory.
 
@@ -177,8 +172,7 @@ renderer/
     ├── store.js                       ← Reactive state: get/set/watch, lưu session + route
     ├── router.js                      ← Hash router: register/navigate/refresh, guard auth
     ├── auth.js                        ← Login screen, session management
-    ├── first-run.js                   ← Overlay lần đầu: nhập credentials SQL Server
-    ├── db-setup.js                    ← Overlay lỗi DB: nhập lại credentials
+    ├── db-setup.js                    ← Overlay dùng chung cho thiết lập lần đầu và phục hồi lỗi DB
     └── components/
         ├── sidebar.js
         ├── modal.js
@@ -213,8 +207,6 @@ renderer/
 ```bash
 npm start             # Chạy app
 npm run dev           # Chạy với Node inspector port 5858
-npm run seed          # Seed SQL Server từ .env
-npm run reset-db      # Reset schema SQL Server
 npm run build         # Build NSIS installer → dist/
 ```
 

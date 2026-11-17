@@ -76,7 +76,7 @@ Toàn suite ngoài sandbox: `npm test` → 54 PASS, 0 FAIL, 0 SKIP.
 
 - `BACKUP DATABASE` trên SQL Server thật: BLOCKED vì không có SQL Server test riêng và không được chạm production.
 - `RESTORE VERIFYONLY`, restore sang database disposable và đối chiếu row count/checksum: BLOCKED.
-- Quyền ghi thực tế của SQL Server service account vào `SQLSERVER_BACKUP_DIR`: NOT TESTED.
+- Quyền ghi thực tế của SQL Server service account vào thư mục mặc định của instance hoặc `db-config.json.backupDirectory`: NOT TESTED.
 - File `.bak` nhiều GiB và đúng quota biên 5/10 GiB: NOT TESTED để tránh tiêu tốn tài nguyên.
 - Mất điện/process kill đúng lúc PowerShell copy: mô phỏng logic failure PASS, process-kill recovery NOT TESTED.
 
