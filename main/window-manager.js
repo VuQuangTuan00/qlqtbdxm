@@ -36,6 +36,8 @@ function createMainWindow() {
       sandbox: true,
       devTools: isDevelopment,
       spellcheck: false,
+      zoomFactor: 0.8,
+      zoomMode: 'isolated',
     },
       autoHideMenuBar: true,
   });
