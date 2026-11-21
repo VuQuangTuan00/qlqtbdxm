@@ -45,15 +45,15 @@ async function login(username, password) {
     loginAt: new Date().toISOString(),
   };
 
-  // Ghi audit log (async, không block)
-  try {
-    await getDb().query(
-      `INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, 'login', 'users', $2)`,
-      [user.id, user.id]
-    );
-  } catch (e) {
-    logger.warn('[Auth] Lỗi ghi audit log:', e.message);
-  }
+  // // Ghi audit log (async, không block)
+  // try {
+  //   await getDb().query(
+  //     `INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, 'login', 'users', $2)`,
+  //     [user.id, user.id]
+  //   );
+  // } catch (e) {
+  //   logger.warn('[Auth] Lỗi ghi audit log:', e.message);
+  // }
 
   logger.info(`[Auth] Đăng nhập thành công: ${username} (${user.role_code})`);
   return ok(_session);
@@ -66,12 +66,12 @@ async function login(username, password) {
 async function logout() {
   if (_session) {
     logger.info(`[Auth] Đăng xuất: ${_session.username}`);
-    try {
-      await getDb().query(
-        `INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, 'logout', 'users', $2)`,
-        [_session.userId, _session.userId]
-      );
-    } catch (e) {}
+    // try {
+    //   await getDb().query(
+    //     `INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1, 'logout', 'users', $2)`,
+    //     [_session.userId, _session.userId]
+    //   );
+    // } catch (e) {}
   }
   _session = null;
   return ok(null, 'Đã đăng xuất');

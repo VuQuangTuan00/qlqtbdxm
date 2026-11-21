@@ -248,10 +248,10 @@
   overflow: hidden;
   color: #FFFFFF;
   background-color: transparent;
-  background-image: url('../images/bg_hckt.png');
+  background-image: url('../images/bg_hckt1.png');
   background-repeat: no-repeat;
-  background-position: right center;
-  background-size: min(2172px, 100%) auto;
+  background-size: 100% 100%;
+  background-position: center;
   border-bottom: 0;
   box-shadow: 0 5px 18px rgba(5, 74, 130, 0.22);
 }

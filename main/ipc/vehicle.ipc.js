@@ -55,11 +55,11 @@ function register() {
 
   // ── Engine Maintenance ───────────────────────────────────────
 
-  ipcMain.handle('engineMaintenance:list', async (_e, { vehicleId } = {}) => {
+  ipcMain.handle('engineMaintenance:list', async (_e, { vehicleId, tab } = {}) => {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
-      return await vehicleService.listMaintenance(vehicleId);
+      return await vehicleService.listMaintenance(vehicleId, tab);
     }
     catch (err) { return fail(err.message); }
   });
@@ -73,30 +73,30 @@ function register() {
     } catch (err) { return fail(err.message); }
   });
 
-  ipcMain.handle('engineMaintenance:update', async (_e, { id, data } = {}) => {
+  ipcMain.handle('engineMaintenance:update', async (_e, { id, tab, data } = {}) => {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
       if (!authService.requireAdmin()) return fail('Chỉ admin mới sửa được');
-      return await vehicleService.updateMaintenance(id, data, session.userId);
+      return await vehicleService.updateMaintenance(id, tab, data, session.userId);
     } catch (err) { return fail(err.message); }
   });
 
-  ipcMain.handle('engineMaintenance:delete', async (_e, { id } = {}) => {
+  ipcMain.handle('engineMaintenance:delete', async (_e, { id, tab } = {}) => {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
       if (!authService.requireAdmin()) return fail('Chỉ admin mới xóa được');
-      return await vehicleService.deleteMaintenance(id, session.userId);
+      return await vehicleService.deleteMaintenance(id, tab, session.userId);
     } catch (err) { return fail(err.message); }
   });
 
-  ipcMain.handle('engineMaintenance:reorder', async (_e, { vehicleId, orderedIds } = {}) => {
+  ipcMain.handle('engineMaintenance:reorder', async (_e, { vehicleId, tab, orderedIds } = {}) => {
     try {
       const session = authService.requireAuth();
       if (!session) return fail('Chưa đăng nhập');
       if (!authService.requireAdmin()) return fail('Chỉ admin mới sắp xếp được');
-      return await vehicleService.reorderMaintenance(vehicleId, orderedIds, session.userId);
+      return await vehicleService.reorderMaintenance(vehicleId, tab, orderedIds, session.userId);
     } catch (err) { return fail(err.message); }
   });
 

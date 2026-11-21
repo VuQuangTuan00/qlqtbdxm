@@ -19,7 +19,7 @@ if (!gotTheLock) {
 let mainWindow = null;
 
 app.whenReady().then(async () => {
-  logger.info('[App] Khởi động ứng dụng Quy trình công nghệ và định mức kinh tế - kỹ thuật...');
+  logger.info('[App] Khởi động phần mềm QUẢN LÝ QUY TRÌNH CÔNG NGHỆ VÀ ĐỊNH MỨC KINH TẾ KỸ THUẬT...');  
 
   const cleanupResult = processPendingCleanup();
   if (cleanupResult.deleted || cleanupResult.remaining) {

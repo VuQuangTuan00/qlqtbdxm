@@ -1,5 +1,5 @@
 /* ============================================================
-   Danh Sách Trang Bị — vehicle + engine_maintenance (kiến trúc mới)
+   Danh Sách Trang Bị — vehicle + independent maintenance lists
    ============================================================ */
 'use strict';
 
@@ -227,13 +227,14 @@ function _renderVehicleCard(v) {
 /* ════════════════════════════════════════════════════════════
    ROUTE: vehicle-detail — Chi tiết loại xe + 2 tab PDF
    ════════════════════════════════════════════════════════════ */
-async function renderVehicleDetail(container, params) {
+async function renderVehicleDetail(container, params, initialTab = 'tech_process') {
   const { id } = params;
   container.innerHTML = `<div style="display:flex;justify-content:center;padding:48px;"><div class="spinner"></div></div>`;
 
-  const [resV, resM, resT] = await Promise.all([
+  const [resV, resTech, resNorm, resT] = await Promise.all([
     window.electronAPI.invoke('vehicle:get', { id }),
-    window.electronAPI.invoke('engineMaintenance:list', { vehicleId: id }),
+    window.electronAPI.invoke('engineMaintenance:list', { vehicleId: id, tab: 'tech_process' }),
+    window.electronAPI.invoke('engineMaintenance:list', { vehicleId: id, tab: 'norm_ktkt' }),
     window.electronAPI.invoke('vehicleType:list'),
   ]);
 
@@ -243,22 +244,29 @@ async function renderVehicleDetail(container, params) {
   }
 
   const vehicle   = resV.data;
-  const items     = resM.success ? resM.data : [];
+  const itemsByTab = {
+    tech_process: resTech.success ? resTech.data : [],
+    norm_ktkt: resNorm.success ? resNorm.data : [],
+  };
+  const techItems = itemsByTab.tech_process;
+  const normItems = itemsByTab.norm_ktkt;
   const typeItems = resT.success ? resT.data : [];
-  let activeTab = 'tech_process';
+  let activeTab = initialTab;
   let editMode  = false;
 
   function rebuild() {
-    _renderDetailPage(container, vehicle, items, typeItems, activeTab, editMode,
+    _renderDetailPage(container, vehicle, techItems, normItems, typeItems, activeTab, editMode,
       (newTab) => { activeTab = newTab; rebuild(); },
       (newEdit) => { editMode = newEdit; rebuild(); },
-      () => renderVehicleDetail(container, params)
+      () => renderVehicleDetail(container, params, activeTab)
     );
   }
   rebuild();
 }
 
-function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, onTabChange, onEditToggle, onRefresh) {
+function _renderDetailPage(container, v, techItems, normItems, typeItems, activeTab, editMode, onTabChange, onEditToggle, onRefresh) {
+  const itemsByTab = { tech_process: techItems, norm_ktkt: normItems };
+  const items = itemsByTab[activeTab];
   const src = _imgSrc(v.img_url);
   const img = src
     ? `<img src="${src}" alt="${v.vehicle_name}" data-has-fallback
@@ -270,8 +278,8 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 15h18l-1.5-5.1A2 2 0 0 0 17.6 8H7a2 2 0 0 0-1.9 1.4L3 15Z"/><path d="M4 15v3h2m12 0h2v-3"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/></svg>
        </div>`;
 
-  const techCount = items.filter((i) => i.tech_process_file_path).length;
-  const normCount = items.filter((i) => i.norm_ktkt_file_path).length;
+  const techCount = techItems.filter((i) => i.file_path).length;
+  const normCount = normItems.filter((i) => i.file_path).length;
 
   container.innerHTML = `
     <div class="breadcrumb" style="margin-bottom:var(--space-4);">
@@ -307,11 +315,11 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
             ${img}
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-top:var(--space-4);">
               <div style="text-align:center;padding:var(--space-2);background:var(--bg-table-header);border-radius:var(--border-radius-sm);">
-                <div class="fw-bold" style="font-size:18px;color:var(--color-success-text);">${techCount}/${items.length}</div>
+                <div class="fw-bold" style="font-size:18px;color:var(--color-success-text);">${techCount}/${techItems.length}</div>
                 <div class="text-xs text-muted detail-stat-label"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5 5L4 17l3 3 5.7-5.7a4 4 0 0 0 5-5l-2.4 2.4-3-3 2.4-2.4Z"/></svg>Có file QT</div>
               </div>
               <div style="text-align:center;padding:var(--space-2);background:var(--bg-table-header);border-radius:var(--border-radius-sm);">
-                <div class="fw-bold" style="font-size:18px;color:var(--color-info-text);">${normCount}/${items.length}</div>
+                <div class="fw-bold" style="font-size:18px;color:var(--color-info-text);">${normCount}/${normItems.length}</div>
                 <div class="text-xs text-muted detail-stat-label"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6v4m4-4v3m4-3v4"/></svg>Có file ĐM</div>
               </div>
             </div>
@@ -373,7 +381,7 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
                     style="font-size:9px;padding:1px 5px;margin-left:4px;">${techCount}</span>
             </button>
             <button class="tab-btn ${activeTab === 'norm_ktkt' ? 'active' : ''}" id="tab-norm">
-              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6v4m4-4v3m4-3v4"/></svg>Định mức KT-KT
+              <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16v12H4zM8 6v4m4-4v3m4-3v4"/></svg>Định mức Kinh Tế Kỹ Thuật
               <span class="badge ${activeTab === 'norm_ktkt' ? 'badge-info' : 'badge-neutral'}"
                     style="font-size:9px;padding:1px 5px;margin-left:4px;">${normCount}</span>
             </button>
@@ -404,7 +412,7 @@ function _renderDetailPage(container, v, items, typeItems, activeTab, editMode, 
       onEditToggle(!editMode);
     });
     document.getElementById('btn-add-item').addEventListener('click', () => {
-      openMaintenanceForm(null, v.vehicle_id, onRefresh);
+      openMaintenanceForm(null, v.vehicle_id, activeTab, onRefresh);
     });
   }
 
@@ -457,7 +465,7 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
     bar.addEventListener('click', async (e) => {
       if (e.target.closest('.bar-actions')) return;
       const id  = parseInt(bar.dataset.id);
-      const row = items.find((i) => i.engine_maintenance_id === id);
+      const row = items.find((i) => _maintenanceId(i, activeTab) === id);
       await _handleBarClick(row, activeTab, vehicleId, onRefresh);
     });
   });
@@ -467,8 +475,8 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         const id  = parseInt(btn.dataset.id);
-        const row = items.find((i) => i.engine_maintenance_id === id);
-        openMaintenanceForm(row, vehicleId, onRefresh);
+        const row = items.find((i) => _maintenanceId(i, activeTab) === id);
+        openMaintenanceForm(row, vehicleId, activeTab, onRefresh);
       });
     });
 
@@ -476,14 +484,14 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const id  = parseInt(btn.dataset.id);
-        const row = items.find((i) => i.engine_maintenance_id === id);
+        const row = items.find((i) => _maintenanceId(i, activeTab) === id);
         const confirmed = await modal.confirm({
           title: 'Xóa hạng mục', type: 'danger', confirmText: 'Xóa',
-          message: `Xóa hạng mục "${row.maintenance_name}"?`,
+          message: `Xóa hạng mục "${_maintenanceName(row, activeTab)}"?`,
           sub: 'File PDF đính kèm (nếu có) cũng sẽ bị xóa.',
         });
         if (!confirmed) return;
-        const res = await window.electronAPI.invoke('engineMaintenance:delete', { id });
+        const res = await window.electronAPI.invoke('engineMaintenance:delete', { id, tab: activeTab });
         if (res.success) { toast.success('Đã xóa hạng mục'); onRefresh(); }
         else toast.error('Lỗi', res.error);
       });
@@ -497,7 +505,7 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
         const newOrder = [...items];
         [newOrder[idx - 1], newOrder[idx]] = [newOrder[idx], newOrder[idx - 1]];
         const res = await window.electronAPI.invoke('engineMaintenance:reorder', {
-          vehicleId, orderedIds: newOrder.map((i) => i.engine_maintenance_id),
+          vehicleId, tab: activeTab, orderedIds: newOrder.map((i) => _maintenanceId(i, activeTab)),
         });
         if (res.success) onRefresh(); else toast.error('Lỗi', res.error);
       });
@@ -511,7 +519,7 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
         const newOrder = [...items];
         [newOrder[idx], newOrder[idx + 1]] = [newOrder[idx + 1], newOrder[idx]];
         const res = await window.electronAPI.invoke('engineMaintenance:reorder', {
-          vehicleId, orderedIds: newOrder.map((i) => i.engine_maintenance_id),
+          vehicleId, tab: activeTab, orderedIds: newOrder.map((i) => _maintenanceId(i, activeTab)),
         });
         if (res.success) onRefresh(); else toast.error('Lỗi', res.error);
       });
@@ -519,10 +527,16 @@ function _renderMaintList(items, activeTab, vehicleId, editMode, onRefresh) {
   }
 }
 
+function _maintenanceId(item, tab) {
+  return item.maintenance_id;
+}
+
+function _maintenanceName(item, tab) {
+  return item.maintenance_name;
+}
+
 function _buildItemBar(item, idx, total, activeTab, editMode) {
-  const hasFile = activeTab === 'tech_process'
-    ? !!item.tech_process_file_path
-    : !!item.norm_ktkt_file_path;
+  const hasFile = !!item.file_path;
 
   const fileBadge = hasFile
     ? `<span class="badge badge-success badge-with-icon" style="font-size:10px;"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v5h4M9 13h6M9 17h6"/></svg>Có file</span>`
@@ -536,14 +550,14 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
         style="padding:2px 6px;font-size:11px;" aria-label="Di chuyển xuống" title="Di chuyển xuống" ${idx >= total - 1 ? 'disabled' : ''}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 10 6 6 6-6"/></svg></button>
     </div>
     <div class="bar-actions" style="display:flex;flex-direction:column;gap:3px;margin-left:2px;">
-      <button class="btn btn-sm btn-secondary btn-item-edit" data-id="${item.engine_maintenance_id}"
+      <button class="btn btn-sm btn-secondary btn-item-edit" data-id="${_maintenanceId(item, activeTab)}"
         style="padding:2px 8px;font-size:11px;" aria-label="Sửa hạng mục" title="Sửa"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m4 20 4.2-1 10.6-10.6a2 2 0 0 0-2.8-2.8L5.4 16.2 4 20Z"/><path d="m14.5 7.1 2.8 2.8"/></svg></button>
-      <button class="btn btn-sm btn-danger btn-item-delete" data-id="${item.engine_maintenance_id}"
+      <button class="btn btn-sm btn-danger btn-item-delete" data-id="${_maintenanceId(item, activeTab)}"
         style="padding:2px 8px;font-size:11px;" aria-label="Xóa hạng mục" title="Xóa"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>
     </div>` : '';
 
   return `
-    <div class="maint-bar" data-id="${item.engine_maintenance_id}" style="
+    <div class="maint-bar" data-id="${_maintenanceId(item, activeTab)}" style="
       display:flex;align-items:center;gap:var(--space-3);
       padding:var(--space-3) var(--space-4);
       background:var(--bg-card);
@@ -561,7 +575,7 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
 
       <div style="flex:1;min-width:0;">
         <div style="display:flex;align-items:center;gap:var(--space-2);flex-wrap:wrap;">
-          <span class="fw-medium" style="color:var(--text-heading); text-transform: uppercase;">${item.maintenance_name}</span>
+          <span class="fw-medium" style="color:var(--text-heading); text-transform: uppercase;">${_maintenanceName(item, activeTab)}</span>
           ${fileBadge}
         </div>
       </div>
@@ -571,19 +585,14 @@ function _buildItemBar(item, idx, total, activeTab, editMode) {
 }
 
 async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
-  const hasFile = activeTab === 'tech_process'
-    ? !!item.tech_process_file_path
-    : !!item.norm_ktkt_file_path;
+  const hasFile = !!item.file_path;
+  const fileName = item.file_name;
 
-  const fileName = activeTab === 'tech_process'
-    ? item.tech_process_file_name
-    : item.norm_ktkt_file_name;
-
-  const tabLabel = activeTab === 'tech_process' ? 'Quy trình công nghệ' : 'Định mức KT-KT';
+  const tabLabel = activeTab === 'tech_process' ? 'Quy trình công nghệ' : 'Định mức kinh tế Kỹ thuật';
 
   if (hasFile) {
     const openExternal = () => window.electronAPI.invoke('engineMaintenance:openFile', {
-      id: item.engine_maintenance_id, tab: activeTab,
+      id: _maintenanceId(item, activeTab), tab: activeTab,
     });
 
     if (/\.(docx?|doc)$/i.test(fileName || '')) {
@@ -593,7 +602,7 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
     }
 
     const res = await window.electronAPI.invoke('engineMaintenance:readFile', {
-      id: item.engine_maintenance_id, tab: activeTab,
+      id: _maintenanceId(item, activeTab), tab: activeTab,
     });
     if (!res.success) { toast.error('Lỗi đọc file', res.error); return; }
 
@@ -606,7 +615,7 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
 
       try {
         const delRes = await window.electronAPI.invoke('engineMaintenance:deleteFile', {
-          id: item.engine_maintenance_id, tab: activeTab,
+          id: _maintenanceId(item, activeTab), tab: activeTab,
         });
         if (delRes.success) {
           toast.success('Đã xóa file');
@@ -622,7 +631,7 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
     } : null;
 
     window.pdfPreview.open({
-      title:    item.maintenance_name,
+      title:    _maintenanceName(item, activeTab),
       subtitle: tabLabel,
       base64:   res.data.base64,
       fileName: res.data.file_name,
@@ -642,12 +651,13 @@ async function _handleBarClick(item, activeTab, vehicleId, onRefresh) {
    FORM: Upload PDF
    ════════════════════════════════════════════════════════════ */
 function openUploadForm(item, activeTab, onRefresh) {
-  const tabLabel = activeTab === 'tech_process' ? 'Quy trình công nghệ' : 'Định mức KT-KT';
+  const tabLabel = activeTab === 'tech_process' ? 'Quy trình công nghệ' : 'Kinh tế kỹ thuật';
+  const itemName = _maintenanceName(item, activeTab);
 
   const content = document.createElement('div');
   content.innerHTML = `
     <p class="text-sm text-muted" style="margin-bottom:var(--space-4);">
-      Hạng mục: <strong>${item.maintenance_name}</strong><br/>
+      Hạng mục: <strong>${itemName}</strong><br/>
       Tab: <strong>${tabLabel}</strong>
     </p>
 
@@ -704,7 +714,7 @@ function openUploadForm(item, activeTab, onRefresh) {
   dropZone.addEventListener('drop', (e) => { e.preventDefault(); _setFile(e.dataTransfer.files[0]); });
 
   modal.open({
-    title:   `Upload PDF — ${item.maintenance_name}`,
+    title:   `Upload PDF — ${itemName}`,
     content,
     size:    'lg',
     buttons: [
@@ -723,7 +733,7 @@ function openUploadForm(item, activeTab, onRefresh) {
           try {
             const arrayBuffer = await selectedFile.arrayBuffer();
             const res = await window.electronAPI.invoke('engineMaintenance:uploadFile', {
-              id:       item.engine_maintenance_id,
+              id:       _maintenanceId(item, activeTab),
               tab:      activeTab,
               fileData: { file_name: selectedFile.name, file_buffer: Array.from(new Uint8Array(arrayBuffer)) },
             });
@@ -875,20 +885,22 @@ function openVehicleForm(v, onSave) {
 /* ════════════════════════════════════════════════════════════
    FORM: Thêm/Sửa hạng mục bảo dưỡng
    ════════════════════════════════════════════════════════════ */
-function openMaintenanceForm(item, vehicleId, onSave) {
+function openMaintenanceForm(item, vehicleId, activeTab, onSave) {
   const isEdit = !!item;
+  const itemName = item ? _maintenanceName(item, activeTab) : '';
+  const tabLabel = activeTab === 'tech_process' ? 'Quy trình công nghệ' : 'Định mức kinh tế kỹ thuật';
 
   const content = document.createElement('div');
   content.innerHTML = `
     <div class="form-group">
-      <label class="form-label required">Tên hạng mục</label>
+      <label class="form-label required">Tên ${tabLabel}</label>
       <input type="text" class="form-control" id="mf-name"
-        value="${item?.maintenance_name || ''}" placeholder="VD: Bảo dưỡng động cơ" />
+        value="${itemName}" placeholder="VD: Bảo dưỡng động cơ" />
     </div>
   `;
 
   modal.open({
-    title: isEdit ? `Sửa: ${item.maintenance_name}` : 'Thêm hạng mục bảo dưỡng',
+    title: isEdit ? `Sửa: ${itemName}` : `Thêm ${tabLabel}`,
     content,
     size: 'sm',
     buttons: [
@@ -903,11 +915,11 @@ function openMaintenanceForm(item, vehicleId, onSave) {
           let res;
           if (isEdit) {
             res = await window.electronAPI.invoke('engineMaintenance:update', {
-              id: item.engine_maintenance_id, data: { maintenance_name: name },
+              id: _maintenanceId(item, activeTab), tab: activeTab, data: { maintenance_name: name },
             });
           } else {
             res = await window.electronAPI.invoke('engineMaintenance:create', {
-              vehicle_id: vehicleId, maintenance_name: name,
+              vehicle_id: vehicleId, tab: activeTab, maintenance_name: name,
             });
           }
 

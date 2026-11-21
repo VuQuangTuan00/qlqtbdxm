@@ -708,7 +708,7 @@ body::before {
   background: var(--bg-body, #f0f4ec);
 }
 
-#topbar {
+/* #topbar {
   height: 52px;
   background: var(--bg-header, #ffffff);
   border-bottom: 1px solid rgba(0,0,0,0.07);
@@ -721,7 +721,7 @@ body::before {
   background-image: url('../images/banner_topbar.png');
   background-repeat: no-repeat;
   background-size: cover;
-}
+} */
 .topbar-title {
   font-family: 'Oswald', sans-serif;
   font-size: 14px;

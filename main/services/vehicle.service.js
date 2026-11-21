@@ -6,7 +6,8 @@ const { randomUUID } = require('crypto');
 const { shell } = require('electron');
 
 const vehicleRepo      = require('../repositories/vehicle.repository');
-const engineRepo       = require('../repositories/engine-maintenance.repository');
+const techProcessRepo = require('../repositories/tech-process-maintenance.repository');
+const normKtktRepo    = require('../repositories/norm-ktkt-maintenance.repository');
 const vehicleTypeRepo  = require('../repositories/vehicle-type.repository');
 const { getDb } = require('../database/index');
 const { ok, fail }      = require('../utils/response');
@@ -14,7 +15,22 @@ const logger       = require('../utils/logger');
 const { deleteOrQueue } = require('./pending-file-cleanup.service');
 const fileStorage = require('./file-storage.service');
 
-const FILE_TABS = ['tech_process', 'norm_ktkt'];
+const MAINTENANCE_TYPES = {
+  tech_process: {
+    repo: techProcessRepo,
+    idField: 'tech_process_id',
+    nameField: 'tech_process_name',
+    fileNameField: 'tech_process_file_name',
+    filePathField: 'tech_process_file_path',
+  },
+  norm_ktkt: {
+    repo: normKtktRepo,
+    idField: 'norm_ktkt_id',
+    nameField: 'norm_ktkt_name',
+    fileNameField: 'norm_ktkt_file_name',
+    filePathField: 'norm_ktkt_file_path',
+  },
+};
 const MAX_PDF_SIZE = 50 * 1024 * 1024;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
@@ -57,8 +73,36 @@ function _deleteStoredFile(storedPath, expectedFolder) {
   return absolutePath ? deleteOrQueue(absolutePath) : false;
 }
 
-function _validTab(tab) {
-  return FILE_TABS.includes(tab);
+function _maintenanceType(tab) {
+  return Object.prototype.hasOwnProperty.call(MAINTENANCE_TYPES, tab)
+    ? MAINTENANCE_TYPES[tab]
+    : null;
+}
+
+function _validRecordId(id) {
+  const numericId = Number(id);
+  return Number.isInteger(numericId) && numericId > 0;
+}
+
+function _toMaintenanceDto(item, tab, type = _maintenanceType(tab)) {
+  if (!item || !type) return null;
+  return {
+    maintenance_id: item[type.idField],
+    vehicle_id: item.vehicle_id,
+    maintenance_name: item[type.nameField],
+    display_order: item.display_order,
+    file_name: item[type.fileNameField],
+    file_path: item[type.filePathField],
+    tab,
+  };
+}
+
+function _normalizeMaintenanceName(name) {
+  if (typeof name !== 'string') return { error: 'Thiếu tên hạng mục' };
+  const normalized = name.trim();
+  if (!normalized) return { error: 'Thiếu tên hạng mục' };
+  if (normalized.length > 200) return { error: 'Tên hạng mục không được vượt quá 200 ký tự' };
+  return { value: normalized };
 }
 
 function _validatePdf(fileName, buffer) {
@@ -146,7 +190,7 @@ async function createVehicle(data, userId) {
     throw error;
   }
 
-  await _audit(userId, 'create', 'vehicle', v.vehicle_id);
+  // await _audit(userId, 'create', 'vehicle', v.vehicle_id);
   logger.info(`[Vehicle] Tạo: ${vehicle_name}`);
   return ok(_resolveVehicle(await vehicleRepo.findByIdFull(v.vehicle_id)), 'Thêm thành công!');
 }
@@ -187,11 +231,12 @@ async function updateVehicle(id, data, userId) {
     throw error;
   }
   _deleteStoredFile(oldPathToDelete, 'vehicle-images');
-  await _audit(userId, 'update', 'vehicle', id);
+  // await _audit(userId, 'update', 'vehicle', id);
   return ok(_resolveVehicle(await vehicleRepo.findByIdFull(id)), 'Cập nhật thành công');
 }
 
 async function deleteVehicle(id, userId) {
+  if (!_validRecordId(id)) return fail('Thiếu id loại xe');
   const v = await vehicleRepo.findById(id);
   if (!v) return fail('Không tìm thấy loại xe');
 
@@ -202,75 +247,105 @@ async function deleteVehicle(id, userId) {
     return fail(`Không thể xóa: có ${eq[0].c} trang bị đang sử dụng loại xe này`);
   }
 
-  const items = await engineRepo.findByVehicle(id);
-  await vehicleRepo.delete(id);
-  for (const item of items) {
+  const techItems = await techProcessRepo.findByVehicle(id);
+  const normItems = await normKtktRepo.findByVehicle(id);
+  const deleted = await vehicleRepo.delete(id);
+  if (!deleted) return fail('Không thể xóa loại xe');
+  for (const item of techItems) {
     _deleteStoredFile(item.tech_process_file_path, 'maintenance-files');
+  }
+  for (const item of normItems) {
     _deleteStoredFile(item.norm_ktkt_file_path, 'maintenance-files');
   }
   _deleteStoredFile(v.img_path, 'vehicle-images');
-  await _audit(userId, 'delete', 'vehicle', id);
+  // await _audit(userId, 'delete', 'vehicle', id);
   return ok(null, 'Xóa loại xe thành công');
 }
 
-// ── Engine Maintenance CRUD ─────────────────────────────────────
+// ── Independent maintenance CRUD ─────────────────────────────────
 
-async function listMaintenance(vehicleId) {
-  if (!vehicleId) return fail('Thiếu vehicleId');
-  return ok(await engineRepo.findByVehicle(vehicleId));
+async function listMaintenance(vehicleId, tab) {
+  if (!_validRecordId(vehicleId)) return fail('Thiếu vehicleId');
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  const rows = await type.repo.findByVehicle(vehicleId);
+  return ok(rows.map((item) => _toMaintenanceDto(item, tab, type)));
 }
 
 async function createMaintenance(data, userId) {
-  const { vehicle_id, maintenance_name } = data;
-  if (!vehicle_id || !maintenance_name?.trim()) return fail('Thiếu thông tin bắt buộc');
+  if (!data || typeof data !== 'object') return fail('Dữ liệu hạng mục không hợp lệ');
+  const { vehicle_id, maintenance_name, tab } = data;
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(vehicle_id)) return fail('Thiếu vehicleId hợp lệ');
+  const normalizedName = _normalizeMaintenanceName(maintenance_name);
+  if (normalizedName.error) return fail(normalizedName.error);
 
-  const maxOrder = await engineRepo.getMaxOrder(vehicle_id);
-  const item = await engineRepo.create({
+  const maxOrder = await type.repo.getMaxOrder(vehicle_id);
+  const item = await type.repo.create({
     vehicle_id,
-    maintenance_name: maintenance_name.trim(),
-    display_order:    maxOrder + 1,
+    [type.nameField]: normalizedName.value,
+    display_order: maxOrder + 1,
   });
-  return ok(item, 'Thêm hạng mục thành công');
+  if (!item) return fail('Không thể tạo hạng mục');
+  return ok(_toMaintenanceDto(item, tab, type), 'Thêm hạng mục thành công');
 }
 
-async function updateMaintenance(id, data, userId) {
-  const item = await engineRepo.findById(id);
+async function updateMaintenance(id, tab, data, userId) {
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(id)) return fail('Thiếu id hạng mục hợp lệ');
+  if (!data || typeof data !== 'object') return fail('Dữ liệu cập nhật không hợp lệ');
+  const item = await type.repo.findById(id);
   if (!item) return fail('Không tìm thấy hạng mục');
 
   const updateData = {};
   if (data.maintenance_name !== undefined) {
-    updateData.maintenance_name = data.maintenance_name.trim();
+    const normalizedName = _normalizeMaintenanceName(data.maintenance_name);
+    if (normalizedName.error) return fail(normalizedName.error);
+    updateData[type.nameField] = normalizedName.value;
   }
-  await engineRepo.update(id, updateData);
-  return ok(await engineRepo.findById(id), 'Cập nhật thành công');
+  const updated = await type.repo.update(id, updateData);
+  if (!updated) return fail('Không thể cập nhật hạng mục');
+  return ok(_toMaintenanceDto(updated, tab, type), 'Cập nhật thành công');
 }
 
-async function deleteMaintenance(id, userId) {
-  const item = await engineRepo.findById(id);
+async function deleteMaintenance(id, tab, userId) {
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(id)) return fail('Thiếu id hạng mục hợp lệ');
+  const item = await type.repo.findById(id);
   if (!item) return fail('Không tìm thấy hạng mục');
-  await engineRepo.delete(id);
-  _deleteStoredFile(item.tech_process_file_path, 'maintenance-files');
-  _deleteStoredFile(item.norm_ktkt_file_path, 'maintenance-files');
+  const deleted = await type.repo.delete(id);
+  if (!deleted) return fail('Không thể xóa hạng mục');
+  _deleteStoredFile(item[type.filePathField], 'maintenance-files');
   return ok(null, 'Xóa hạng mục thành công');
 }
 
-async function reorderMaintenance(vehicleId, orderedIds, userId) {
-  if (!Array.isArray(orderedIds) || !orderedIds.length) return fail('Danh sách id không hợp lệ');
-  await engineRepo.reorderAll(vehicleId, orderedIds);
+async function reorderMaintenance(vehicleId, tab, orderedIds, userId) {
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(vehicleId) || !Array.isArray(orderedIds) || !orderedIds.length
+    || !orderedIds.every(_validRecordId)) {
+    return fail('Danh sách id không hợp lệ');
+  }
+  await type.repo.reorderAll(vehicleId, orderedIds);
   return ok(null, 'Sắp xếp lại thành công');
 }
 
 // ── File operations ─────────────────────────────────────────────
 
 async function uploadFile(id, tab, fileData, userId) {
-  if (!_validTab(tab)) return fail('Tab tài liệu không hợp lệ');
-  const item = await engineRepo.findById(id);
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(id)) return fail('Thiếu id hạng mục hợp lệ');
+  const item = await type.repo.findById(id);
   if (!item) return fail('Không tìm thấy hạng mục');
 
   const { file_name, file_buffer } = fileData || {};
   if (!file_name || !file_buffer) return fail('Thiếu dữ liệu file');
 
-  const oldPath = tab === 'tech_process' ? item.tech_process_file_path : item.norm_ktkt_file_path;
+  const oldPath = item[type.filePathField];
   const buf   = Buffer.from(file_buffer);
   const validationError = _validatePdf(file_name, buf);
   if (validationError) return fail(validationError);
@@ -278,12 +353,14 @@ async function uploadFile(id, tab, fileData, userId) {
   const saved = _saveFile(_pdfDir(), file_name, buf, 'maintenance-files');
   const storedPath = saved.storedPath;
 
-  const updateData = tab === 'tech_process'
-    ? { tech_process_file_name: saved.name, tech_process_file_path: storedPath }
-    : { norm_ktkt_file_name: saved.name, norm_ktkt_file_path: storedPath };
+  const updateData = {
+    [type.fileNameField]: saved.name,
+    [type.filePathField]: storedPath,
+  };
 
   try {
-    await engineRepo.update(id, updateData);
+    const updated = await type.repo.update(id, updateData);
+    if (!updated) throw new Error('Không thể cập nhật thông tin file');
   } catch (error) {
     _deleteAbsoluteFile(saved.filePath);
     throw error;
@@ -293,32 +370,38 @@ async function uploadFile(id, tab, fileData, userId) {
 }
 
 async function deleteFile(id, tab, userId) {
-  if (!_validTab(tab)) return fail('Tab tài liệu không hợp lệ');
-  const item = await engineRepo.findById(id);
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(id)) return fail('Thiếu id hạng mục hợp lệ');
+  const item = await type.repo.findById(id);
   if (!item) return fail('Không tìm thấy hạng mục');
 
-  const filePath = tab === 'tech_process' ? item.tech_process_file_path : item.norm_ktkt_file_path;
+  const filePath = item[type.filePathField];
   const resolvedPath = filePath
     ? _resolveStoredPath(filePath, 'maintenance-files', { mustExist: false })
     : null;
   if (filePath && !resolvedPath) return fail('Đường dẫn file không hợp lệ');
 
-  const updateData = tab === 'tech_process'
-    ? { tech_process_file_name: null, tech_process_file_path: null }
-    : { norm_ktkt_file_name: null, norm_ktkt_file_path: null };
+  const updateData = {
+    [type.fileNameField]: null,
+    [type.filePathField]: null,
+  };
 
-  await engineRepo.update(id, updateData);
+  const updated = await type.repo.update(id, updateData);
+  if (!updated) return fail('Không thể cập nhật thông tin file');
   _deleteAbsoluteFile(resolvedPath);
   return ok(null, 'Đã xóa file');
 }
 
 async function readFile(id, tab) {
-  if (!_validTab(tab)) return fail('Tab tài liệu không hợp lệ');
-  const item = await engineRepo.findById(id);
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(id)) return fail('Thiếu id hạng mục hợp lệ');
+  const item = await type.repo.findById(id);
   if (!item) return fail('Không tìm thấy hạng mục');
 
-  const filePath = tab === 'tech_process' ? item.tech_process_file_path : item.norm_ktkt_file_path;
-  const fileName = tab === 'tech_process' ? item.tech_process_file_name : item.norm_ktkt_file_name;
+  const filePath = item[type.filePathField];
+  const fileName = item[type.fileNameField];
 
   if (!filePath) return fail('Chưa có file');
   const absPath = _resolveStoredPath(filePath, 'maintenance-files');
@@ -329,11 +412,13 @@ async function readFile(id, tab) {
 }
 
 async function openFile(id, tab) {
-  if (!_validTab(tab)) return fail('Tab tài liệu không hợp lệ');
-  const item = await engineRepo.findById(id);
+  const type = _maintenanceType(tab);
+  if (!type) return fail('Tab tài liệu không hợp lệ');
+  if (!_validRecordId(id)) return fail('Thiếu id hạng mục hợp lệ');
+  const item = await type.repo.findById(id);
   if (!item) return fail('Không tìm thấy hạng mục');
 
-  const filePath = tab === 'tech_process' ? item.tech_process_file_path : item.norm_ktkt_file_path;
+  const filePath = item[type.filePathField];
   if (!filePath) return fail('Chưa có file');
 
   const absPath = _resolveStoredPath(filePath, 'maintenance-files');
@@ -372,14 +457,14 @@ async function deleteVehicleType(id) {
 
 // ── Audit ───────────────────────────────────────────────────────
 
-async function _audit(userId, action, table, targetId) {
-  try {
-    await getDb().query(
-      'INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1,$2,$3,$4)',
-      [userId, action, table, targetId]
-    );
-  } catch (e) {}
-}
+// async function _audit(userId, action, table, targetId) {
+//   try {
+//     await getDb().query(
+//       'INSERT INTO audit_logs (user_id, action, target_table, target_id) VALUES ($1,$2,$3,$4)',
+//       [userId, action, table, targetId]
+//     );
+//   } catch (e) {}
+// }
 
 module.exports = {
   listVehicles, getVehicle, createVehicle, updateVehicle, deleteVehicle,

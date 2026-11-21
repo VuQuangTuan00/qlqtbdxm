@@ -14,11 +14,12 @@ const {
 
 function loadVehicleService(
   userDataPath,
-  engineRepo,
+  techProcessRepo,
   shellCalls = [],
   vehicleRepo = {},
   cleanupService,
   storageRoot = userDataPath,
+  normKtktRepo = techProcessRepo,
 ) {
   const electron = {
     app: { getPath(name) { assert.equal(name, 'userData'); return userDataPath; } },
@@ -26,7 +27,7 @@ function loadVehicleService(
   };
   const emptyRepo = {};
   const database = {
-    getDb() { return { async query() { return { rows: [], rowCount: 0 }; } }; },
+    getDb() { return { async query() { return { rows: [{ c: 0 }], rowCount: 0 }; } }; },
   };
   const modulePath = require.resolve('../../../main/services/vehicle.service');
   const cleanupModulePath = require.resolve('../../../main/services/pending-file-cleanup.service');
@@ -43,7 +44,8 @@ function loadVehicleService(
   const replacements = new Map([
     [require.resolve('electron'), electron],
     [require.resolve('../../../main/repositories/vehicle.repository'), vehicleRepo],
-    [require.resolve('../../../main/repositories/engine-maintenance.repository'), engineRepo],
+    [require.resolve('../../../main/repositories/tech-process-maintenance.repository'), techProcessRepo],
+    [require.resolve('../../../main/repositories/norm-ktkt-maintenance.repository'), normKtktRepo],
     [require.resolve('../../../main/repositories/vehicle-type.repository'), emptyRepo],
     [require.resolve('../../../main/database/index'), database],
     [require.resolve('../../../main/utils/logger'), { info() {}, warn() {}, error() {} }],
@@ -132,11 +134,11 @@ test('file operations reject an unknown maintenance tab', async () => {
 test('PDF upload validates extension and signature before writing', async () => {
   await withTempDir('vehicle-pdf-validation-', async (userData) => {
     let updateCalled = false;
-    const engineRepo = {
+    const techRepo = {
       async findById() { return { id: 1 }; },
       async update() { updateCalled = true; },
     };
-    const service = loadVehicleService(userData, engineRepo);
+    const service = loadVehicleService(userData, techRepo);
 
     const wrongExtension = await service.uploadFile(1, 'tech_process', {
       file_name: 'document.txt',
@@ -151,6 +153,54 @@ test('PDF upload validates extension and signature before writing', async () => 
     assert.equal(wrongSignature.success, false);
     assert.equal(updateCalled, false);
     assert.equal(fs.existsSync(path.join(userData, 'maintenance-files')), false);
+  });
+});
+
+test('norm KT-KT file operations use only the norm maintenance repository', async () => {
+  await withTempDir('vehicle-norm-file-', async (userData) => {
+    const calls = [];
+    let item = {
+      norm_ktkt_id: 6,
+      norm_ktkt_file_name: null,
+      norm_ktkt_file_path: null,
+    };
+    const techRepo = {
+      async findById() { calls.push('tech-find'); return null; },
+      async update() { calls.push('tech-update'); },
+    };
+    const normRepo = {
+      async findById() { calls.push('norm-find'); return item; },
+      async update(_id, data) {
+        calls.push(['norm-update', data]);
+        item = { ...item, ...data };
+        return item;
+      },
+    };
+    const shellCalls = [];
+    const service = loadVehicleService(
+      userData, techRepo, shellCalls, {}, undefined, userData, normRepo,
+    );
+
+    const uploaded = await service.uploadFile(6, 'norm_ktkt', {
+      file_name: 'norm.pdf',
+      file_buffer: Buffer.from('%PDF-1.4 norm'),
+    }, 7);
+    const read = await service.readFile(6, 'norm_ktkt');
+    const opened = await service.openFile(6, 'norm_ktkt');
+    const deleted = await service.deleteFile(6, 'norm_ktkt', 7);
+
+    assert.equal(uploaded.success, true);
+    assert.equal(read.success, true);
+    assert.equal(Buffer.from(read.data.base64, 'base64').toString(), '%PDF-1.4 norm');
+    assert.equal(opened.success, true);
+    assert.equal(deleted.success, true);
+    assert.equal(shellCalls.length, 1);
+    assert.ok(calls.filter((call) => call === 'norm-find').length >= 4);
+    assert.equal(calls.some((call) => call === 'tech-find' || call === 'tech-update'), false);
+    assert.equal(Object.keys(calls.find((call) => Array.isArray(call))[1]).sort().join(','),
+      'norm_ktkt_file_name,norm_ktkt_file_path');
+    assert.equal(item.norm_ktkt_file_path, null);
+    assert.equal(fs.readdirSync(path.join(userData, 'maintenance-files')).length, 0);
   });
 });
 
@@ -218,6 +268,34 @@ test('a failed PDF delete metadata update preserves the physical file', async ()
 
     await assert.rejects(service.deleteFile(1, 'tech_process', 7), /database update failed/);
     assert.equal(fs.existsSync(oldPath), true);
+  });
+});
+
+test('a zero-row metadata update preserves the existing PDF during replacement or deletion', async () => {
+  await withTempDir('vehicle-zero-row-file-update-', async (userData) => {
+    const pdfDir = path.join(userData, 'maintenance-files');
+    fs.mkdirSync(pdfDir);
+    const oldPath = path.join(pdfDir, 'old.pdf');
+    fs.writeFileSync(oldPath, '%PDF-1.4 old');
+    const service = loadVehicleService(userData, {
+      async findById() {
+        return {
+          tech_process_file_path: 'maintenance-files/old.pdf',
+          tech_process_file_name: 'old.pdf',
+        };
+      },
+      async update() { return null; },
+    });
+
+    await assert.rejects(service.uploadFile(1, 'tech_process', {
+      file_name: 'replacement.pdf',
+      file_buffer: Buffer.from('%PDF-1.4 replacement'),
+    }, 7), /Không thể cập nhật thông tin file/);
+    const deleteResult = await service.deleteFile(1, 'tech_process', 7);
+
+    assert.equal(deleteResult.success, false);
+    assert.equal(fs.readFileSync(oldPath, 'utf8'), '%PDF-1.4 old');
+    assert.deepEqual(fs.readdirSync(pdfDir), ['old.pdf']);
   });
 });
 
@@ -303,7 +381,7 @@ test('a failed vehicle update preserves the old image and removes the replacemen
   });
 });
 
-test('a failed maintenance delete preserves its PDF files', async () => {
+test('a failed maintenance delete preserves its type-specific PDF file', async () => {
   await withTempDir('maintenance-delete-files-', async (userData) => {
     const pdfDir = path.join(userData, 'maintenance-files');
     fs.mkdirSync(pdfDir);
@@ -321,9 +399,122 @@ test('a failed maintenance delete preserves its PDF files', async () => {
       async delete() { throw new Error('database delete failed'); },
     });
 
-    await assert.rejects(service.deleteMaintenance(1, 7), /database delete failed/);
+    await assert.rejects(service.deleteMaintenance(1, 'tech_process', 7), /database delete failed/);
     assert.equal(fs.existsSync(techPath), true);
     assert.equal(fs.existsSync(normPath), true);
+  });
+});
+
+test('deleting one maintenance type removes only its attached PDF', async () => {
+  await withTempDir('maintenance-type-delete-', async (userData) => {
+    const pdfDir = path.join(userData, 'maintenance-files');
+    fs.mkdirSync(pdfDir);
+    const techPath = path.join(pdfDir, 'tech.pdf');
+    const normPath = path.join(pdfDir, 'norm.pdf');
+    fs.writeFileSync(techPath, '%PDF-1.4 tech');
+    fs.writeFileSync(normPath, '%PDF-1.4 norm');
+    const techRepo = {
+      async findById() { return { tech_process_file_path: 'maintenance-files/tech.pdf' }; },
+      async delete() { return true; },
+    };
+    const normRepo = {
+      async findById() { return { norm_ktkt_file_path: 'maintenance-files/norm.pdf' }; },
+    };
+    const service = loadVehicleService(userData, techRepo, [], {}, undefined, userData, normRepo);
+
+    const result = await service.deleteMaintenance(1, 'tech_process', 7);
+
+    assert.equal(result.success, true);
+    assert.equal(fs.existsSync(techPath), false);
+    assert.equal(fs.existsSync(normPath), true);
+  });
+});
+
+test('deleting a vehicle cleans PDF files from both maintenance tables', async () => {
+  await withTempDir('vehicle-delete-maintenance-files-', async (userData) => {
+    const pdfDir = path.join(userData, 'maintenance-files');
+    fs.mkdirSync(pdfDir);
+    const techPath = path.join(pdfDir, 'tech.pdf');
+    const normPath = path.join(pdfDir, 'norm.pdf');
+    fs.writeFileSync(techPath, '%PDF-1.4 tech');
+    fs.writeFileSync(normPath, '%PDF-1.4 norm');
+    const techRepo = {
+      async findByVehicle() {
+        return [{ tech_process_file_path: 'maintenance-files/tech.pdf' }];
+      },
+    };
+    const normRepo = {
+      async findByVehicle() {
+        return [{ norm_ktkt_file_path: 'maintenance-files/norm.pdf' }];
+      },
+    };
+    const vehicleRepo = {
+      async findById() { return { vehicle_id: 3 }; },
+      async delete() { return true; },
+    };
+    const service = loadVehicleService(userData, techRepo, [], vehicleRepo, undefined, userData, normRepo);
+
+    const result = await service.deleteVehicle(3, 7);
+
+    assert.equal(result.success, true);
+    assert.equal(fs.existsSync(techPath), false);
+    assert.equal(fs.existsSync(normPath), false);
+  });
+});
+
+test('maintenance CRUD dispatches to the selected type and stores its own name field', async () => {
+    await withTempDir('vehicle-maintenance-types-', async (userData) => {
+      const calls = [];
+      const techRepo = {
+        async getMaxOrder(vehicleId) { calls.push(['tech-max', vehicleId]); return 2; },
+        async create(data) { calls.push(['tech-create', data]); return data; },
+        async findById(id) { return { tech_process_id: id, tech_process_name: 'Quy trình' }; },
+        async update(id, data) { calls.push(['tech-update', id, data]); return { ...data }; },
+      };
+      const normRepo = {
+        async getMaxOrder(vehicleId) { calls.push(['norm-max', vehicleId]); return 4; },
+        async create(data) { calls.push(['norm-create', data]); return data; },
+        async findById(id) { return { norm_ktkt_id: id, norm_ktkt_name: 'Định mức' }; },
+        async update(id, data) { calls.push(['norm-update', id, data]); return { ...data }; },
+      };
+      const service = loadVehicleService(userData, techRepo, [], {}, undefined, userData, normRepo);
+
+      await service.createMaintenance({
+        vehicle_id: 3, tab: 'tech_process', maintenance_name: '  Quy trình  ',
+      }, 7);
+      await service.createMaintenance({
+        vehicle_id: 3, tab: 'norm_ktkt', maintenance_name: '  Định mức  ',
+      }, 7);
+      await service.updateMaintenance(11, 'norm_ktkt', { maintenance_name: '  Định mức mới  ' }, 7);
+
+      assert.deepEqual(calls, [
+        ['tech-max', 3],
+        ['tech-create', { vehicle_id: 3, tech_process_name: 'Quy trình', display_order: 3 }],
+        ['norm-max', 3],
+        ['norm-create', { vehicle_id: 3, norm_ktkt_name: 'Định mức', display_order: 5 }],
+        ['norm-update', 11, { norm_ktkt_name: 'Định mức mới' }],
+      ]);
+    });
+  });
+
+test('invalid maintenance names are rejected before repository writes', async () => {
+    await withTempDir('vehicle-maintenance-name-', async (userData) => {
+      let createCalled = false;
+      const service = loadVehicleService(userData, {
+        async getMaxOrder() { return 0; },
+        async create() { createCalled = true; },
+      });
+
+      const blank = await service.createMaintenance({
+        vehicle_id: 3, tab: 'tech_process', maintenance_name: '  ',
+      }, 7);
+      const tooLong = await service.createMaintenance({
+        vehicle_id: 3, tab: 'tech_process', maintenance_name: 'x'.repeat(201),
+      }, 7);
+
+      assert.equal(blank.success, false);
+      assert.equal(tooLong.success, false);
+      assert.equal(createCalled, false);
   });
 });
 
@@ -336,7 +527,7 @@ test('a successful PDF replacement delegates the obsolete file to durable cleanu
     const cleanupCalls = [];
     const service = loadVehicleService(userData, {
       async findById() { return { tech_process_file_path: 'maintenance-files/old.pdf' }; },
-      async update() {},
+      async update() { return {}; },
     }, [], {}, {
       deleteOrQueue(filePath) {
         cleanupCalls.push(filePath);
@@ -369,11 +560,11 @@ test('new image and PDF files are written to shared storage while repositories r
       },
       async findByIdFull() { return { ...createdVehicles[0], vehicle_id: 1 }; },
     };
-    const engineRepo = {
+    const techRepo = {
       async findById() { return { id: 5 }; },
-      async update(_id, data) { maintenanceUpdates.push(data); },
+      async update(_id, data) { maintenanceUpdates.push(data); return data; },
     };
-    const service = loadVehicleService(userData, engineRepo, [], vehicleRepo, undefined, storageRoot);
+    const service = loadVehicleService(userData, techRepo, [], vehicleRepo, undefined, storageRoot);
 
     const imageResult = await service.createVehicle({
       vehicle_name: 'Xe thử nghiệm',
@@ -406,7 +597,7 @@ test('two uploads in the same millisecond use different collision-resistant name
     const updates = [];
     const service = loadVehicleService(storageRoot, {
       async findById() { return { id: 1 }; },
-      async update(_id, data) { updates.push(data); },
+      async update(_id, data) { updates.push(data); return data; },
     });
     const originalNow = Date.now;
     Date.now = () => 123456789;

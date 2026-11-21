@@ -24,7 +24,7 @@ Renderer Process (Chromium)
   └─ contextBridge / preload.js       ← whitelist ~60 kênh invoke + 4 kênh on
        └─ IPC Handlers (main/ipc/)    ← 9 module, xác thực session
             └─ Service Layer (main/services/)   ← 7 service, business logic
-                 └─ Repository Layer (main/repositories/)  ← 11 repo, SQL queries
+                 └─ Repository Layer (main/repositories/)  ← 13 repo, SQL queries
                       └─ Database Adapter (main/database/mssql.js) ← SQL Server
 ```
 
@@ -38,7 +38,7 @@ Renderer giao tiếp với main process **chỉ qua** `window.electronAPI.invoke
 main/database/
 ├── index.js          ← Re-export initDatabase/getDb/closeDatabase/getDbConfig từ mssql.js
 ├── mssql.js          ← SQL Server adapter, pg-compatible interface
-└── migrations-mssql/ ← 001_schema.sql (T-SQL, GO separator)
+└── migrations-mssql/ ← 001_schema.sql + 002_split_engine_maintenance.sql
 ```
 
 `db-config.json` trong `app.getPath('userData')` lưu `{ "mode": "sqlserver", server, port, database, user, password }`. Nếu file chưa tồn tại → hiển thị first-run overlay.
@@ -69,24 +69,28 @@ Luôn dùng `encrypt: true, trustServerCertificate: true` — SQL Server đượ
 
 ---
 
-## Database Schema — 14 Bảng
+## Database Schema — 15 Bảng
 
 Thứ tự FK dependency (quan trọng cho seed):
 
 ```
 units → roles → vehicle_type → users → vehicle
+  → tech_process_maintenance + norm_ktkt_maintenance
   → equipments → maintenance_steps → maintenance_plans
   → maintenance_logs → acceptance_records → attachments
-  → qr_codes → audit_logs → engine_maintenance
+  → qr_codes → audit_logs
 ```
 
 **PK không đồng nhất:**
 - Hầu hết bảng: `id INT IDENTITY(1,1)`
 - `vehicle`: PK là `vehicle_id`
 - `vehicle_type`: PK là `vehicle_type_id`
-- `engine_maintenance`: PK là `engine_maintenance_id`
+- `tech_process_maintenance`: PK là `tech_process_id`
+- `norm_ktkt_maintenance`: PK là `norm_ktkt_id`
 
 Repository tương ứng override `findById()`, `update()`, `delete()`, `exists()` để dùng đúng PK.
+Migration `002_split_engine_maintenance.sql` chuyển dữ liệu legacy từ `engine_maintenance`
+sang hai bảng độc lập trong transaction; không sửa migration lịch sử `001_schema.sql`.
 
 ---
 
@@ -98,16 +102,19 @@ main/repositories/
 ├── user.repository.js
 ├── vehicle.repository.js      ← PK: vehicle_id, override findById/update/delete
 ├── vehicle-type.repository.js ← PK: vehicle_type_id
+├── maintenance-item.repository.js ← CRUD chung với PK được cố định trong wrapper
+├── tech-process-maintenance.repository.js ← PK: tech_process_id
+├── norm-ktkt-maintenance.repository.js ← PK: norm_ktkt_id
 ├── equipment.repository.js
 ├── maintenance-plan.repository.js
 ├── maintenance-log.repository.js
 ├── maintenance-step.repository.js
 ├── acceptance.repository.js
-├── engine-maintenance.repository.js ← PK: engine_maintenance_id
 └── unit.repository.js
 ```
 
-Tất cả export singleton: `module.exports = new XxxRepository()`.
+Repository theo bảng export singleton: `module.exports = new XxxRepository()`;
+`maintenance-item.repository.js` export class cơ sở để hai repository bảo dưỡng cố định bảng/PK kế thừa.
 
 **Transaction pattern** (từ BaseRepository):
 ```js
@@ -133,7 +140,7 @@ main/ipc/
 ├── maintenance-log.ipc.js
 ├── acceptance.ipc.js
 ├── report.ipc.js
-└── vehicle.ipc.js        ← vehicle:* + vehicleType:* + engineMaintenance:*
+└── vehicle.ipc.js        ← vehicle:* + vehicleType:* + engineMaintenance:* (payload có tab tài liệu)
 ```
 
 **Thứ tự khởi động trong main/index.js:**

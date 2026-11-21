@@ -25,7 +25,7 @@ function createMainWindow() {
     // minWidth: 1024,
     // minHeight: 600,
     maximizable: true,
-    title: 'Hệ Thống Quy Trình Công Nghệ Và Định Mức Kinh Tế - Kỹ Thuật',
+    title: 'PHẦN MỀM QUẢN LÝ QUY TRÌNH CÔNG NGHỆ VÀ ĐỊNH MỨC KINH TẾ KỸ THUẬT',
     icon: path.join(__dirname, '../renderer/assets/images/logo_app.png'),
     backgroundColor: '#f0f2f5',
     show: false,

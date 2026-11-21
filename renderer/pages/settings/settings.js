@@ -58,12 +58,11 @@ function _loadFileBackupTab() {
         <div class="card-header"><h5 class="card-title">Sao lưu</h5></div>
         <div class="card-body">
           <p class="text-sm text-muted" style="margin-bottom:var(--space-4);">
-            Sao lưu tạo một file ZIP chứa hình ảnh xe, file bảo dưỡng và database. Có thể khôi phục file hoặc database riêng biệt từ cùng file ZIP.
+           Lưu ý nên backup dữ liệu định kỳ. Sao lưu sẽ tạo ra một file ZIP chứa database và các file dùng chung. Bạn có thể khôi phục lại từ file ZIP này nếu cần.
           </p>
           <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
             <button class="btn btn-primary" id="btn-export-file-backup">Sao lưu</button>
-            <button class="btn btn-secondary" id="btn-restore-files">Khôi phục file</button>
-            <button class="btn btn-danger" id="btn-restore-database">Khôi phục database</button>
+          
           </div>
           <div id="file-backup-status" role="status" aria-live="polite" style="display:none;margin-top:var(--space-4);"></div>
         </div>
@@ -72,9 +71,9 @@ function _loadFileBackupTab() {
   `;
 
   const exportButton = el.querySelector('#btn-export-file-backup');
-  const restoreFilesButton = el.querySelector('#btn-restore-files');
-  const restoreDatabaseButton = el.querySelector('#btn-restore-database');
-  const actionButtons = [exportButton, restoreFilesButton, restoreDatabaseButton];
+  // const restoreFilesButton = el.querySelector('#btn-restore-files');
+  // const restoreDatabaseButton = el.querySelector('#btn-restore-database');
+  const actionButtons = [exportButton];
   const status = el.querySelector('#file-backup-status');
 
   async function run(button, channel) {
@@ -101,24 +100,24 @@ function _loadFileBackupTab() {
   }
 
   exportButton.addEventListener('click', () => run(exportButton, 'fileArchive:export'));
-  restoreFilesButton.addEventListener('click', async () => {
-    const confirmed = await modal.confirm({
-      title: 'Khôi phục file',
-      message: 'Hình ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP. Database không bị thay đổi.',
-      confirmText: 'Khôi phục file',
-      type: 'warning',
-    });
-    if (confirmed) run(restoreFilesButton, 'fileArchive:restoreFiles');
-  });
-  restoreDatabaseButton.addEventListener('click', async () => {
-    const confirmed = await modal.confirm({
-      title: 'Khôi phục database',
-      message: 'Database hiện tại sẽ được sao lưu an toàn rồi thay bằng database trong ZIP. Hình ảnh và tài liệu không bị thay đổi. Ứng dụng sẽ khởi động lại khi hoàn tất.',
-      confirmText: 'Khôi phục database',
-      type: 'danger',
-    });
-    if (confirmed) run(restoreDatabaseButton, 'fileArchive:restoreDatabase');
-  });
+  // restoreFilesButton.addEventListener('click', async () => {
+  //   const confirmed = await modal.confirm({
+  //     title: 'Khôi phục file',
+  //     message: 'Hình ảnh và tài liệu cùng đường dẫn sẽ được thay bằng bản trong ZIP. Database không bị thay đổi.',
+  //     confirmText: 'Khôi phục file',
+  //     type: 'warning',
+  //   });
+  //   if (confirmed) run(restoreFilesButton, 'fileArchive:restoreFiles');
+  // });
+  // restoreDatabaseButton.addEventListener('click', async () => {
+  //   const confirmed = await modal.confirm({
+  //     title: 'Khôi phục database',
+  //     message: 'Database hiện tại sẽ được sao lưu an toàn rồi thay bằng database trong ZIP. Hình ảnh và tài liệu không bị thay đổi. Ứng dụng sẽ khởi động lại khi hoàn tất.',
+  //     confirmText: 'Khôi phục database',
+  //     type: 'danger',
+  //   });
+  //   if (confirmed) run(restoreDatabaseButton, 'fileArchive:restoreDatabase');
+  // });
 }
 
 function _renderProfileTab(session) {
@@ -528,7 +527,7 @@ async function _loadDbConfigTab() {
             <label class="form-label required">Thư mục file dùng chung (UNC)</label>
             <input type="text" class="form-control" id="db-file-storage-root"
                    placeholder="\\\\MAY-CHU\\QTCN-Files" />
-            <div class="form-hint">Tất cả máy trong LAN phải có quyền đọc, ghi và xóa tại thư mục này.</div>
+            
           </div>
           <div class="form-row">
             <div class="form-group">

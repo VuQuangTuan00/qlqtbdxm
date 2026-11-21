@@ -1,7 +1,7 @@
 {
   "name": "qlqtbdxm",
   "version": "1.0.0",
-  "description": "Hệ thống quản lý Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật",
+  "description": "PHẦN MỀM QUẢN LÝ QUY TRÌNH CÔNG NGHỆ VÀ ĐỊNH MỨC KINH TẾ KỸ THUẬT",
   "main": "main/index.js",
   "scripts": {
     "test": "node tests/run-tests.js all",
@@ -30,7 +30,7 @@
   },
   "build": {
     "appId": "vn.military.qlqtbdxm",
-    "productName": "Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật",
+    "productName": "PHẦN MỀM QUẢN LÝ QUY TRÌNH CÔNG NGHỆ VÀ ĐỊNH MỨC KINH TẾ KỸ THUẬT",
     "asar": true,
     "directories": {
       "output": "dist"
@@ -53,7 +53,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Quy Trình Công Nghệ - Định Mức Kinh Tế Kỹ Thuật"
+      "shortcutName": "PHẦN MỀM QUẢN LÝ QUY TRÌNH CÔNG NGHỆ VÀ ĐỊNH MỨC KINH TẾ KỸ THUẬT"
     }
   }
 }
